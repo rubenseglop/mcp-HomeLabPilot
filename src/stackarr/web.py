@@ -275,14 +275,19 @@ class StackARRWebMiddleware:
         if path == "/web-login" and method == "POST":
             try:
                 payload = json.loads(await self._body(receive))
-                supplied = str(payload.get("password", ""))
+                supplied_user = str(payload.get("username", ""))
+                supplied_password = str(payload.get("password", ""))
             except (ValueError, AttributeError):
-                supplied = ""
-            if not hmac.compare_digest(supplied, self.token):
+                supplied_user = supplied_password = ""
+            valid_user = hmac.compare_digest(supplied_user.encode(), self.web_username.encode())
+            valid_password = hmac.compare_digest(supplied_password.encode(), self.web_password.encode())
+            if not (valid_user and valid_password):
                 await self._respond(send, 401, b'{"error":"Unauthorized"}')
                 return
+            session_id = secrets.token_urlsafe(32)
+            self.sessions[session_id] = time.time() + 43200
             secure = b"; Secure" if headers.get(b"x-forwarded-proto", b"").lower() == b"https" else b""
-            cookie_value = b"stackarr_session=" + self.token.encode() + b"; HttpOnly; SameSite=Strict; Path=/; Max-Age=43200" + secure
+            cookie_value = b"stackarr_session=" + session_id.encode() + b"; HttpOnly; SameSite=Strict; Path=/; Max-Age=43200" + secure
             await self._respond(send, 200, b'{"ok":true}', extra_headers=[(b"set-cookie", cookie_value)])
             return
 
