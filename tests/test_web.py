@@ -2,6 +2,8 @@
 import asyncio
 import json
 
+import pytest
+
 from stackarr.web import DASHBOARD, StackARRWebMiddleware
 
 
