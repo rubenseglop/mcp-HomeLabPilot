@@ -13,7 +13,7 @@ import json
 import secrets
 import time
 from typing import Any, Awaitable, Callable
-from urllib.parse import parse_qs
+from urllib.parse import parse_qs, urlsplit
 
 
 DASHBOARD = r"""<!doctype html>
@@ -241,7 +241,31 @@ async function openView(view){const target=$('workspace');target.textContent='Lo
      }
      const items=Array.isArray(data)?data:[];
      if(!items.length){records.textContent='No configuration records found.';return;}
-     records.innerHTML=items.map((item,i)=>'<details class="card" style="margin:10px 0"><summary style="cursor:pointer"><strong>'+esc(item.name||item.host||item.path||resource+' #'+(item.id??i))+'</strong> <span class="muted">ID '+esc(item.id??'—')+'</span></summary><div data-config-form="'+i+'" style="margin-top:12px">'+configFields(item)+'</div><div class="actions" style="margin-top:10px"><button data-save-config='+i+'" data-id="'+esc(item.id)+'">Save changes</button></div></details>').join('');
+     records.innerHTML='<div class="card" style="margin:10px 0"><strong>Create configuration record</strong><p class="muted">Paste the JSON object required by the selected application and resource. Use id 0 or omit id. Secret values are not returned to the browser.</p><textarea id="new-config-json" rows="7" spellcheck="false" style="width:100%;background:#0b1322;color:#dce7f8;border:1px solid #34435d;border-radius:9px;padding:10px;font:12px ui-monospace,monospace">{}</textarea><div class="actions" style="margin-top:10px"><button id="create-config">Create record</button></div><div id="create-config-status" class="muted" style="margin-top:8px"></div></div>'+items.map((item,i)=>'<details class="card" style="margin:10px 0"><summary style="cursor:pointer"><strong>'+esc(item.name||item.host||item.path||resource+' #'+(item.id??i))+'</strong> <span class="muted">ID '+esc(item.id??'—')+'</span></summary><div data-config-form="'+i+'" style="margin-top:12px">'+configFields(item)+'</div><div class="actions" style="margin-top:10px"><button data-save-config='+i+' data-id="'+esc(item.id)+'">Save changes</button><button data-delete-config data-id="'+esc(item.id)+'" style="border-color:#75404a">Delete record</button></div></details>').join('');
+     $('create-config').addEventListener('click',async()=>{
+      const status=$('create-config-status'),button=$('create-config');
+      try{
+       const item=JSON.parse($('new-config-json').value);
+       if(!item||typeof item!=='object'||Array.isArray(item))throw new Error('The new record must be a JSON object.');
+       if(item.id!==undefined&&item.id!==0&&item.id!==null)throw new Error('For a new record, omit id or set it to 0.');
+       if(!confirm('Create this '+resource+' record in '+service+'?'))return;
+       button.disabled=true;
+       await request('/web-api/settings/create',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({service,resource,item})});
+       status.textContent='Record created. Reloading configuration…';
+       $('load-settings').click();
+      }catch(err){status.textContent='Could not create record: '+err.message;}
+      finally{button.disabled=false;}
+     });
+     records.querySelectorAll('[data-delete-config]').forEach(button=>button.addEventListener('click',async()=>{
+      const id=Number(button.dataset.id);
+      if(!Number.isInteger(id)||id<1){alert('Invalid record ID.');return;}
+      if(!confirm('Permanently delete '+resource+' record #'+id+' from '+service+'?'))return;
+      button.disabled=true;
+      try{
+       await request('/web-api/settings/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({service,resource,id})});
+       $('load-settings').click();
+      }catch(err){alert('Could not delete record: '+err.message);button.disabled=false;}
+     }));
      records.querySelectorAll('[data-save-config]').forEach(button=>button.addEventListener('click',async()=>{
       try{
        const index=Number(button.dataset.saveConfig),item=JSON.parse(JSON.stringify(items[index]));
@@ -468,6 +492,15 @@ class StackARRWebMiddleware:
             if not authenticated:
                 await self._respond(send, 401, b'{"error":"Unauthorized"}')
                 return
+            if method == "POST":
+                fetch_site = headers.get(b"sec-fetch-site", b"").lower()
+                origin = headers.get(b"origin", b"").decode("latin1")
+                host = headers.get(b"host", b"").decode("latin1")
+                if fetch_site == b"cross-site" or (
+                    origin and host and urlsplit(origin).netloc.lower() != host.lower()
+                ):
+                    await self._respond(send, 403, b'{"error":"Cross-origin request rejected"}')
+                    return
             try:
                 if path == "/web-api/status" and method == "GET":
                     result = await self.status_callback()
