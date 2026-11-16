@@ -99,3 +99,24 @@ def test_qbittorrent_login_rejects_unexpected_response():
     )
     with pytest.raises(RuntimeError, match="rejected"):
         _check_qbittorrent_login(response)
+
+
+def test_arr_configuration_update_rejects_unknown_resource():
+    import asyncio
+    import stackarr.server as server
+
+    with pytest.raises(ValueError, match="resource must be one of"):
+        asyncio.run(server.arr_update_configuration("radarr", "system", 1, {"id": 1}))
+
+
+def test_qbittorrent_preferences_reject_sensitive_or_unknown_keys(monkeypatch):
+    import asyncio
+    import stackarr.server as server
+
+    async def fake_request(method, path, params=None, data=None):
+        return {"ok": True}
+
+    monkeypatch.setattr(server, "qbittorrent_api_request", fake_request)
+    with pytest.raises(ValueError, match="Unsupported qBittorrent preferences"):
+        asyncio.run(server.qbittorrent_update_preferences({"web_ui_password": "secret"}))
+
