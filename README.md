@@ -48,7 +48,7 @@ The level is enforced server-side for shared write operations from both MCP tool
 
 The dashboard exposes native Radarr and Sonarr configuration records through their APIs: quality and delay profiles, indexers, download clients, notifications, quality definitions, custom formats, import lists, metadata records and tags. Sonarr additionally exposes language and release profiles. Availability varies by application version and API schema; unsupported endpoints are reported by the application rather than silently emulated. Singleton application settings (for example host, UI and media-management settings) and options that require a service restart are not yet exposed as editable forms.
 
-The Scryer dashboard includes a GraphQL console with variables and schema introspection. Read-only queries are available at every permission level; GraphQL mutations require admin. The same scryer_graphql MCP tool exposes the native API.
+The Scryer dashboard includes a schema-driven control center: it reads the installed GraphQL schema, separates query and mutation fields, shows descriptions, argument types and return types, and supports filtering. A GraphQL console with JSON variables is included for operations not yet represented by dedicated workflows. The schema view is generated from the live Scryer instance rather than assuming a fixed API version. Read-only queries are available at every permission level; GraphQL mutations require admin. The same scryer_graphql MCP tool exposes the native API.
 
 ## Security model
 
@@ -138,6 +138,6 @@ The container runs as a non-root user, drops Linux capabilities, and uses a read
 ## Next development steps
 
 1. Add richer library details (monitoring, quality-profile editing and release search/grabbing are now available).
-2. Add Bazarr and Scryer management screens and operation history/auditing.
+2. Add dedicated Scryer workflows on top of the live schema browser, plus Bazarr management and operation history/auditing.
 3. Add fine-grained permissions and safer previews for destructive operations.
 4. Add optional Docker management behind a separate restricted permission boundary.
