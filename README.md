@@ -54,9 +54,19 @@ set -a && source .env && set +a
 stackarr-mcp
 ```
 
-The server uses MCP over stdio. Configure the MCP client to launch `stackarr-mcp` with the environment variables.
+The server supports MCP over stdio and authenticated Streamable HTTP. HTTP mode requires a bearer token of at least 32 characters and rejects unauthenticated requests.
 
 Run the unit tests with `pip install -e ".[test]"` followed by `pytest`.
+
+## Docker deployment in an existing stack
+
+1. Copy `.env.example` to `.env` on the Docker host and fill in the application URLs and credentials. Generate `MCP_AUTH_TOKEN` with `openssl rand -hex 32`.
+2. Set `STACKARR_DOCKER_NETWORK` to the existing Docker network shared by the *arr apps, Scryer and qBittorrent. The example uses `downloads_default`; verify the actual network before starting.
+3. Run `docker compose up -d --build` from this repository directory.
+4. The MCP endpoint is `http://127.0.0.1:8765/mcp` by default and requires `Authorization: Bearer <MCP_AUTH_TOKEN>`. It is bound to loopback, not exposed directly to the LAN or internet. Put it behind a trusted private access layer (for example, Tailscale Serve) before connecting a remote MCP client.
+5. Check `docker compose logs -f stackarr` for startup and connection errors.
+
+Never commit `.env` or share its contents. The compose file runs as a non-root user, drops Linux capabilities, and uses a read-only filesystem.
 
 ## API references
 
