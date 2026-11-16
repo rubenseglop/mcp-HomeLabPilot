@@ -37,8 +37,15 @@ def _base_url(env_name: str) -> str:
 
 def _safe_path(path: str) -> str:
     """Accept API paths only, never absolute URLs or protocol-relative URLs."""
-    if not path.startswith("/") or path.startswith("//") or "://" in path:
-        raise ValueError("path must be an absolute API path beginning with one '/'")
+    if (
+        not path.startswith("/")
+        or path.startswith("//")
+        or "://" in path
+        or "\\\\" in path
+        or any(segment == ".." for segment in path.split("/"))
+        or any(ord(char) < 32 for char in path)
+    ):
+        raise ValueError("path must be a safe API path beginning with one '/'")
     return path
 
 
