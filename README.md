@@ -1,8 +1,8 @@
 # StackARR MCP
 
-A unified MCP server to **control your media stack from an MCP client such as ChatGPT**.
+A unified MCP server to **control a self-hosted media stack from an MCP client such as ChatGPT**.
 
-It connects directly to the native APIs of Radarr, Sonarr, Prowlarr, Bazarr, Scryer and qBittorrent. The goal is not to build another dashboard: it is to expose the applications' capabilities as tools the assistant can call.
+It connects to the native APIs of Radarr, Sonarr, Prowlarr, Bazarr, Scryer and qBittorrent. StackARR is designed to be installed by different users on different Docker hosts; it does not require any particular folder layout, IP address, container name, Docker network or storage system.
 
 ## Current implementation
 
@@ -26,7 +26,7 @@ The API bridge supports the native operations exposed by each application, rathe
 
 ## Security model
 
-- The caller cannot supply a hostname: requests are restricted to the base URLs configured in environment variables.
+- The caller cannot supply a hostname: requests are restricted to the base URLs configured by the operator.
 - API keys and passwords are read from environment variables and must never be committed.
 - The server does not expose a generic internet HTTP proxy.
 - Write operations are available because this project is designed for full control. Treat the MCP endpoint and its credentials as administrator-level access to your media stack.
@@ -34,9 +34,14 @@ The API bridge supports the native operations exposed by each application, rathe
 
 ## Configure
 
-Copy `.env.example` to `.env` and fill in the URLs and credentials. Keep `.env` outside Git.
+Copy `.env.example` to `.env` and fill in the URLs and credentials for the applications you have installed. Keep `.env` outside Git.
 
-Use Docker service names when StackARR shares a Docker network with the applications; otherwise use reachable LAN URLs. The default examples are placeholders and may need changing for your Compose network.
+Every URL must be reachable **from inside the StackARR container**. The correct address depends on your deployment:
+- If StackARR and an application share a Docker network, use that application's Docker DNS name and internal port.
+- If the application is reachable through a host-published port, use a host address reachable from the container.
+- If it is on another machine, use that machine's reachable LAN/VPN address.
+
+You do not need to configure services you do not use. Leave their variables empty.
 
 Scryer uses its GraphQL API at `/graphql` and a bearer API key. Create an API key in Scryer's security settings and give it the permissions needed for the operations you want StackARR to perform.
 
@@ -58,15 +63,40 @@ The server supports MCP over stdio and authenticated Streamable HTTP. HTTP mode 
 
 Run the unit tests with `pip install -e ".[test]"` followed by `pytest`.
 
-## Docker deployment in an existing stack
+## Docker deployment
 
-1. Copy `.env.example` to `.env` on the Docker host and fill in the application URLs and credentials. Generate `MCP_AUTH_TOKEN` with `openssl rand -hex 32`.
-2. StackARR must join every Docker network containing a service it needs to reach. The Compose file defaults to these three networks: `arr_default` (Radarr, Sonarr, Prowlarr and Bazarr), `scryer_default` (Scryer) and `downloads_default` (qBittorrent). Override the corresponding `STACKARR_*_NETWORK` variables in `.env` only if your network names differ.
-3. Run `docker compose up -d --build` from this repository directory.
-4. The MCP endpoint is `http://127.0.0.1:8765/mcp` by default and requires `Authorization: Bearer <MCP_AUTH_TOKEN>`. It is bound to loopback, not exposed directly to the LAN or internet. Put it behind a trusted private access layer (for example, Tailscale Serve) before connecting a remote MCP client.
-5. Check `docker compose logs -f stackarr` for startup and connection errors.
+1. Clone this repository on the Docker host.
+2. Create your local configuration:
+   ```bash
+   cp .env.example .env
+   openssl rand -hex 32
+   ```
+   Put the generated value in `MCP_AUTH_TOKEN`, then fill in the URLs and credentials for the applications you use. Do not publish or share the `.env` file.
+3. Ensure StackARR can reach the configured application URLs from its container. The supplied Compose file creates an isolated StackARR network by default. If your applications are on other Docker networks, attach StackARR to those existing networks in `compose.yaml`. For each network, add it to the service's `networks` list and declare it at the bottom as external, using your own network name. For example:
+   ```yaml
+   services:
+     stackarr:
+       networks:
+         - default
+         - media_apps
+   networks:
+     media_apps:
+       external: true
+       name: YOUR_EXISTING_DOCKER_NETWORK
+   ```
+   Repeat this for additional networks if your applications are split across them. Alternatively, configure URLs that are reachable from the StackARR container without joining their Docker networks.
+4. Start StackARR:
+   ```bash
+   docker compose up -d --build
+   ```
+5. Check startup:
+   ```bash
+   docker compose logs -f stackarr
+   ```
 
-Never commit `.env` or share its contents. The compose file runs as a non-root user, drops Linux capabilities, and uses a read-only filesystem.
+The MCP endpoint is `http://127.0.0.1:8765/mcp` by default and requires `Authorization: Bearer <MCP_AUTH_TOKEN>`. It is bound to loopback, not exposed directly to the LAN or internet. Put it behind a trusted private access layer before connecting a remote MCP client.
+
+The container runs as a non-root user, drops Linux capabilities, and uses a read-only filesystem.
 
 ## API references
 
@@ -82,4 +112,3 @@ Never commit `.env` or share its contents. The compose file runs as a non-root u
 1. Expand the typed tools with monitoring, quality-profile changes, commands, and safe delete/preview workflows.
 2. Use `scryer_introspect` against the installed Scryer version, then build safe typed workflows for title discovery, library management, requests, releases and subtitles.
 3. Add qBittorrent file-upload support for adding .torrent files.
-4. Add qBittorrent torrent-file uploads and a Docker Compose deployment example.
