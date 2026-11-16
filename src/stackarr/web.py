@@ -154,7 +154,7 @@ async function openView(view){const target=$('workspace');target.textContent='Lo
      }
      const items=Array.isArray(data)?data:[];
      if(!items.length){records.textContent='No configuration records found.';return;}
-     records.innerHTML=items.map((item,i)=>'<details class="card" style="margin:10px 0"><summary style="cursor:pointer"><strong>'+esc(item.name||item.host||item.path||resource+' #'+(item.id??i))+'</strong> <span class="muted">ID '+esc(item.id??'—')+'</span></summary><div data-config-form="'+i+'" style="margin-top:12px">'+configFields(item)+'</div><div class="actions" style="margin-top:10px"><button data-save-config="${i}" data-id="'+esc(item.id)+'">Save changes</button></div></details>').join('');
+     records.innerHTML=items.map((item,i)=>'<details class="card" style="margin:10px 0"><summary style="cursor:pointer"><strong>'+esc(item.name||item.host||item.path||resource+' #'+(item.id??i))+'</strong> <span class="muted">ID '+esc(item.id??'—')+'</span></summary><div data-config-form="'+i+'" style="margin-top:12px">'+configFields(item)+'</div><div class="actions" style="margin-top:10px"><button data-save-config='+i+'" data-id="'+esc(item.id)+'">Save changes</button></div></details>').join('');
      records.querySelectorAll('[data-save-config]').forEach(button=>button.addEventListener('click',async()=>{
       try{
        const index=Number(button.dataset.saveConfig),item=JSON.parse(JSON.stringify(items[index]));
