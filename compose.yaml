@@ -12,10 +12,8 @@ services:
       MCP_PORT: 8000
     ports:
       - "127.0.0.1:${STACKARR_PORT:-8765}:8000"
-    networks:
-      - arr
-      - scryer
-      - downloads
+    # StackARR uses its own Compose network by default.
+    # Attach it to your media apps' networks if you want to use Docker DNS.
     read_only: true
     tmpfs:
       - /tmp:size=16m,noexec,nosuid
@@ -33,14 +31,3 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
-
-networks:
-  arr:
-    external: true
-    name: ${STACKARR_ARR_NETWORK:-arr_default}
-  scryer:
-    external: true
-    name: ${STACKARR_SCRYER_NETWORK:-scryer_default}
-  downloads:
-    external: true
-    name: ${STACKARR_DOWNLOADS_NETWORK:-downloads_default}
