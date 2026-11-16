@@ -200,9 +200,9 @@ async function openView(view){const target=$('workspace');target.textContent='Lo
  const profiles=setup.quality_profiles||[];
  const rows=(library||[]).map(x=>{
   const options=profiles.map(p=>'<option value="'+esc(p.id)+'"'+(Number(p.id)===Number(x.qualityProfileId)?' selected':'')+'>'+esc(p.name)+'</option>').join('');
-  return '<tr><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(x.title||x.titleSlug)+'</td><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(x.year||x.yearStart)+'</td><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(x.status)+'</td><td style="padding:10px;border-bottom:1px solid #25344d"><input type="checkbox" data-library-monitored style="width:auto;margin:0" '+(x.monitored?'checked':'')+'></td><td style="padding:10px;border-bottom:1px solid #25344d"><select data-library-profile style="max-width:190px;background:#0e1728;color:#e8edf5;padding:7px;border:1px solid #34435d;border-radius:8px">'+options+'</select></td><td style="padding:10px;border-bottom:1px solid #25344d"><button data-library-save data-service="'+service+'" data-id="'+esc(x.id)+'">Save</button></td></tr>';
+  return '<tr><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(x.title||x.titleSlug)+'</td><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(x.year||x.yearStart)+'</td><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(x.status)+'</td><td style="padding:10px;border-bottom:1px solid #25344d"><input type="checkbox" data-library-monitored style="width:auto;margin:0" '+(x.monitored?'checked':'')+'></td><td style="padding:10px;border-bottom:1px solid #25344d"><select data-library-profile style="max-width:190px;background:#0e1728;color:#e8edf5;padding:7px;border:1px solid #34435d;border-radius:8px">'+options+'</select></td><td style="padding:10px;border-bottom:1px solid #25344d"><button data-library-save data-service="'+service+'" data-id="'+esc(x.id)+'">Save</button> <button data-library-releases data-service="'+service+'" data-id="'+esc(x.id)+'">Search releases</button></td></tr>';
  }).join('');
- html='<h3>'+ (view==='movies'?'Movies':'Series') +' <span class="muted">('+((library||[]).length)+')</span></h3><p class="muted">Change monitoring and quality profile per title. Save applies only these two fields.</p>'+table(['Title','Year','Status','Monitored','Quality profile',''],rows);
+ html='<h3>'+ (view==='movies'?'Movies':'Series') +' <span class="muted">('+((library||[]).length)+')</span></h3><p class="muted">Change monitoring and quality profile per title, or search and grab a release.</p>'+table(['Title','Year','Status','Monitored','Quality profile','Actions'],rows)+'<div id="release-results" style="margin-top:16px"></div>';
 }
  else if(view==='radarr-queue'||view==='sonarr-queue'){const service=view==='radarr-queue'?'radarr':'sonarr';data=await request('/web-api/queue?service='+service);const records=data.records||[];const rows=records.map(x=>'<tr><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(x.title)+'</td><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(x.status)+'</td><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(x.trackedDownloadStatus)+'</td><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(x.errorMessage)+'</td></tr>');html='<h3>'+service+' queue <span class="muted">('+records.length+')</span></h3>'+table(['Title','Status','Import state','Message'],rows);}
  else if(view==='downloads'){data=await request('/web-api/torrents');const rows=(data||[]).map(x=>'<tr><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(x.name)+'</td><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(x.state)+'</td><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(x.progress===undefined?'—':Math.round(x.progress*100)+'%')+'</td><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(x.category)+'</td><td style="padding:10px;border-bottom:1px solid #25344d"><button data-torrent-action="pause" data-hash="'+esc(x.hash)+'">Pause</button> <button data-torrent-action="resume" data-hash="'+esc(x.hash)+'">Resume</button></td></tr>');html='<h3>Active downloads <span class="muted">('+rows.length+')</span></h3>'+table(['Name','State','Progress','Category','Controls'],rows);}
@@ -232,6 +232,35 @@ $('workspace').addEventListener('submit',async e=>{
 });
 $('workspace').addEventListener('click',async e=>{const add=e.target.closest('[data-add-title]');if(add){const card=add.closest('.card');const service=add.dataset.service,id=Number(add.dataset.id);if(!confirm('Add this title to '+service+'?'))return;add.disabled=true;try{const body={service,root_folder_path:card.querySelector('[data-root]').value,quality_profile_id:Number(card.querySelector('[data-profile]').value),monitored:true,search_now:card.querySelector('[data-search-now]').checked};body[service==='radarr'?'tmdb_id':'tvdb_id']=id;await request('/web-api/catalog/add',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});add.textContent='Added';}catch(err){alert(err.message);add.disabled=false;}return;}const b=e.target.closest('[data-torrent-action]');if(!b)return;const action=b.dataset.torrentAction;const verb=action==='pause'?'pause':'resume';if(!confirm('Are you sure you want to '+verb+' this torrent?'))return;b.disabled=true;try{await request('/web-api/torrents/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,hashes:b.dataset.hash})});await openView('downloads');}catch(err){alert(err.message);b.disabled=false;}});
 $('workspace').addEventListener('click',async e=>{
+ const search=e.target.closest('[data-library-releases]');
+ if(search){
+  const out=$('release-results');
+  out.innerHTML='<div class="muted">Searching releases…</div>';
+  search.disabled=true;
+  try{
+   const releases=await request('/web-api/releases?service='+search.dataset.service+'&id='+search.dataset.id);
+   if(!Array.isArray(releases)||!releases.length){out.innerHTML='<div class="muted">No releases found.</div>';return;}
+   out.innerHTML='<h3>Available releases</h3>'+releases.map(release=>{
+    const quality=release.quality?.quality?.name||release.quality?.name||'—';
+    const size=Number(release.size||0);
+    const sizeText=size>0?(size/1073741824).toFixed(2)+' GB':'—';
+    const indexer=release.indexer||release.indexerName||'Indexer';
+    return '<article class="card" style="margin:9px 0"><div class="name">'+esc(release.title||'Untitled release')+'</div><div class="muted" style="margin:7px 0">'+esc(indexer)+' · '+esc(quality)+' · '+esc(sizeText)+'</div>'+(release.rejections?.length?'<div class="error">'+esc(release.rejections.map(x=>x.reason).join('; '))+'</div>':'')+'<button data-grab-release data-service="'+esc(search.dataset.service)+'" data-guid="'+esc(release.guid||'')+'" data-indexer-id="'+esc(release.indexerId||0)+'" '+(!release.guid||!release.indexerId?'disabled':'')+'>Grab release</button></article>';
+   }).join('');
+  }catch(err){out.innerHTML='<div class="error">'+esc(err.message)+'</div>';}
+  finally{search.disabled=false;}
+  return;
+ }
+ const grab=e.target.closest('[data-grab-release]');
+ if(grab){
+  if(!confirm('Send this release to the download client?'))return;
+  grab.disabled=true;
+  try{
+   await request('/web-api/releases/grab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({service:grab.dataset.service,guid:grab.dataset.guid,indexer_id:Number(grab.dataset.indexerId)})});
+   grab.textContent='Sent to download client';
+  }catch(err){alert('Could not grab release: '+err.message);grab.disabled=false;}
+  return;
+ }
  const button=e.target.closest('[data-library-save]');
  if(!button)return;
  const row=button.closest('tr');
