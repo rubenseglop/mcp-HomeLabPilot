@@ -337,3 +337,16 @@ def test_settings_dashboard_has_configuration_create_edit_delete_controls():
     assert b"/web-api/settings/delete" in body
     assert b"Create configuration record" in body
     assert b"Delete record" in body
+
+
+def test_dashboard_exposes_complete_lidarr_music_workflows():
+    start, body = call_asgi(make_app(), "/")
+    assert start["status"] == 200
+    for marker in (
+        'data-view="artists"', 'data-view="lidarr-queue"',
+        'data-view="lidarr-history"', 'data-view="lidarr-missing"',
+        'data-view="search-artists"', 'data-artist-albums',
+        'data-album-save', 'value="lidarr"', 'metadata_profiles',
+        'foreignArtistId',
+    ):
+        assert marker.encode() in body
