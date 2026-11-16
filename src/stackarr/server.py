@@ -23,6 +23,38 @@ from stackarr.web import StackARRWebMiddleware
 mcp = FastMCP("StackARR")
 TIMEOUT = float(os.getenv("HTTP_TIMEOUT", "15"))
 
+MCP_PERMISSION_LEVELS = {"read": 0, "operations": 1, "admin": 2}
+
+
+def _require_permission(required: str) -> None:
+    """Enforce the configured permission tier for MCP write operations."""
+    configured = os.getenv("STACKARR_MCP_PERMISSION_LEVEL", "operations").strip().lower()
+    if configured not in MCP_PERMISSION_LEVELS:
+        raise RuntimeError(
+            "STACKARR_MCP_PERMISSION_LEVEL must be read, operations or admin"
+        )
+    if required not in MCP_PERMISSION_LEVELS:
+        raise RuntimeError(f"Unknown internal permission tier: {required}")
+    if MCP_PERMISSION_LEVELS[configured] < MCP_PERMISSION_LEVELS[required]:
+        raise PermissionError(
+            f"This action requires '{required}' permission; current level is '{configured}'"
+        )
+
+
+def _arr_api_required_permission(method: str, path: str) -> str:
+    """Classify generic ARR API writes without allowing destructive bypasses."""
+    method = method.upper()
+    if method == "GET":
+        return "read"
+    normalized = path.lower()
+    admin_fragments = (
+        "/qualityprofile", "/delayprofile", "/indexer", "/downloadclient",
+        "/notification", "/config/", "/system/",
+    )
+    if method == "DELETE" or any(fragment in normalized for fragment in admin_fragments):
+        return "admin"
+    return "operations"
+
 ARR_SERVICES = {
     "radarr": ("RADARR_URL", "RADARR_API_KEY", "/api/v3"),
     "sonarr": ("SONARR_URL", "SONARR_API_KEY", "/api/v3"),
@@ -107,6 +139,7 @@ async def arr_api_request(
     Radarr/Sonarr /api/v3/movie, /api/v3/command; Prowlarr /api/v1/indexer;
     Bazarr /api/... . The configured host and API key are used automatically.
     """
+    _require_permission(_arr_api_required_permission(method, path))
     return await _arr_request(service, method, path, params, body)
 
 
@@ -123,6 +156,8 @@ async def scryer_graphql(
     download clients, settings and job controls. Use documented GraphQL
     operations and inputs for the installed Scryer version.
     """
+    if re.search(r"\\bmutation\\b", query, re.IGNORECASE):
+        _require_permission("admin")
     base = _base_url("SCRYER_URL")
     token = os.getenv("SCRYER_API_KEY", "").strip()
     if not token:
@@ -294,6 +329,7 @@ async def arr_get_configuration(service: str, resource: str) -> Any:
 @mcp.tool()
 async def arr_update_configuration(service: str, resource: str, item_id: int, item: dict[str, Any]) -> Any:
     """Update an existing editable configuration record in Radarr, Sonarr or Prowlarr."""
+    _require_permission("admin")
     resources = ARR_EDITABLE_RESOURCES_BY_SERVICE.get(service)
     if resources is None:
         raise ValueError("service must be radarr, sonarr or prowlarr")
@@ -319,6 +355,7 @@ async def qbittorrent_get_preferences() -> dict[str, Any]:
 @mcp.tool()
 async def qbittorrent_update_preferences(preferences: dict[str, Any]) -> Any:
     """Update allowlisted qBittorrent download paths, speed limits and queue/connection settings."""
+    _require_permission("admin")
     if not isinstance(preferences, dict) or not preferences:
         raise ValueError("preferences must be a non-empty object")
     unknown = set(preferences) - QBITTORRENT_EDITABLE_PREFERENCES
@@ -351,6 +388,7 @@ async def arr_update_library_item(
     quality_profile_id: int | None = None,
 ) -> Any:
     """Update monitoring and/or quality profile for an existing Radarr movie or Sonarr series."""
+    _require_permission("operations")
     if service not in {"radarr", "sonarr"}:
         raise ValueError("service must be radarr or sonarr")
     if item_id < 1:
@@ -422,6 +460,7 @@ async def arr_add_movie(
     search_now: bool = False,
 ) -> Any:
     """Add a TMDB movie to Radarr. Get valid root folders/profile IDs with arr_get_setup_options first."""
+    _require_permission("operations")
     if tmdb_id < 1 or not root_folder_path.startswith("/"):
         raise ValueError("tmdb_id must be positive and root_folder_path must be absolute")
     payload = {
@@ -444,6 +483,7 @@ async def arr_add_series(
     search_now: bool = False,
 ) -> Any:
     """Add a TVDB series to Sonarr. Get valid root folders/profile IDs with arr_get_setup_options first."""
+    _require_permission("operations")
     if tvdb_id < 1 or not root_folder_path.startswith("/"):
         raise ValueError("tvdb_id must be positive and root_folder_path must be absolute")
     payload = {
@@ -472,6 +512,7 @@ async def arr_search_releases(service: str, item_id: int) -> Any:
 @mcp.tool()
 async def arr_grab_release(service: str, guid: str, indexer_id: int) -> Any:
     """Send a selected release to the configured download client through Radarr or Sonarr."""
+    _require_permission("operations")
     if service not in {"radarr", "sonarr"}:
         raise ValueError("service must be radarr or sonarr")
     if not guid.strip() or indexer_id < 1:
@@ -519,6 +560,7 @@ async def qbittorrent_list_torrents(
 @mcp.tool()
 async def qbittorrent_control_torrents(action: str, hashes: str) -> Any:
     """Pause, resume, recheck or reannounce selected torrents using comma-separated hashes."""
+    _require_permission("operations")
     endpoints = {
         "pause": "/api/v2/torrents/pause",
         "resume": "/api/v2/torrents/resume",
@@ -535,6 +577,7 @@ async def qbittorrent_control_torrents(action: str, hashes: str) -> Any:
 @mcp.tool()
 async def qbittorrent_delete_torrents(hashes: str, delete_files: bool = False) -> Any:
     """Remove torrents. Set delete_files=true only when the user explicitly wants data files deleted too."""
+    _require_permission("admin")
     if not hashes.strip():
         raise ValueError("hashes cannot be empty")
     return await qbittorrent_api_request(
@@ -546,6 +589,7 @@ async def qbittorrent_delete_torrents(hashes: str, delete_files: bool = False) -
 @mcp.tool()
 async def qbittorrent_set_category(hashes: str, category: str) -> Any:
     """Assign one qBittorrent category to selected torrents."""
+    _require_permission("operations")
     if not hashes.strip() or not category.strip():
         raise ValueError("hashes and category are required")
     return await qbittorrent_api_request(
