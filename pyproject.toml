@@ -13,7 +13,7 @@ dependencies = [
   "httpx>=0.27,<1",
 ]
 
-[project.scripts]
+[project.optional-dependencies]\ntest = ["pytest>=8"]\n\n[project.scripts]
 stackarr-mcp = "stackarr.server:main"
 
 [tool.setuptools.packages.find]
