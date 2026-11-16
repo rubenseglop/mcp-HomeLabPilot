@@ -387,3 +387,46 @@ def test_scryer_mutation_requires_admin(monkeypatch):
     monkeypatch.setenv("STACKARR_MCP_PERMISSION_LEVEL", "operations")
     with pytest.raises(PermissionError, match="requires 'admin'"):
         asyncio.run(server.scryer_graphql("mutation { deleteMovie(id: 1) { id } }"))
+
+
+def test_expanded_arr_configuration_resources_are_registered():
+    from stackarr.server import ARR_EDITABLE_RESOURCES_BY_SERVICE
+
+    expected = {
+        "qualitydefinition", "customformat", "importlist", "metadata", "tag",
+    }
+    assert expected.issubset(ARR_EDITABLE_RESOURCES_BY_SERVICE["radarr"])
+    assert expected.issubset(ARR_EDITABLE_RESOURCES_BY_SERVICE["sonarr"])
+    assert "languageprofile" in ARR_EDITABLE_RESOURCES_BY_SERVICE["sonarr"]
+    assert "releaseprofile" in ARR_EDITABLE_RESOURCES_BY_SERVICE["sonarr"]
+    assert "languageprofile" not in ARR_EDITABLE_RESOURCES_BY_SERVICE["radarr"]
+
+
+def test_web_scryer_graphql_dispatches_query_and_variables(monkeypatch):
+    import asyncio
+    import stackarr.server as server
+
+    calls = []
+
+    async def fake_graphql(query, variables=None, operation_name=None):
+        calls.append((query, variables, operation_name))
+        return {"data": {"scryerVersion": "test"}}
+
+    monkeypatch.setattr(server, "scryer_graphql", fake_graphql)
+    result = asyncio.run(server._web_api_request(
+        "/web-api/scryer/graphql", "POST", {},
+        {"query": "query { scryerVersion }", "variables": {"verbose": True}},
+    ))
+    assert result == {"data": {"scryerVersion": "test"}}
+    assert calls == [("query { scryerVersion }", {"verbose": True}, None)]
+
+
+def test_web_scryer_graphql_rejects_invalid_variables():
+    import asyncio
+    import stackarr.server as server
+
+    with pytest.raises(ValueError, match="variables must be a JSON object"):
+        asyncio.run(server._web_api_request(
+            "/web-api/scryer/graphql", "POST", {},
+            {"query": "query { scryerVersion }", "variables": []},
+        ))
