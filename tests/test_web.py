@@ -118,3 +118,11 @@ def test_web_api_requires_session():
     app = StackARRWebMiddleware(fallback, "test-secret-token", status, api)
     start, _ = call_asgi(app, "/web-api/torrents")
     assert start["status"] == 401
+
+
+
+def test_dashboard_settings_includes_prowlarr():
+    start, body = call_asgi(make_app(), "/")
+    assert start["status"] == 200
+    assert b'<option value="prowlarr">Prowlarr</option>' in body
+    assert b"prowlarrResources" in body
