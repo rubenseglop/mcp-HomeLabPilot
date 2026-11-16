@@ -7,6 +7,7 @@ becoming a general-purpose HTTP proxy.
 
 from __future__ import annotations
 
+import asyncio
 import os
 from typing import Any
 from urllib.parse import urljoin
@@ -191,6 +192,128 @@ async def stack_status() -> dict[str, Any]:
     except Exception as exc:
         checks["qbittorrent"] = {"ok": False, "error": str(exc)}
     return {"services": checks}
+
+
+@mcp.tool()
+async def arr_list_library(service: str) -> Any:
+    """List the movie or series library in Radarr or Sonarr."""
+    if service == "radarr":
+        path = "/api/v3/movie"
+    elif service == "sonarr":
+        path = "/api/v3/series"
+    else:
+        raise ValueError("service must be radarr or sonarr")
+    return await _arr_request(service, "GET", path)
+
+
+@mcp.tool()
+async def arr_search_catalog(service: str, term: str) -> Any:
+    """Search Radarr movie metadata or Sonarr series metadata by title."""
+    if not term.strip():
+        raise ValueError("term cannot be empty")
+    if service == "radarr":
+        path = "/api/v3/movie/lookup"
+    elif service == "sonarr":
+        path = "/api/v3/series/lookup"
+    else:
+        raise ValueError("service must be radarr or sonarr")
+    return await _arr_request(service, "GET", path, params={"term": term.strip()})
+
+
+@mcp.tool()
+async def arr_get_queue(service: str, page: int = 1, page_size: int = 50) -> Any:
+    """Inspect the current download/import queue in Radarr or Sonarr."""
+    if service not in {"radarr", "sonarr"}:
+        raise ValueError("service must be radarr or sonarr")
+    if page < 1 or page_size < 1 or page_size > 200:
+        raise ValueError("page must be >= 1 and page_size between 1 and 200")
+    return await _arr_request(
+        service, "GET", "/api/v3/queue",
+        params={"page": page, "pageSize": page_size, "includeUnknownSeriesItems": "true"},
+    )
+
+
+@mcp.tool()
+async def arr_get_setup_options(service: str) -> dict[str, Any]:
+    """Get root folders and quality profiles needed when adding movies or series."""
+    if service not in {"radarr", "sonarr"}:
+        raise ValueError("service must be radarr or sonarr")
+    root_path = "/api/v3/rootfolder"
+    profile_path = "/api/v3/qualityprofile"
+    roots, profiles = await asyncio.gather(
+        _arr_request(service, "GET", root_path),
+        _arr_request(service, "GET", profile_path),
+    )
+    return {"root_folders": roots, "quality_profiles": profiles}
+
+
+@mcp.tool()
+async def arr_add_movie(
+    tmdb_id: int,
+    root_folder_path: str,
+    quality_profile_id: int,
+    monitored: bool = True,
+    search_now: bool = False,
+) -> Any:
+    """Add a TMDB movie to Radarr. Get valid root folders/profile IDs with arr_get_setup_options first."""
+    if tmdb_id < 1 or not root_folder_path.startswith("/"):
+        raise ValueError("tmdb_id must be positive and root_folder_path must be absolute")
+    payload = {
+        "tmdbId": tmdb_id,
+        "rootFolderPath": root_folder_path,
+        "qualityProfileId": quality_profile_id,
+        "monitored": monitored,
+        "addOptions": {"search בער": False, "searchForMovie": search_now},
+    }
+    return await _arr_request("radarr", "POST", "/api/v3/movie", body=payload)
+
+
+@mcp.tool()
+async def arr_add_series(
+    tvdb_id: int,
+    root_folder_path: str,
+    quality_profile_id: int,
+    language_profile_id: int = 1,
+    monitored: bool = True,
+    search_now: bool = False,
+) -> Any:
+    """Add a TVDB series to Sonarr. Get valid root folders/profile IDs with arr_get_setup_options first."""
+    if tvdb_id < 1 or not root_folder_path.startswith("/"):
+        raise ValueError("tvdb_id must be positive and root_folder_path must be absolute")
+    payload = {
+        "tvdbId": tvdb_id,
+        "rootFolderPath": root_folder_path,
+        "qualityProfileId": quality_profile_id,
+        "languageProfileId": language_profile_id,
+        "monitored": monitored,
+        "addOptions": {"searchForCutoffUnmetEpisodes": search_now},
+    }
+    return await _arr_request("sonarr", "POST", "/api/v3/series", body=payload)
+
+
+@mcp.tool()
+async def arr_search_releases(service: str, item_id: int) -> Any:
+    """Search available releases for a Radarr movie or Sonarr series."""
+    if item_id < 1:
+        raise ValueError("item_id must be positive")
+    if service == "radarr":
+        return await _arr_request("radarr", "GET", "/api/v3/release", params={"movieId": item_id})
+    if service == "sonarr":
+        return await _arr_request("sonarr", "GET", "/api/v3/release", params={"seriesId": item_id})
+    raise ValueError("service must be radarr or sonarr")
+
+
+@mcp.tool()
+async def arr_grab_release(service: str, guid: str, indexer_id: int) -> Any:
+    """Send a selected release to the configured download client through Radarr or Sonarr."""
+    if service not in {"radarr", "sonarr"}:
+        raise ValueError("service must be radarr or sonarr")
+    if not guid.strip() or indexer_id < 1:
+        raise ValueError("guid and positive indexer_id are required")
+    return await _arr_request(
+        service, "POST", "/api/v3/release",
+        body={"guid": guid, "indexerId": indexer_id},
+    )
 
 
 def main() -> None:
