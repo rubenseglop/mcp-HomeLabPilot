@@ -2,7 +2,7 @@
 import asyncio
 import json
 
-from stackarr.web import StackARRWebMiddleware
+from stackarr.web import DASHBOARD, StackARRWebMiddleware
 
 
 def call_asgi(app, path, method="GET", headers=None, body=b""):
@@ -207,3 +207,12 @@ def test_dashboard_cookie_is_persistent_for_thirty_days():
     )
     cookie = next(value for name, value in login["headers"] if name == b"set-cookie")
     assert b"Max-Age=2592000" in cookie
+
+
+
+def test_library_table_passes_rows_as_an_array():
+    library_view = DASHBOARD.split("const rows=(library||[]).map(x=>{", 1)[1].split(
+        "html='<h3>'+ (view==='movies'?'Movies':'Series')", 1
+    )[0]
+    assert "}).join('')" not in library_view
+    assert "});" in library_view
