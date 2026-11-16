@@ -105,7 +105,7 @@ def test_arr_configuration_update_rejects_unknown_resource():
     import asyncio
     import stackarr.server as server
 
-    with pytest.raises(ValueError, match="resource must be one of"):
+    with pytest.raises(ValueError, match="resource for radarr must be one of"):
         asyncio.run(server.arr_update_configuration("radarr", "system", 1, {"id": 1}))
 
 
