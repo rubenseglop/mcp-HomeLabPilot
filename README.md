@@ -10,6 +10,11 @@ It connects directly to the native APIs of Radarr, Sonarr, Prowlarr, Bazarr, Scr
 - `scryer_graphql`: GraphQL query/mutation bridge for Scryer.
 - `qbittorrent_api_request`: qBittorrent Web API bridge, including queue/download controls.
 - `stack_status`: connectivity and version checks.
+- `scryer_introspect`: discover the live Scryer GraphQL query/mutation schema.
+- `qbittorrent_list_torrents`: list and filter torrents.
+- `qbittorrent_control_torrents`: pause, resume, recheck or reannounce.
+- `qbittorrent_delete_torrents`: remove torrents, optionally including their data files.
+- `qbittorrent_set_category`: change torrent categories.
 - `arr_list_library`: list Radarr movies or Sonarr series.
 - `arr_search_catalog`: find movies/series by title.
 - `arr_get_queue`: inspect download/import queues.
@@ -65,6 +70,6 @@ Run the unit tests with `pip install -e ".[test]"` followed by `pytest`.
 ## Next development steps
 
 1. Expand the typed tools with monitoring, quality-profile changes, commands, and safe delete/preview workflows.
-2. Add schema-aware Scryer tools for title discovery, library management, requests, release search/grab, subtitles, indexers, clients and settings.
+2. Use `scryer_introspect` against the installed Scryer version, then build safe typed workflows for title discovery, library management, requests, releases and subtitles.
 3. Add qBittorrent file-upload support for adding .torrent files.
 4. Add qBittorrent torrent-file uploads and a Docker Compose deployment example.
