@@ -483,3 +483,75 @@ def test_web_torrent_delete_rejects_non_boolean_delete_files():
             "/web-api/torrents/delete", "POST", {},
             {"hashes": "abc123", "delete_files": "true"},
         ))
+
+
+def test_arr_configuration_create_requires_admin_and_redacts_response(monkeypatch):
+    import asyncio
+    import stackarr.server as server
+    monkeypatch.setenv("STACKARR_MCP_PERMISSION_LEVEL", "admin")
+    calls = []
+
+    async def fake_request(service, method, path, params=None, body=None):
+        calls.append((service, method, path, body))
+        return {"id": 12, "name": "Indexer", "apiKey": "secret"}
+
+    monkeypatch.setattr(server, "_arr_request", fake_request)
+    result = asyncio.run(server.arr_create_configuration(
+        "prowlarr", "indexer", {"id": 0, "name": "Indexer"}
+    ))
+    assert calls == [("prowlarr", "POST", "/api/v1/indexer", {"id": 0, "name": "Indexer"})]
+    assert result == {"id": 12, "name": "Indexer"}
+
+
+def test_arr_configuration_create_rejects_existing_id():
+    import asyncio
+    import stackarr.server as server
+    with pytest.raises(ValueError, match="id omitted or set to 0"):
+        asyncio.run(server.arr_create_configuration("radarr", "indexer", {"id": 9}))
+
+
+def test_arr_configuration_delete_requires_admin_and_uses_allowlisted_resource(monkeypatch):
+    import asyncio
+    import stackarr.server as server
+    monkeypatch.setenv("STACKARR_MCP_PERMISSION_LEVEL", "admin")
+    calls = []
+
+    async def fake_request(service, method, path, params=None, body=None):
+        calls.append((service, method, path))
+        return {"http_status": 200}
+
+    monkeypatch.setattr(server, "_arr_request", fake_request)
+    result = asyncio.run(server.arr_delete_configuration("sonarr", "notification", 7))
+    assert result == {"http_status": 200}
+    assert calls == [("sonarr", "DELETE", "/api/v3/notification/7")]
+
+
+def test_web_configuration_create_and_delete_routes_dispatch(monkeypatch):
+    import asyncio
+    import stackarr.server as server
+    calls = []
+
+    async def fake_create(service, resource, item):
+        calls.append(("create", service, resource, item))
+        return {"id": 5}
+
+    async def fake_delete(service, resource, item_id):
+        calls.append(("delete", service, resource, item_id))
+        return {"ok": True}
+
+    monkeypatch.setattr(server, "arr_create_configuration", fake_create)
+    monkeypatch.setattr(server, "arr_delete_configuration", fake_delete)
+    created = asyncio.run(server._web_api_request(
+        "/web-api/settings/create", "POST", {},
+        {"service": "radarr", "resource": "indexer", "item": {"id": 0}},
+    ))
+    deleted = asyncio.run(server._web_api_request(
+        "/web-api/settings/delete", "POST", {},
+        {"service": "radarr", "resource": "indexer", "id": 5},
+    ))
+    assert created == {"id": 5}
+    assert deleted == {"ok": True}
+    assert calls == [
+        ("create", "radarr", "indexer", {"id": 0}),
+        ("delete", "radarr", "indexer", 5),
+    ]
