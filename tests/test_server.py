@@ -556,3 +556,189 @@ def test_web_configuration_create_and_delete_routes_dispatch(monkeypatch):
         ("create", "radarr", "indexer", {"id": 0}),
         ("delete", "radarr", "indexer", 5),
     ]
+
+
+def test_lidarr_is_registered_with_native_api_v1():
+    from stackarr.server import ARR_SERVICES, ARR_EDITABLE_RESOURCES_BY_SERVICE
+
+    assert ARR_SERVICES["lidarr"] == ("LIDARR_URL", "LIDARR_API_KEY", "/api/v1")
+    assert ARR_EDITABLE_RESOURCES_BY_SERVICE["lidarr"]["qualityprofile"] == "/api/v1/qualityprofile"
+    assert ARR_EDITABLE_RESOURCES_BY_SERVICE["lidarr"]["metadataprofile"] == "/api/v1/metadataprofile"
+
+
+def test_lidarr_artist_library_and_update_preserve_existing_fields(monkeypatch):
+    import asyncio
+    import stackarr.server as server
+
+    calls = []
+    current = {"id": 12, "artistName": "Example Artist", "monitored": True,
+               "qualityProfileId": 2, "metadataProfileId": 3, "rootFolderPath": "/music",
+               "images": [{"coverType": "poster"}]}
+
+    async def fake_request(service, method, path, params=None, body=None):
+        calls.append((service, method, path, params, body))
+        return [current] if method == "GET" and path == "/api/v1/artist" else current if method == "GET" else body
+
+    monkeypatch.setattr(server, "_arr_request", fake_request)
+    library = asyncio.run(server.arr_list_library("lidarr"))
+    updated = asyncio.run(server.arr_update_library_item(
+        "lidarr", 12, monitored=False, quality_profile_id=7, metadata_profile_id=8
+    ))
+
+    assert library == [current]
+    assert calls[0][0:3] == ("lidarr", "GET", "/api/v1/artist")
+    assert calls[1][0:3] == ("lidarr", "GET", "/api/v1/artist/12")
+    assert calls[2][0:3] == ("lidarr", "PUT", "/api/v1/artist/12")
+    assert updated["monitored"] is False
+    assert updated["qualityProfileId"] == 7
+    assert updated["metadataProfileId"] == 8
+    assert updated["rootFolderPath"] == "/music"
+    assert updated["images"] == current["images"]
+
+
+def test_lidarr_setup_options_include_metadata_profiles(monkeypatch):
+    import asyncio
+    import stackarr.server as server
+
+    async def fake_request(service, method, path, params=None, body=None):
+        return [{"path": path}] if "rootfolder" in path else [{"name": path}]
+
+    monkeypatch.setattr(server, "_arr_request", fake_request)
+    result = asyncio.run(server.arr_get_setup_options("lidarr"))
+    assert result["root_folders"] == [{"path": "/api/v1/rootfolder"}]
+    assert result["quality_profiles"] == [{"name": "/api/v1/qualityprofile"}]
+    assert result["metadata_profiles"] == [{"name": "/api/v1/metadataprofile"}]
+
+
+def test_lidarr_add_artist_uses_musicbrainz_id_and_profiles(monkeypatch):
+    import asyncio
+    import stackarr.server as server
+
+    monkeypatch.setenv("STACKARR_MCP_PERMISSION_LEVEL", "operations")
+    calls = []
+
+    async def fake_request(service, method, path, params=None, body=None):
+        calls.append((service, method, path, body))
+        return {"id": 21}
+
+    monkeypatch.setattr(server, "_arr_request", fake_request)
+    result = asyncio.run(server.arr_add_artist(
+        "musicbrainz-uuid", "Example Artist", "/music", 4, 6, search_now=True
+    ))
+    assert result == {"id": 21}
+    assert calls[0][0:3] == ("lidarr", "POST", "/api/v1/artist")
+    assert calls[0][3]["foreignArtistId"] == "musicbrainz-uuid"
+    assert calls[0][3]["artistName"] == "Example Artist"
+    assert calls[0][3]["qualityProfileId"] == 4
+    assert calls[0][3]["metadataProfileId"] == 6
+    assert calls[0][3]["addOptions"]["searchForMissingAlbums"] is True
+
+
+def test_lidarr_albums_queue_history_and_missing_use_v1_endpoints(monkeypatch):
+    import asyncio
+    import stackarr.server as server
+
+    calls = []
+
+    async def fake_request(service, method, path, params=None, body=None):
+        calls.append((service, method, path, params, body))
+        return {"records": []} if path in {"/api/v1/queue", "/api/v1/history", "/api/v1/wanted/missing"} else []
+
+    monkeypatch.setattr(server, "_arr_request", fake_request)
+    asyncio.run(server.lidarr_list_albums(21))
+    asyncio.run(server.arr_get_queue("lidarr"))
+    asyncio.run(server.lidarr_get_history())
+    asyncio.run(server.lidarr_get_missing_albums())
+
+    assert calls[0][2] == "/api/v1/album"
+    assert calls[0][3]["artistId"] == 21
+    assert calls[1][2] == "/api/v1/queue"
+    assert calls[1][3]["includeAlbum"] == "true"
+    assert calls[2][2] == "/api/v1/history"
+    assert calls[3][2] == "/api/v1/wanted/missing"
+
+
+def test_lidarr_release_search_and_grab_use_api_v1(monkeypatch):
+    import asyncio
+    import stackarr.server as server
+
+    monkeypatch.setenv("STACKARR_MCP_PERMISSION_LEVEL", "operations")
+    calls = []
+
+    async def fake_request(service, method, path, params=None, body=None):
+        calls.append((service, method, path, params, body))
+        return [{"guid": "release"}] if method == "GET" else {"queued": True}
+
+    monkeypatch.setattr(server, "_arr_request", fake_request)
+    releases = asyncio.run(server.arr_search_releases("lidarr", 88))
+    grabbed = asyncio.run(server.arr_grab_release("lidarr", "release-guid", 4))
+    assert releases == [{"guid": "release"}]
+    assert grabbed == {"queued": True}
+    assert calls[0][2:4] == ("/api/v1/release", {"albumId": 88})
+    assert calls[1][0:3] == ("lidarr", "POST", "/api/v1/release")
+
+
+def test_lidarr_web_routes_dispatch_artist_album_history_and_missing(monkeypatch):
+    import asyncio
+    import stackarr.server as server
+
+    calls = []
+
+    async def fake_add(*args, **kwargs):
+        calls.append(("add", args, kwargs))
+        return {"id": 5}
+
+    async def fake_albums(artist_id=None):
+        calls.append(("albums", artist_id))
+        return [{"id": 8}]
+
+    async def fake_update(album_id, monitored):
+        calls.append(("update", album_id, monitored))
+        return {"id": album_id}
+
+    async def fake_history():
+        return {"records": [{"id": 1}]}
+
+    async def fake_missing():
+        return {"records": [{"id": 2}]}
+
+    monkeypatch.setattr(server, "arr_add_artist", fake_add)
+    monkeypatch.setattr(server, "lidarr_list_albums", fake_albums)
+    monkeypatch.setattr(server, "lidarr_update_album", fake_update)
+    monkeypatch.setattr(server, "lidarr_get_history", fake_history)
+    monkeypatch.setattr(server, "lidarr_get_missing_albums", fake_missing)
+
+    added = asyncio.run(server._web_api_request("/web-api/catalog/add", "POST", {}, {
+        "service": "lidarr", "foreign_artist_id": "mbid", "artist_name": "Artist",
+        "root_folder_path": "/music", "quality_profile_id": 2, "metadata_profile_id": 3,
+    }))
+    albums = asyncio.run(server._web_api_request("/web-api/albums", "GET", {"artist_id": ["5"]}, {}))
+    updated = asyncio.run(server._web_api_request("/web-api/albums/update", "POST", {}, {"id": 8, "monitored": False}))
+    history = asyncio.run(server._web_api_request("/web-api/history", "GET", {"service": ["lidarr"]}, {}))
+    missing = asyncio.run(server._web_api_request("/web-api/missing", "GET", {"service": ["lidarr"]}, {}))
+
+    assert added == {"id": 5}
+    assert albums == [{"id": 8}]
+    assert updated == {"id": 8}
+    assert history["records"][0]["id"] == 1
+    assert missing["records"][0]["id"] == 2
+    assert calls[0][0] == "add"
+    assert calls[1] == ("albums", 5)
+    assert calls[2] == ("update", 8, False)
+
+
+def test_lidarr_album_update_preserves_other_fields(monkeypatch):
+    import asyncio
+    import stackarr.server as server
+
+    monkeypatch.setenv("STACKARR_MCP_PERMISSION_LEVEL", "operations")
+    current = {"id": 8, "title": "Album", "monitored": True, "artistId": 3, "profileId": 4}
+
+    async def fake_request(service, method, path, params=None, body=None):
+        return current if method == "GET" else body
+
+    monkeypatch.setattr(server, "_arr_request", fake_request)
+    updated = asyncio.run(server.lidarr_update_album(8, False))
+    assert updated["monitored"] is False
+    assert updated["artistId"] == 3
+    assert updated["profileId"] == 4
