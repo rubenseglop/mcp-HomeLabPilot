@@ -80,3 +80,41 @@ def test_login_sets_cookie_and_cookie_authorizes_dashboard_api():
     )
     assert start["status"] == 200
     assert b'"radarr"' in body
+
+
+
+def test_authenticated_web_api_calls_shared_backend():
+    calls = []
+
+    async def api(path, method, query, payload):
+        calls.append((path, method, query, payload))
+        return {"items": ["example"]}
+
+    async def status():
+        return {"services": {}}
+
+    async def fallback(scope, receive, send):
+        await send({"type": "http.response.start", "status": 404, "headers": []})
+        await send({"type": "http.response.body", "body": b""})
+
+    app = StackARRWebMiddleware(fallback, "test-secret-token", status, api)
+    start, _ = call_asgi(app, "/web-api/library", headers=[(b"cookie", b"stackarr_session=test-secret-token")])
+    assert start["status"] == 200
+    assert calls[0][0] == "/web-api/library"
+    assert calls[0][1] == "GET"
+
+
+def test_web_api_requires_session():
+    async def api(path, method, query, payload):
+        return {}
+
+    async def status():
+        return {"services": {}}
+
+    async def fallback(scope, receive, send):
+        await send({"type": "http.response.start", "status": 404, "headers": []})
+        await send({"type": "http.response.body", "body": b""})
+
+    app = StackARRWebMiddleware(fallback, "test-secret-token", status, api)
+    start, _ = call_asgi(app, "/web-api/torrents")
+    assert start["status"] == 401
