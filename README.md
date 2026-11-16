@@ -28,7 +28,7 @@ By default, Compose publishes the port on loopback only. To open the dashboard f
 - `arr_get_queue`: inspect download/import queues.
 - `arr_get_setup_options`: retrieve valid root folders and quality profiles.
 - `arr_add_movie` / `arr_add_series`: add titles by TMDB/TVDB ID.
-- `arr_search_releases` / `arr_grab_release`: search and send a selected release to the download client.
+- `arr_search_releases` / `arr_grab_release`: search and send a selected release to the download client. The browser library screen exposes this workflow per movie or series.
 
 The API bridge supports the native operations exposed by each application, rather than hard-coding a small set of workflows. This lets us add higher-level, easy-to-use tools without losing access to less common features.
 
@@ -119,7 +119,7 @@ The container runs as a non-root user, drops Linux capabilities, and uses a read
 
 ## Next development steps
 
-1. Add richer library details and release selection/grabbing (monitoring and quality-profile editing are now available).
+1. Add richer library details (monitoring, quality-profile editing and release search/grabbing are now available).
 2. Add Bazarr and Scryer management screens and operation history/auditing.
 3. Add fine-grained permissions and safer previews for destructive operations.
 4. Add optional Docker management behind a separate restricted permission boundary.
