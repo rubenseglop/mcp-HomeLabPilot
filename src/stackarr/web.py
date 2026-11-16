@@ -66,6 +66,7 @@ input{width:100%;padding:12px;border:1px solid #34435d;border-radius:10px;backgr
       <button data-view="movies">Movies · Radarr</button><button data-view="series">Series · Sonarr</button>
       <button data-view="radarr-queue">Radarr queue</button><button data-view="sonarr-queue">Sonarr queue</button>
       <button data-view="downloads">Downloads · qBittorrent</button>
+      <button data-view="search-movies">Search movies</button><button data-view="search-series">Search series</button>
     </div>
     <div class="info" id="workspace"><strong>Select a section</strong><br>Browse your library, inspect import queues and manage active downloads.</div>
   </section>
@@ -92,13 +93,39 @@ function cell(v){return esc(v===null||v===undefined?'—':v);}
 function table(headers,rows){return '<div style="overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr>'+headers.map(h=>'<th style="text-align:left;padding:10px;border-bottom:1px solid #34435d;color:#91a0b8">'+esc(h)+'</th>').join('')+'</tr></thead><tbody>'+rows.join('')+'</tbody></table></div>';}
 async function openView(view){const target=$('workspace');target.textContent='Loading…';try{
  let data,html='';
+ if(view==='search-movies'||view==='search-series'){
+   const service=view==='search-movies'?'radarr':'sonarr';
+   html='<h3>Search '+(service==='radarr'?'movies':'series')+'</h3><form id="catalog-search" class="actions" style="flex-wrap:wrap"><input id="catalog-term" placeholder="Enter a title…" required style="min-width:240px;flex:1;background:#0e1728;border:1px solid #34435d;border-radius:9px;padding:10px;color:#e8edf5"><button>Search</button></form><div id="catalog-results" style="margin-top:14px" class="muted">Search the metadata catalogue to add a title.</div>';
+   target.innerHTML=html;target.dataset.catalogService=service;return;
+ }
  if(view==='movies'||view==='series'){const service=view==='movies'?'radarr':'sonarr';data=await request('/web-api/library?service='+service);const rows=(data||[]).map(x=>'<tr><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(x.title||x.titleSlug)+'</td><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(x.year||x.yearStart)+'</td><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(x.status)+'</td><td style="padding:10px;border-bottom:1px solid #25344d">'+(x.monitored?'Yes':'No')+'</td></tr>');html='<h3>'+ (view==='movies'?'Movies':'Series') +' <span class="muted">('+rows.length+')</span></h3>'+table(['Title','Year','Status','Monitored'],rows);}
  else if(view==='radarr-queue'||view==='sonarr-queue'){const service=view==='radarr-queue'?'radarr':'sonarr';data=await request('/web-api/queue?service='+service);const records=data.records||[];const rows=records.map(x=>'<tr><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(x.title)+'</td><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(x.status)+'</td><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(x.trackedDownloadStatus)+'</td><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(x.errorMessage)+'</td></tr>');html='<h3>'+service+' queue <span class="muted">('+records.length+')</span></h3>'+table(['Title','Status','Import state','Message'],rows);}
  else if(view==='downloads'){data=await request('/web-api/torrents');const rows=(data||[]).map(x=>'<tr><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(x.name)+'</td><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(x.state)+'</td><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(x.progress===undefined?'—':Math.round(x.progress*100)+'%')+'</td><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(x.category)+'</td><td style="padding:10px;border-bottom:1px solid #25344d"><button data-torrent-action="pause" data-hash="'+esc(x.hash)+'">Pause</button> <button data-torrent-action="resume" data-hash="'+esc(x.hash)+'">Resume</button></td></tr>');html='<h3>Active downloads <span class="muted">('+rows.length+')</span></h3>'+table(['Name','State','Progress','Category','Controls'],rows);}
  target.innerHTML=html||'<div class="muted">No records found.</div>';
  }catch(e){target.innerHTML='<div class="error">'+esc(e.message)+'</div>';}}
 document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>openView(b.dataset.view)));
-$('workspace').addEventListener('click',async e=>{const b=e.target.closest('[data-torrent-action]');if(!b)return;const action=b.dataset.torrentAction;const verb=action==='pause'?'pause':'resume';if(!confirm('Are you sure you want to '+verb+' this torrent?'))return;b.disabled=true;try{await request('/web-api/torrents/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,hashes:b.dataset.hash})});await openView('downloads');}catch(err){alert(err.message);b.disabled=false;}});
+$('workspace').addEventListener('submit',async e=>{
+ if(e.target.id!=='catalog-search')return;e.preventDefault();
+ const service=$('workspace').dataset.catalogService,term=$('catalog-term').value.trim(),out=$('catalog-results');
+ if(!term)return;out.textContent='Searching catalogue…';
+ try{
+  const [items,setup]=await Promise.all([
+   request('/web-api/catalog?service='+service+'&term='+encodeURIComponent(term)),
+   request('/web-api/setup?service='+service)
+  ]);
+  if(!Array.isArray(items)||!items.length){out.textContent='No matches found.';return;}
+  const roots=setup.root_folders||[],profiles=setup.quality_profiles||[];
+  if(!roots.length||!profiles.length){out.innerHTML='<div class="error">Configure at least one root folder and quality profile in '+esc(service)+'.</div>';return;}
+  out.innerHTML=items.map(item=>{
+   const id=service==='radarr'?item.tmdbId:item.tvdbId;
+   const name=esc(item.title||item.titleSlug||'Untitled'),year=esc(item.year||item.yearStart||'');
+   const rootOptions=roots.map(x=>'<option value="'+esc(x.path)+'">'+esc(x.path)+'</option>').join('');
+   const profileOptions=profiles.map(x=>'<option value="'+esc(x.id)+'">'+esc(x.name)+'</option>').join('');
+   return '<article class="card" style="margin:10px 0"><div class="cardtop"><div class="name">'+name+' <span class="muted">'+year+'</span></div><span class="muted">'+(id?'ID '+esc(id):'No external ID')+'</span></div><div class="version">'+esc(item.overview||'')+'</div>'+(id?'<div class="actions" style="flex-wrap:wrap;margin-top:12px"><select data-root style="max-width:250px;background:#0e1728;color:#e8edf5;padding:8px;border:1px solid #34435d;border-radius:8px">'+rootOptions+'</select><select data-profile style="max-width:220px;background:#0e1728;color:#e8edf5;padding:8px;border:1px solid #34435d;border-radius:8px">'+profileOptions+'</select><label class="muted"><input type="checkbox" data-search-now> Search immediately</label><button data-add-title data-service="'+service+'" data-id="'+esc(id)+'">Add to '+service+'</button></div>':'')+'</article>';
+  }).join('');
+ }catch(err){out.innerHTML='<div class="error">'+esc(err.message)+'</div>';}
+});
+$('workspace').addEventListener('click',async e=>{const add=e.target.closest('[data-add-title]');if(add){const card=add.closest('.card');const service=add.dataset.service,id=Number(add.dataset.id);if(!confirm('Add this title to '+service+'?'))return;add.disabled=true;try{const body={service,root_folder_path:card.querySelector('[data-root]').value,quality_profile_id:Number(card.querySelector('[data-profile]').value),monitored:true,search_now:card.querySelector('[data-search-now]').checked};body[service==='radarr'?'tmdb_id':'tvdb_id']=id;await request('/web-api/catalog/add',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});add.textContent='Added';}catch(err){alert(err.message);add.disabled=false;}return;}const b=e.target.closest('[data-torrent-action]');if(!b)return;const action=b.dataset.torrentAction;const verb=action==='pause'?'pause':'resume';if(!confirm('Are you sure you want to '+verb+' this torrent?'))return;b.disabled=true;try{await request('/web-api/torrents/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,hashes:b.dataset.hash})});await openView('downloads');}catch(err){alert(err.message);b.disabled=false;}});
 (async()=>{try{render(await request('/web-api/status'));showApp();}catch(e){showLogin();}})();
 setInterval(()=>{if(!$('app').classList.contains('hidden'))refresh();},30000);
 </script>
