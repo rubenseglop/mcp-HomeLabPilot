@@ -253,11 +253,17 @@ async def stack_status() -> dict[str, Any]:
 
 
 ARR_EDITABLE_RESOURCES = {
+    # Native configuration records shared by Radarr and Sonarr.
     "qualityprofile": "/api/v3/qualityprofile",
     "delayprofile": "/api/v3/delayprofile",
     "indexer": "/api/v3/indexer",
     "downloadclient": "/api/v3/downloadclient",
     "notification": "/api/v3/notification",
+    "qualitydefinition": "/api/v3/qualitydefinition",
+    "customformat": "/api/v3/customformat",
+    "importlist": "/api/v3/importlist",
+    "metadata": "/api/v3/metadata",
+    "tag": "/api/v3/tag",
 }
 
 ARR_EDITABLE_RESOURCES_BY_SERVICE = {
@@ -267,6 +273,12 @@ ARR_EDITABLE_RESOURCES_BY_SERVICE = {
         "indexer": "/api/v1/indexer",
         "downloadclient": "/api/v1/downloadclient",
         "notification": "/api/v1/notification",
+    },
+    # Sonarr-only profile resources; Radarr rejects these API routes.
+    "sonarr": {
+        **ARR_EDITABLE_RESOURCES,
+        "languageprofile": "/api/v3/languageprofile",
+        "releaseprofile": "/api/v3/releaseprofile",
     },
 }
 SENSITIVE_CONFIG_KEY = re.compile(
@@ -629,6 +641,15 @@ async def _web_api_request(
     path: str, method: str, query: dict[str, list[str]], payload: dict[str, Any]
 ) -> Any:
     """Shared browser API actions; all service calls reuse the same configured API layer."""
+    if method == "POST" and path == "/web-api/scryer/graphql":
+        query_text = str(payload.get("query", ""))
+        if not query_text.strip():
+            raise ValueError("GraphQL query cannot be empty")
+        variables = payload.get("variables", {})
+        if not isinstance(variables, dict):
+            raise ValueError("GraphQL variables must be a JSON object")
+        return await scryer_graphql(query_text, variables)
+
     if method == "GET" and path == "/web-api/catalog":
         service = (query.get("service") or [""])[0]
         term = (query.get("term") or [""])[0]
