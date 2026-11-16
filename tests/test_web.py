@@ -278,4 +278,4 @@ def test_downloads_view_exposes_category_and_safe_remove_controls():
     assert b"data-torrent-set-category" in body
     assert b"data-torrent-delete" in body
     assert b"delete_files:false" in body
-    assert body.count(b"StackARR Â· Web dashboard and MCP endpoint in one application") == 1
+    assert body.count("StackARR · Web dashboard and MCP endpoint in one application".encode()) == 1
