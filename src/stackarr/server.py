@@ -214,6 +214,69 @@ async def stack_status() -> dict[str, Any]:
     return {"services": checks}
 
 
+
+ARR_EDITABLE_RESOURCES = {
+    "qualityprofile": "/api/v3/qualityprofile",
+    "delayprofile": "/api/v3/delayprofile",
+    "indexer": "/api/v3/indexer",
+    "downloadclient": "/api/v3/downloadclient",
+    "notification": "/api/v3/notification",
+}
+QBITTORRENT_EDITABLE_PREFERENCES = {
+    "save_path", "temp_path", "temp_path_enabled", "scan_dirs",
+    "max_active_downloads", "max_active_uploads", "max_active_torrents",
+    "max_connections", "max_connections_per_torrent",
+    "max_uploads", "max_uploads_per_torrent",
+    "dl_limit", "up_limit", "alt_speed_enabled",
+}
+
+
+@mcp.tool()
+async def arr_get_configuration(service: str, resource: str) -> Any:
+    """Read editable configuration records from Radarr or Sonarr."""
+    if service not in {"radarr", "sonarr"}:
+        raise ValueError("service must be radarr or sonarr")
+    if resource not in ARR_EDITABLE_RESOURCES:
+        raise ValueError(f"resource must be one of: {', '.join(ARR_EDITABLE_RESOURCES)}")
+    return await _arr_request(service, "GET", ARR_EDITABLE_RESOURCES[resource])
+
+
+@mcp.tool()
+async def arr_update_configuration(service: str, resource: str, item_id: int, item: dict[str, Any]) -> Any:
+    """Update an existing Radarr/Sonarr quality profile, delay profile, indexer, download client or notification."""
+    if service not in {"radarr", "sonarr"}:
+        raise ValueError("service must be radarr or sonarr")
+    if resource not in ARR_EDITABLE_RESOURCES:
+        raise ValueError(f"resource must be one of: {', '.join(ARR_EDITABLE_RESOURCES)}")
+    if item_id < 1 or not isinstance(item, dict) or int(item.get("id", 0)) != item_id:
+        raise ValueError("item must be an object whose id matches the positive item_id")
+    return await _arr_request(service, "PUT", f"{ARR_EDITABLE_RESOURCES[resource]}/{item_id}", body=item)
+
+
+@mcp.tool()
+async def qbittorrent_get_preferences() -> dict[str, Any]:
+    """Read a safe allowlist of qBittorrent download and connection preferences."""
+    prefs = await qbittorrent_api_request("GET", "/api/v2/app/preferences")
+    if not isinstance(prefs, dict):
+        raise RuntimeError("qBittorrent returned an unexpected preferences response")
+    return {key: value for key, value in prefs.items() if key in QBITTORRENT_EDITABLE_PREFERENCES}
+
+
+@mcp.tool()
+async def qbittorrent_update_preferences(preferences: dict[str, Any]) -> Any:
+    """Update allowlisted qBittorrent download paths, speed limits and queue/connection settings."""
+    if not isinstance(preferences, dict) or not preferences:
+        raise ValueError("preferences must be a non-empty object")
+    unknown = set(preferences) - QBITTORRENT_EDITABLE_PREFERENCES
+    if unknown:
+        raise ValueError(f"Unsupported qBittorrent preferences: {', '.join(sorted(unknown))}")
+    import json
+    return await qbittorrent_api_request(
+        "POST", "/api/v2/app/setPreferences",
+        data={"json": json.dumps(preferences)},
+    )
+
+
 @mcp.tool()
 async def arr_list_library(service: str) -> Any:
     """List the movie or series library in Radarr or Sonarr."""
@@ -460,6 +523,21 @@ async def _web_api_request(
                 int(payload.get("quality_profile_id", 0)), monitored=monitored, search_now=search_now,
             )
         raise ValueError("service must be radarr or sonarr")
+
+    if method == "GET" and path == "/web-api/settings":
+        service = (query.get("service") or [""])[0]
+        resource = (query.get("resource") or [""])[0]
+        if service == "qbittorrent":
+            return await qbittorrent_get_preferences()
+        return await arr_get_configuration(service, resource)
+    if method == "POST" and path == "/web-api/settings/update":
+        service = str(payload.get("service", ""))
+        if service == "qbittorrent":
+            return await qbittorrent_update_preferences(payload.get("preferences", {}))
+        return await arr_update_configuration(
+            service, str(payload.get("resource", "")),
+            int(payload.get("id", 0)), payload.get("item", {}),
+        )
     if method == "GET" and path == "/web-api/library":
         service = (query.get("service") or [""])[0]
         return await arr_list_library(service)
