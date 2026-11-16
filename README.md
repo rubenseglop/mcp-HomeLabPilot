@@ -8,7 +8,7 @@ It connects to the native APIs of Radarr, Sonarr, Prowlarr, Bazarr, Scryer and q
 
 StackARR serves its browser dashboard and MCP endpoint from the same application and port. Open `http://YOUR_DOCKER_HOST:8765/` to sign in with `MCP_AUTH_TOKEN`. The browser receives an HttpOnly session cookie; the token is not stored in browser local storage.
 
-The dashboard currently includes live service status, Radarr movie and Sonarr series library browsing, Radarr/Sonarr queue inspection, and qBittorrent torrent listing with pause/resume controls. Browser requests use the same configured service API layer as MCP; they are not a separate integration. The overview refreshes automatically every 30 seconds.
+The dashboard currently includes live service status, Radarr movie and Sonarr series library browsing, Radarr/Sonarr queue inspection, qBittorrent torrent listing with pause/resume controls, and metadata catalogue search with workflows to add movies or series using the configured root folders and quality profiles. Browser requests use the same configured service API layer as MCP; they are not a separate integration. The overview refreshes automatically every 30 seconds.
 
 By default, Compose publishes the port on loopback only. To open the dashboard from another device on your LAN, set `STACKARR_BIND_ADDRESS=0.0.0.0` in your private `.env` and recreate the container. This also makes the authenticated MCP endpoint reachable on the LAN. Do not forward this port from your router to the public internet. For remote access, use a private VPN such as Tailscale or a trusted HTTPS access layer.
 
@@ -119,7 +119,7 @@ The container runs as a non-root user, drops Linux capabilities, and uses a read
 
 ## Next development steps
 
-1. Add catalogue search and add-title workflows to the browser interface.
-2. Add richer library details, edit/monitor controls, and release selection/grabbing.
-3. Add Bazarr and Scryer management screens and operation history/auditing.
+1. Add richer library details, edit/monitor controls, and release selection/grabbing.
+2. Add Bazarr and Scryer management screens and operation history/auditing.
+3. Add fine-grained permissions and safer previews for destructive operations.
 4. Add optional Docker management behind a separate restricted permission boundary.
