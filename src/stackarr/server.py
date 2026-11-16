@@ -621,7 +621,12 @@ def main() -> None:
     host = os.getenv("MCP_HOST", "0.0.0.0")
     port = int(os.getenv("MCP_PORT", "8000"))
     app = _BearerAuthMiddleware(mcp.streamable_http_app(), token)
-    app = StackARRWebMiddleware(app, token, stack_status, _web_api_request)
+    web_username = os.getenv("STACKARR_WEB_USERNAME", "admin").strip() or "admin"
+    web_password = os.getenv("STACKARR_WEB_PASSWORD", "").strip() or token
+    app = StackARRWebMiddleware(
+        app, token, stack_status, _web_api_request,
+        web_username=web_username, web_password=web_password,
+    )
     uvicorn.run(app, host=host, port=port, log_level="info")
 
 
