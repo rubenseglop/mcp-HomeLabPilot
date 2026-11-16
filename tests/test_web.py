@@ -270,3 +270,12 @@ def test_library_table_passes_rows_as_an_array():
     )[0]
     assert "}).join('')" not in library_view
     assert "});" in library_view
+
+
+def test_downloads_view_exposes_category_and_safe_remove_controls():
+    start, body = call_asgi(make_app(), "/")
+    assert start["status"] == 200
+    assert b"data-torrent-set-category" in body
+    assert b"data-torrent-delete" in body
+    assert b"delete_files:false" in body
+    assert body.count(b"StackARR Â· Web dashboard and MCP endpoint in one application") == 1
