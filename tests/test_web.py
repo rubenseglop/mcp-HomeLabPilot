@@ -287,3 +287,53 @@ def test_dashboard_surfaces_backend_error_details_and_uses_live_scryer_schema():
     assert b"data.error||data.detail||data.message" in body
     assert b"query StackStatus { scryerVersion }" not in body
     assert b"Write a query using an operation shown in the schema above." in body
+
+
+def test_authenticated_web_api_rejects_cross_origin_post():
+    app = make_app()
+    login, _ = call_asgi(
+        app, "/web-login", method="POST",
+        headers=[(b"content-type", b"application/json")],
+        body=json.dumps({"username": "testuser", "password": "test-password"}).encode(),
+    )
+    cookie = next(value.split(b";", 1)[0] for name, value in login["headers"] if name == b"set-cookie")
+    start, body = call_asgi(
+        app, "/web-api/torrents/control", method="POST",
+        headers=[
+            (b"cookie", cookie), (b"host", b"stackarr.local"),
+            (b"origin", b"https://attacker.example"),
+            (b"content-type", b"application/json"),
+        ],
+        body=b'{"action":"pause","hashes":"abc"}',
+    )
+    assert start["status"] == 403
+    assert b"Cross-origin" in body
+
+
+def test_authenticated_web_api_allows_same_origin_post():
+    app = make_app()
+    login, _ = call_asgi(
+        app, "/web-login", method="POST",
+        headers=[(b"content-type", b"application/json")],
+        body=json.dumps({"username": "testuser", "password": "test-password"}).encode(),
+    )
+    cookie = next(value.split(b";", 1)[0] for name, value in login["headers"] if name == b"set-cookie")
+    start, _ = call_asgi(
+        app, "/web-api/torrents/control", method="POST",
+        headers=[
+            (b"cookie", cookie), (b"host", b"stackarr.local"),
+            (b"origin", b"https://stackarr.local"),
+            (b"content-type", b"application/json"),
+        ],
+        body=b'{}',
+    )
+    assert start["status"] == 404
+
+
+def test_settings_dashboard_has_configuration_create_edit_delete_controls():
+    start, body = call_asgi(make_app(), "/")
+    assert start["status"] == 200
+    assert b"/web-api/settings/create" in body
+    assert b"/web-api/settings/delete" in body
+    assert b"Create configuration record" in body
+    assert b"Delete record" in body
