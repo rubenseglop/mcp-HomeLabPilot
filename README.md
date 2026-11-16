@@ -51,6 +51,8 @@ stackarr-mcp
 
 The server uses MCP over stdio. Configure the MCP client to launch `stackarr-mcp` with the environment variables.
 
+Run the unit tests with `pip install -e ".[test]"` followed by `pytest`.
+
 ## API references
 
 - Radarr: `/api/v3`
@@ -65,4 +67,4 @@ The server uses MCP over stdio. Configure the MCP client to launch `stackarr-mcp
 1. Expand the typed tools with monitoring, quality-profile changes, commands, and safe delete/preview workflows.
 2. Add schema-aware Scryer tools for title discovery, library management, requests, release search/grab, subtitles, indexers, clients and settings.
 3. Add qBittorrent file-upload support for adding .torrent files.
-4. Add tests using mocked APIs and a Docker Compose deployment example.
+4. Add qBittorrent torrent-file uploads and a Docker Compose deployment example.
