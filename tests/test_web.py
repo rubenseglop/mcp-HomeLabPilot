@@ -158,3 +158,11 @@ def test_dashboard_library_view_has_monitor_and_quality_profile_controls():
     assert b"data-library-monitored" in body
     assert b"data-library-profile" in body
     assert b"/web-api/library/update" in body
+
+
+def test_dashboard_library_has_release_search_and_grab_controls():
+    start, body = call_asgi(make_app(), "/")
+    assert start["status"] == 200
+    assert b"data-library-releases" in body
+    assert b"data-grab-release" in body
+    assert b"/web-api/releases/grab" in body
