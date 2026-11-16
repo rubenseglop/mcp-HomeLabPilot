@@ -106,8 +106,34 @@ async function openView(view){const target=$('workspace');target.textContent='Lo
      const service=svc.value,resource=res.value;
      const data=await request('/web-api/settings?service='+service+'&resource='+resource);
      if(service==='qbittorrent'){
-      records.innerHTML='<div class="card"><div class="name">qBittorrent preferences</div><p class="muted">Only approved download, path, speed and queue options are exposed here. Credentials and web security settings are excluded.</p><textarea id="settings-json" rows="18" style="width:100%;background:#0b1322;color:#dce7f8;border:1px solid #34435d;border-radius:9px;padding:12px;font:12px ui-monospace,monospace">'+esc(JSON.stringify(data,null,2))+'</textarea><button id="save-qbit-settings" style="margin-top:10px">Save preferences</button></div>';
-      $('save-qbit-settings').addEventListener('click',async()=>{try{const preferences=JSON.parse($('settings-json').value);if(!confirm('Apply these qBittorrent preferences?'))return;await request('/web-api/settings/update',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({service:'qbittorrent',preferences})});alert('Preferences saved.');}catch(err){alert('Could not save: '+err.message);}});
+      const labels={save_path:'Default save path',temp_path:'Temporary files path',temp_path_enabled:'Use a separate path for incomplete torrents',scan_dirs:'Watched folders',max_active_downloads:'Maximum active downloads',max_active_uploads:'Maximum active uploads',max_active_torrents:'Maximum active torrents',max_connections:'Global maximum connections',max_connections_per_torrent:'Maximum connections per torrent',max_uploads:'Global maximum upload slots',max_uploads_per_torrent:'Upload slots per torrent',dl_limit:'Download limit (bytes/s)',up_limit:'Upload limit (bytes/s)',alt_speed_enabled:'Alternative speed limits enabled'};
+      const numeric=new Set(['max_active_downloads','max_active_uploads','max_active_torrents','max_connections','max_connections_per_torrent','max_uploads','max_uploads_per_torrent','dl_limit','up_limit']);
+      const fields=Object.entries(data||{}).map(([key,value])=>{
+       const title=labels[key]||key;
+       if(typeof value==='boolean')return '<label style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #25344d"><input data-qbit-key="'+esc(key)+'" type="checkbox" '+(value?'checked':'')+' style="width:auto;margin:0"><span>'+esc(title)+'</span></label>';
+       if(numeric.has(key))return '<label style="display:block;padding:9px 0;border-bottom:1px solid #25344d"><span class="muted">'+esc(title)+'</span><input data-qbit-key="'+esc(key)+'" type="number" min="0" step="1" value="'+esc(value)+'" style="width:100%;background:#0b1322;color:#e8edf5;border:1px solid #34435d;border-radius:8px;padding:10px;margin-top:5px"></label>';
+       if(key==='scan_dirs')return '<label style="display:block;padding:9px 0"><span class="muted">'+esc(title)+' (JSON)</span><textarea data-qbit-key="'+esc(key)+'" rows="5" style="width:100%;background:#0b1322;color:#dce7f8;border:1px solid #34435d;border-radius:9px;padding:10px;font:12px ui-monospace,monospace">'+esc(JSON.stringify(value,null,2))+'</textarea></label>';
+       return '<label style="display:block;padding:9px 0"><span class="muted">'+esc(title)+'</span><input data-qbit-key="'+esc(key)+'" type="text" value="'+esc(value)+'" style="width:100%;background:#0b1322;color:#e8edf5;border:1px solid #34435d;border-radius:8px;padding:10px;margin-top:5px"></label>';
+      }).join('');
+      records.innerHTML='<div class="card"><div class="name">qBittorrent preferences</div><p class="muted">Formulario visual para rutas, límites y colas. Los límites de velocidad se expresan en bytes por segundo. Las credenciales y opciones de seguridad web no se muestran.</p>'+fields+'<div class="actions" style="margin-top:14px"><button id="save-qbit-settings">Save preferences</button><button id="reload-qbit-settings">Discard changes</button></div><div id="qbit-save-status" class="muted" style="margin-top:10px"></div></div>';
+      $('reload-qbit-settings').addEventListener('click',()=> $('load-settings').click());
+      $('save-qbit-settings').addEventListener('click',async()=>{
+       try{
+        const preferences={};
+        records.querySelectorAll('[data-qbit-key]').forEach(input=>{
+         const key=input.dataset.qbitKey;
+         if(input.type==='checkbox')preferences[key]=input.checked;
+         else if(input.type==='number'){const value=Number(input.value);if(!Number.isFinite(value)||value<0)throw new Error('Enter a valid non-negative number for '+(labels[key]||key));preferences[key]=value;}
+         else if(key==='scan_dirs'){try{preferences[key]=JSON.parse(input.value);}catch(_){throw new Error('Watched folders must contain valid JSON.');}}
+         else preferences[key]=input.value;
+        });
+        if(!confirm('Apply these qBittorrent preferences?'))return;
+        $('save-qbit-settings').disabled=true;
+        await request('/web-api/settings/update',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({service:'qbittorrent',preferences})});
+        $('qbit-save-status').textContent='Preferences saved. Reload to verify the values.';
+       }catch(err){$('qbit-save-status').textContent='Could not save: '+err.message;}
+       finally{$('save-qbit-settings').disabled=false;}
+      });
       return;
      }
      const items=Array.isArray(data)?data:[];
