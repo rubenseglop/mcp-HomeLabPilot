@@ -344,6 +344,35 @@ async def arr_list_library(service: str) -> Any:
 
 
 @mcp.tool()
+async def arr_update_library_item(
+    service: str,
+    item_id: int,
+    monitored: bool | None = None,
+    quality_profile_id: int | None = None,
+) -> Any:
+    """Update monitoring and/or quality profile for an existing Radarr movie or Sonarr series."""
+    if service not in {"radarr", "sonarr"}:
+        raise ValueError("service must be radarr or sonarr")
+    if item_id < 1:
+        raise ValueError("item_id must be positive")
+    if monitored is None and quality_profile_id is None:
+        raise ValueError("At least one of monitored or quality_profile_id must be provided")
+    if quality_profile_id is not None and quality_profile_id < 1:
+        raise ValueError("quality_profile_id must be positive")
+    resource = "movie" if service == "radarr" else "series"
+    endpoint = f"/api/v3/{resource}/{item_id}"
+    current = await _arr_request(service, "GET", endpoint)
+    if not isinstance(current, dict) or int(current.get("id", 0)) != item_id:
+        raise RuntimeError(f"{service} returned an unexpected library item")
+    updated = dict(current)
+    if monitored is not None:
+        updated["monitored"] = monitored
+    if quality_profile_id is not None:
+        updated["qualityProfileId"] = quality_profile_id
+    return await _arr_request(service, "PUT", endpoint, body=updated)
+
+
+@mcp.tool()
 async def arr_search_catalog(service: str, term: str) -> Any:
     """Search Radarr movie metadata or Sonarr series metadata by title."""
     if not term.strip():
@@ -591,6 +620,15 @@ async def _web_api_request(
         return await arr_update_configuration(
             service, str(payload.get("resource", "")),
             int(payload.get("id", 0)), payload.get("item", {}),
+        )
+    if method == "POST" and path == "/web-api/library/update":
+        service = str(payload.get("service", ""))
+        item_id = int(payload.get("id", 0))
+        monitored = payload.get("monitored") if "monitored" in payload else None
+        profile_id = payload.get("quality_profile_id")
+        return await arr_update_library_item(
+            service, item_id, monitored=monitored,
+            quality_profile_id=int(profile_id) if profile_id is not None else None,
         )
     if method == "GET" and path == "/web-api/library":
         service = (query.get("service") or [""])[0]
