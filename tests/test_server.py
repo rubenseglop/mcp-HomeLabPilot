@@ -270,3 +270,32 @@ def test_web_library_update_dispatches_only_requested_fields(monkeypatch):
 
     assert result == {"id": 84}
     assert calls == [("sonarr", 84, True, 5)]
+
+
+def test_web_release_routes_dispatch_search_and_grab(monkeypatch):
+    import asyncio
+    import stackarr.server as server
+
+    calls = []
+
+    async def fake_search(service, item_id):
+        calls.append(("search", service, item_id))
+        return [{"guid": "release-guid"}]
+
+    async def fake_grab(service, guid, indexer_id):
+        calls.append(("grab", service, guid, indexer_id))
+        return {"queued": True}
+
+    monkeypatch.setattr(server, "arr_search_releases", fake_search)
+    monkeypatch.setattr(server, "arr_grab_release", fake_grab)
+    releases = asyncio.run(server._web_api_request(
+        "/web-api/releases", "GET", {"service": ["radarr"], "id": ["42"]}, {}
+    ))
+    grabbed = asyncio.run(server._web_api_request(
+        "/web-api/releases/grab", "POST", {},
+        {"service": "radarr", "guid": "release-guid", "indexer_id": 8},
+    ))
+
+    assert releases == [{"guid": "release-guid"}]
+    assert grabbed == {"queued": True}
+    assert calls == [("search", "radarr", 42), ("grab", "radarr", "release-guid", 8)]
