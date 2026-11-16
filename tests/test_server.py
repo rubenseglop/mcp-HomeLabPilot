@@ -67,7 +67,7 @@ def test_web_add_rejects_unknown_service():
     import asyncio
     import stackarr.server as server
 
-    with pytest.raises(ValueError, match="service must be radarr or sonarr"):
+    with pytest.raises(ValueError, match="service must be radarr, sonarr or lidarr"):
         asyncio.run(server._web_api_request("/web-api/catalog/add", "POST", {}, {"service": "prowlarr"}))
 
 
@@ -262,8 +262,8 @@ def test_web_library_update_dispatches_only_requested_fields(monkeypatch):
 
     calls = []
 
-    async def fake_update(service, item_id, monitored=None, quality_profile_id=None):
-        calls.append((service, item_id, monitored, quality_profile_id))
+    async def fake_update(service, item_id, monitored=None, quality_profile_id=None, metadata_profile_id=None):
+        calls.append((service, item_id, monitored, quality_profile_id, metadata_profile_id))
         return {"id": item_id}
 
     monkeypatch.setattr(server, "arr_update_library_item", fake_update)
@@ -273,7 +273,7 @@ def test_web_library_update_dispatches_only_requested_fields(monkeypatch):
     ))
 
     assert result == {"id": 84}
-    assert calls == [("sonarr", 84, True, 5)]
+    assert calls == [("sonarr", 84, True, 5, None)]
 
 
 def test_web_release_routes_dispatch_search_and_grab(monkeypatch):
