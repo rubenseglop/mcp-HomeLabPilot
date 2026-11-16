@@ -11,7 +11,7 @@ def test_safe_path_accepts_api_paths(path):
 
 @pytest.mark.parametrize(
     "path",
-    ["", "api/v3/movie", "//evil.example/path", "https://evil.example", "/\\\\evil"],
+    ["", "api/v3/movie", "//evil.example/path", "https://evil.example", "/\\evil", "/api/v3/../admin"],
 )
 def test_safe_path_rejects_non_api_paths(path):
     with pytest.raises(ValueError):
