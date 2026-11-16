@@ -346,6 +346,10 @@ def test_invalid_permission_level_fails_closed(monkeypatch):
         ("POST", "/api/v1/indexer", "admin"),
         ("POST", "/api/v3/command", "admin"),
         ("POST", "/api/v3/rootfolder", "admin"),
+        ("PUT", "/api/v3/qualitydefinition/1", "admin"),
+        ("PUT", "/api/v3/customformat/2", "admin"),
+        ("POST", "/api/v1/importlist", "admin"),
+        ("PUT", "/api/providers/1", "admin"),
     ],
 )
 def test_generic_arr_api_permission_classification(method, path, expected):
