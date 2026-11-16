@@ -189,8 +189,10 @@ def test_prowlarr_configuration_uses_v1_endpoints(monkeypatch):
 
     async def fake_request(service, method, path, params=None, body=None):
         calls.append((service, method, path, body))
+        if method == "GET" and path == "/api/v1/indexer":
+            return [{"id": 9, "name": "Indexer"}]
         if method == "GET":
-            return [{"id": 9, "name": "Indexer", "apiKey": "hidden"}]
+            return {"id": 9, "name": "Indexer", "apiKey": "hidden"}
         return body
 
     monkeypatch.setattr(server, "_arr_request", fake_request)
