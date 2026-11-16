@@ -48,11 +48,12 @@ def _arr_api_required_permission(method: str, path: str) -> str:
         return "read"
     normalized = path.lower()
     admin_fragments = (
-        "/qualityprofile", "/qualitydefinition", "/delayprofile",
+        "/qualityprofile", "/qualitydefinition", "/delayprofile", "/metadataprofile",
         "/customformat", "/importlist", "/metadata", "/tag",
         "/languageprofile", "/releaseprofile", "/indexer", "/downloadclient",
         "/notification", "/provider", "/providers", "/config/", "/system/",
         "/command", "/bulk", "/settings", "/application", "/rootfolder", "/auth/",
+        "/releaseprofile", "/autotagging", "/remotepathmapping",
     )
     if method == "DELETE" or any(fragment in normalized for fragment in admin_fragments):
         return "admin"
@@ -63,6 +64,7 @@ ARR_SERVICES = {
     "sonarr": ("SONARR_URL", "SONARR_API_KEY", "/api/v3"),
     "prowlarr": ("PROWLARR_URL", "PROWLARR_API_KEY", "/api/v1"),
     "bazarr": ("BAZARR_URL", "BAZARR_API_KEY", "/api"),
+    "lidarr": ("LIDARR_URL", "LIDARR_API_KEY", "/api/v1"),
 }
 
 
@@ -136,11 +138,10 @@ async def arr_api_request(
     params: dict[str, Any] | None = None,
     body: Any = None,
 ) -> Any:
-    """Control Radarr, Sonarr, Prowlarr or Bazarr through its native REST API.
+    """Control Radarr, Sonarr, Prowlarr, Bazarr or Lidarr through its native REST API.
 
-    Supports GET/POST/PUT/PATCH/DELETE. Use the service's API path, e.g.
-    Radarr/Sonarr /api/v3/movie, /api/v3/command; Prowlarr /api/v1/indexer;
-    Bazarr /api/... . The configured host and API key are used automatically.
+    Supports GET/POST/PUT/PATCH/DELETE. Use each service's native API path;
+    the configured host and API key are supplied automatically.
     """
     _require_permission(_arr_api_required_permission(method, path))
     return await _arr_request(service, method, path, params, body)
@@ -281,6 +282,22 @@ ARR_EDITABLE_RESOURCES_BY_SERVICE = {
         "languageprofile": "/api/v3/languageprofile",
         "releaseprofile": "/api/v3/releaseprofile",
     },
+    "lidarr": {
+        "qualityprofile": "/api/v1/qualityprofile",
+        "metadataprofile": "/api/v1/metadataprofile",
+        "delayprofile": "/api/v1/delayprofile",
+        "indexer": "/api/v1/indexer",
+        "downloadclient": "/api/v1/downloadclient",
+        "notification": "/api/v1/notification",
+        "qualitydefinition": "/api/v1/qualitydefinition",
+        "customformat": "/api/v1/customformat",
+        "importlist": "/api/v1/importlist",
+        "metadata": "/api/v1/metadata",
+        "tag": "/api/v1/tag",
+        "releaseprofile": "/api/v1/releaseprofile",
+        "autotagging": "/api/v1/autotagging",
+        "remotepathmapping": "/api/v1/remotepathmapping",
+    },
 }
 SENSITIVE_CONFIG_KEY = re.compile(
     r'(?:password|passwd|api.?key|token|secret|credential|auth.?key|private.?key)',
@@ -330,7 +347,7 @@ QBITTORRENT_EDITABLE_PREFERENCES = {
 
 @mcp.tool()
 async def arr_get_configuration(service: str, resource: str) -> Any:
-    """Read editable configuration records from Radarr, Sonarr or Prowlarr."""
+    """Read editable configuration records from a supported *arr service."""
     resources = ARR_EDITABLE_RESOURCES_BY_SERVICE.get(service)
     if resources is None:
         raise ValueError("service must be radarr, sonarr or prowlarr")
@@ -342,7 +359,7 @@ async def arr_get_configuration(service: str, resource: str) -> Any:
 
 @mcp.tool()
 async def arr_update_configuration(service: str, resource: str, item_id: int, item: dict[str, Any]) -> Any:
-    """Update an existing editable configuration record in Radarr, Sonarr or Prowlarr."""
+    """Update an existing editable configuration record in a supported *arr service."""
     _require_permission("admin")
     resources = ARR_EDITABLE_RESOURCES_BY_SERVICE.get(service)
     if resources is None:
@@ -359,7 +376,7 @@ async def arr_update_configuration(service: str, resource: str, item_id: int, it
 
 @mcp.tool()
 async def arr_create_configuration(service: str, resource: str, item: dict[str, Any]) -> Any:
-    """Create a configuration record in Radarr, Sonarr or Prowlarr (admin only)."""
+    """Create a configuration record in a supported *arr service (admin only)."""
     _require_permission("admin")
     resources = ARR_EDITABLE_RESOURCES_BY_SERVICE.get(service)
     if resources is None:
@@ -374,7 +391,7 @@ async def arr_create_configuration(service: str, resource: str, item: dict[str, 
 
 @mcp.tool()
 async def arr_delete_configuration(service: str, resource: str, item_id: int) -> Any:
-    """Delete a configuration record in Radarr, Sonarr or Prowlarr (admin only)."""
+    """Delete a configuration record in a supported *arr service (admin only)."""
     _require_permission("admin")
     resources = ARR_EDITABLE_RESOURCES_BY_SERVICE.get(service)
     if resources is None:
@@ -413,14 +430,11 @@ async def qbittorrent_update_preferences(preferences: dict[str, Any]) -> Any:
 
 @mcp.tool()
 async def arr_list_library(service: str) -> Any:
-    """List the movie or series library in Radarr or Sonarr."""
-    if service == "radarr":
-        path = "/api/v3/movie"
-    elif service == "sonarr":
-        path = "/api/v3/series"
-    else:
-        raise ValueError("service must be radarr or sonarr")
-    return await _arr_request(service, "GET", path)
+    """List the movie, series or artist library in Radarr, Sonarr or Lidarr."""
+    paths = {"radarr": "/api/v3/movie", "sonarr": "/api/v3/series", "lidarr": "/api/v1/artist"}
+    if service not in paths:
+        raise ValueError("service must be radarr, sonarr or lidarr")
+    return await _arr_request(service, "GET", paths[service])
 
 
 @mcp.tool()
@@ -429,19 +443,21 @@ async def arr_update_library_item(
     item_id: int,
     monitored: bool | None = None,
     quality_profile_id: int | None = None,
+    metadata_profile_id: int | None = None,
 ) -> Any:
-    """Update monitoring and/or quality profile for an existing Radarr movie or Sonarr series."""
+    """Update monitoring and profiles for a movie, series or Lidarr artist."""
     _require_permission("operations")
-    if service not in {"radarr", "sonarr"}:
-        raise ValueError("service must be radarr or sonarr")
+    if service not in {"radarr", "sonarr", "lidarr"}:
+        raise ValueError("service must be radarr, sonarr or lidarr")
     if item_id < 1:
         raise ValueError("item_id must be positive")
-    if monitored is None and quality_profile_id is None:
-        raise ValueError("At least one of monitored or quality_profile_id must be provided")
+    if monitored is None and quality_profile_id is None and metadata_profile_id is None:
+        raise ValueError("At least one library field must be provided")
     if quality_profile_id is not None and quality_profile_id < 1:
         raise ValueError("quality_profile_id must be positive")
-    resource = "movie" if service == "radarr" else "series"
-    endpoint = f"/api/v3/{resource}/{item_id}"
+    if metadata_profile_id is not None and (service != "lidarr" or metadata_profile_id < 1):
+        raise ValueError("metadata_profile_id is supported for Lidarr and must be positive")
+    endpoint = f"/api/v3/movie/{item_id}" if service == "radarr" else f"/api/v3/series/{item_id}" if service == "sonarr" else f"/api/v1/artist/{item_id}"
     current = await _arr_request(service, "GET", endpoint)
     if not isinstance(current, dict) or int(current.get("id", 0)) != item_id:
         raise RuntimeError(f"{service} returned an unexpected library item")
@@ -450,6 +466,8 @@ async def arr_update_library_item(
         updated["monitored"] = monitored
     if quality_profile_id is not None:
         updated["qualityProfileId"] = quality_profile_id
+    if metadata_profile_id is not None:
+        updated["metadataProfileId"] = metadata_profile_id
     return await _arr_request(service, "PUT", endpoint, body=updated)
 
 
@@ -462,34 +480,44 @@ async def arr_search_catalog(service: str, term: str) -> Any:
         path = "/api/v3/movie/lookup"
     elif service == "sonarr":
         path = "/api/v3/series/lookup"
+    elif service == "lidarr":
+        path = "/api/v1/artist/lookup"
     else:
-        raise ValueError("service must be radarr or sonarr")
+        raise ValueError("service must be radarr, sonarr or lidarr")
     return await _arr_request(service, "GET", path, params={"term": term.strip()})
 
 
 @mcp.tool()
 async def arr_get_queue(service: str, page: int = 1, page_size: int = 50) -> Any:
-    """Inspect the current download/import queue in Radarr or Sonarr."""
-    if service not in {"radarr", "sonarr"}:
-        raise ValueError("service must be radarr or sonarr")
+    """Inspect the current download/import queue in Radarr, Sonarr or Lidarr."""
+    if service not in {"radarr", "sonarr", "lidarr"}:
+        raise ValueError("service must be radarr, sonarr or lidarr")
     if page < 1 or page_size < 1 or page_size > 200:
         raise ValueError("page must be >= 1 and page_size between 1 and 200")
-    return await _arr_request(
-        service, "GET", "/api/v3/queue",
-        params={"page": page, "pageSize": page_size, "includeUnknownSeriesItems": "true"},
-    )
+    if service == "lidarr":
+        return await _arr_request(service, "GET", "/api/v1/queue", params={
+            "page": page, "pageSize": page_size, "includeUnknownArtistItems": "true",
+            "includeArtist": "true", "includeAlbum": "true",
+        })
+    return await _arr_request(service, "GET", "/api/v3/queue",
+        params={"page": page, "pageSize": page_size, "includeUnknownSeriesItems": "true"})
 
 
 @mcp.tool()
 async def arr_get_setup_options(service: str) -> dict[str, Any]:
-    """Get root folders and quality profiles needed when adding movies or series."""
+    """Get root folders and profiles needed when adding movies, series or artists."""
+    if service == "lidarr":
+        roots, quality_profiles, metadata_profiles = await asyncio.gather(
+            _arr_request(service, "GET", "/api/v1/rootfolder"),
+            _arr_request(service, "GET", "/api/v1/qualityprofile"),
+            _arr_request(service, "GET", "/api/v1/metadataprofile"),
+        )
+        return {"root_folders": roots, "quality_profiles": quality_profiles, "metadata_profiles": metadata_profiles}
     if service not in {"radarr", "sonarr"}:
-        raise ValueError("service must be radarr or sonarr")
-    root_path = "/api/v3/rootfolder"
-    profile_path = "/api/v3/qualityprofile"
+        raise ValueError("service must be radarr, sonarr or lidarr")
     roots, profiles = await asyncio.gather(
-        _arr_request(service, "GET", root_path),
-        _arr_request(service, "GET", profile_path),
+        _arr_request(service, "GET", "/api/v3/rootfolder"),
+        _arr_request(service, "GET", "/api/v3/qualityprofile"),
     )
     return {"root_folders": roots, "quality_profiles": profiles}
 
@@ -540,30 +568,99 @@ async def arr_add_series(
     return await _arr_request("sonarr", "POST", "/api/v3/series", body=payload)
 
 
+
+@mcp.tool()
+async def arr_add_artist(
+    foreign_artist_id: str, artist_name: str, root_folder_path: str,
+    quality_profile_id: int, metadata_profile_id: int,
+    monitored: bool = True, search_now: bool = False,
+) -> Any:
+    """Add a MusicBrainz artist to Lidarr and optionally search for missing albums."""
+    _require_permission("operations")
+    if not foreign_artist_id.strip() or not artist_name.strip():
+        raise ValueError("foreign_artist_id and artist_name are required")
+    if not root_folder_path.startswith("/") or quality_profile_id < 1 or metadata_profile_id < 1:
+        raise ValueError("root_folder_path must be absolute and profile IDs must be positive")
+    return await _arr_request("lidarr", "POST", "/api/v1/artist", body={
+        "artistName": artist_name.strip(), "foreignArtistId": foreign_artist_id.strip(),
+        "rootFolderPath": root_folder_path, "qualityProfileId": quality_profile_id,
+        "metadataProfileId": metadata_profile_id, "monitored": monitored,
+        "monitorNewItems": "all",
+        "addOptions": {"monitor": "all", "monitored": monitored, "searchForMissingAlbums": search_now},
+    })
+
+
+@mcp.tool()
+async def lidarr_list_albums(artist_id: int | None = None) -> Any:
+    """List Lidarr albums, optionally restricted to one artist."""
+    params: dict[str, Any] = {"includeAllArtistAlbums": "true"}
+    if artist_id is not None:
+        if artist_id < 1:
+            raise ValueError("artist_id must be positive")
+        params["artistId"] = artist_id
+    return await _arr_request("lidarr", "GET", "/api/v1/album", params=params)
+
+
+@mcp.tool()
+async def lidarr_update_album(album_id: int, monitored: bool) -> Any:
+    """Update album monitoring while preserving all other Lidarr album fields."""
+    _require_permission("operations")
+    if album_id < 1:
+        raise ValueError("album_id must be positive")
+    endpoint = f"/api/v1/album/{album_id}"
+    current = await _arr_request("lidarr", "GET", endpoint)
+    if not isinstance(current, dict) or int(current.get("id", 0)) != album_id:
+        raise RuntimeError("lidarr returned an unexpected album")
+    updated = dict(current)
+    updated["monitored"] = monitored
+    return await _arr_request("lidarr", "PUT", endpoint, body=updated)
+
+
+@mcp.tool()
+async def lidarr_get_history(page: int = 1, page_size: int = 50) -> Any:
+    """Read Lidarr download and import history."""
+    if page < 1 or page_size < 1 or page_size > 200:
+        raise ValueError("page must be >= 1 and page_size between 1 and 200")
+    return await _arr_request("lidarr", "GET", "/api/v1/history", params={
+        "page": page, "pageSize": page_size, "includeArtist": "true",
+        "includeAlbum": "true", "includeTrack": "true",
+    })
+
+
+@mcp.tool()
+async def lidarr_get_missing_albums(page: int = 1, page_size: int = 50) -> Any:
+    """List monitored albums missing from the Lidarr library."""
+    if page < 1 or page_size < 1 or page_size > 200:
+        raise ValueError("page must be >= 1 and page_size between 1 and 200")
+    return await _arr_request("lidarr", "GET", "/api/v1/wanted/missing", params={
+        "page": page, "pageSize": page_size, "includeArtist": "true", "monitored": "true",
+    })
+
+
 @mcp.tool()
 async def arr_search_releases(service: str, item_id: int) -> Any:
-    """Search available releases for a Radarr movie or Sonarr series."""
+    """Search available releases for a movie, series or Lidarr album."""
     if item_id < 1:
         raise ValueError("item_id must be positive")
     if service == "radarr":
         return await _arr_request("radarr", "GET", "/api/v3/release", params={"movieId": item_id})
     if service == "sonarr":
         return await _arr_request("sonarr", "GET", "/api/v3/release", params={"seriesId": item_id})
-    raise ValueError("service must be radarr or sonarr")
+    if service == "lidarr":
+        return await _arr_request("lidarr", "GET", "/api/v1/release", params={"albumId": item_id})
+    raise ValueError("service must be radarr, sonarr or lidarr")
 
 
 @mcp.tool()
 async def arr_grab_release(service: str, guid: str, indexer_id: int) -> Any:
-    """Send a selected release to the configured download client through Radarr or Sonarr."""
+    """Send a selected release to the configured download client through an *arr service."""
     _require_permission("operations")
-    if service not in {"radarr", "sonarr"}:
-        raise ValueError("service must be radarr or sonarr")
+    if service not in {"radarr", "sonarr", "lidarr"}:
+        raise ValueError("service must be radarr, sonarr or lidarr")
     if not guid.strip() or indexer_id < 1:
         raise ValueError("guid and positive indexer_id are required")
-    return await _arr_request(
-        service, "POST", "/api/v3/release",
-        body={"guid": guid, "indexerId": indexer_id},
-    )
+    prefix = "/api/v1" if service == "lidarr" else "/api/v3"
+    return await _arr_request(service, "POST", f"{prefix}/release", body={"guid": guid, "indexerId": indexer_id})
 
 
 @mcp.tool()
@@ -701,7 +798,13 @@ async def _web_api_request(
                 int(payload.get("tvdb_id", 0)), str(payload.get("root_folder_path", "")),
                 int(payload.get("quality_profile_id", 0)), monitored=monitored, search_now=search_now,
             )
-        raise ValueError("service must be radarr or sonarr")
+        if service == "lidarr":
+            return await arr_add_artist(
+                str(payload.get("foreign_artist_id", "")), str(payload.get("artist_name", "")),
+                str(payload.get("root_folder_path", "")), int(payload.get("quality_profile_id", 0)),
+                int(payload.get("metadata_profile_id", 0)), monitored=monitored, search_now=search_now,
+            )
+        raise ValueError("service must be radarr, sonarr or lidarr")
 
     if method == "POST" and path == "/web-api/api":
         service = str(payload.get("service", ""))
@@ -709,8 +812,8 @@ async def _web_api_request(
         api_path = str(payload.get("path", ""))
         params = payload.get("params", {})
         body = payload.get("body")
-        if service not in {"radarr", "sonarr", "prowlarr", "bazarr"}:
-            raise ValueError("service must be radarr, sonarr, prowlarr or bazarr")
+        if service not in {"radarr", "sonarr", "prowlarr", "bazarr", "lidarr"}:
+            raise ValueError("service must be radarr, sonarr, prowlarr, bazarr or lidarr")
         if api_method not in {"GET", "POST", "PUT", "PATCH", "DELETE"}:
             raise ValueError("method must be GET, POST, PUT, PATCH or DELETE")
         if not isinstance(params, dict):
@@ -748,10 +851,28 @@ async def _web_api_request(
         item_id = int(payload.get("id", 0))
         monitored = payload.get("monitored") if "monitored" in payload else None
         profile_id = payload.get("quality_profile_id")
+        metadata_profile_id = payload.get("metadata_profile_id")
         return await arr_update_library_item(
             service, item_id, monitored=monitored,
             quality_profile_id=int(profile_id) if profile_id is not None else None,
+            metadata_profile_id=int(metadata_profile_id) if metadata_profile_id is not None else None,
         )
+    if method == "GET" and path == "/web-api/albums":
+        artist_id_text = (query.get("artist_id") or [""])[0]
+        return await lidarr_list_albums(int(artist_id_text) if artist_id_text else None)
+    if method == "POST" and path == "/web-api/albums/update":
+        monitored = payload.get("monitored")
+        if not isinstance(monitored, bool):
+            raise ValueError("monitored must be a boolean")
+        return await lidarr_update_album(int(payload.get("id", 0)), monitored)
+    if method == "GET" and path == "/web-api/history":
+        if (query.get("service") or [""])[0] != "lidarr":
+            raise ValueError("history is currently supported for lidarr")
+        return await lidarr_get_history()
+    if method == "GET" and path == "/web-api/missing":
+        if (query.get("service") or [""])[0] != "lidarr":
+            raise ValueError("missing albums are currently supported for lidarr")
+        return await lidarr_get_missing_albums()
     if method == "GET" and path == "/web-api/releases":
         service = (query.get("service") or [""])[0]
         item_id = int((query.get("id") or ["0"])[0])
