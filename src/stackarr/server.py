@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import hmac
 import os
+import re
 from typing import Any
 from urllib.parse import urljoin
 
@@ -222,6 +223,43 @@ ARR_EDITABLE_RESOURCES = {
     "downloadclient": "/api/v3/downloadclient",
     "notification": "/api/v3/notification",
 }
+SENSITIVE_CONFIG_KEY = re.compile(
+    r'(?:password|passwd|api.?key|token|secret|credential|auth.?key|private.?key)',
+    re.IGNORECASE,
+)
+
+def _is_sensitive_config_key(key: Any) -> bool:
+    return isinstance(key, str) and bool(SENSITIVE_CONFIG_KEY.search(key))
+
+def _redact_sensitive_config(value: Any) -> Any:
+    """Remove secret values before configuration reaches MCP clients or browsers."""
+    if isinstance(value, dict):
+        result = {}
+        sensitive_field = _is_sensitive_config_key(value.get("name"))
+        for key, child in value.items():
+            if _is_sensitive_config_key(key) or (sensitive_field and key == "value"):
+                continue
+            result[key] = _redact_sensitive_config(child)
+        return result
+    if isinstance(value, list):
+        return [_redact_sensitive_config(item) for item in value]
+    return value
+
+def _restore_sensitive_config(current: Any, submitted: Any) -> Any:
+    """Preserve secret fields omitted by clients when saving a redacted object."""
+    if isinstance(current, dict) and isinstance(submitted, dict):
+        merged = dict(submitted)
+        sensitive_field = _is_sensitive_config_key(current.get("name"))
+        for key, old_value in current.items():
+            if _is_sensitive_config_key(key) or (sensitive_field and key == "value"):
+                merged[key] = old_value
+            elif key in merged:
+                merged[key] = _restore_sensitive_config(old_value, merged[key])
+        return merged
+    if isinstance(current, list) and isinstance(submitted, list):
+        return [_restore_sensitive_config(old, submitted[index]) if index < len(submitted) else old for index, old in enumerate(current)]
+    return submitted
+
 QBITTORRENT_EDITABLE_PREFERENCES = {
     "save_path", "temp_path", "temp_path_enabled", "scan_dirs",
     "max_active_downloads", "max_active_uploads", "max_active_torrents",
@@ -238,7 +276,8 @@ async def arr_get_configuration(service: str, resource: str) -> Any:
         raise ValueError("service must be radarr or sonarr")
     if resource not in ARR_EDITABLE_RESOURCES:
         raise ValueError(f"resource must be one of: {', '.join(ARR_EDITABLE_RESOURCES)}")
-    return await _arr_request(service, "GET", ARR_EDITABLE_RESOURCES[resource])
+    result = await _arr_request(service, "GET", ARR_EDITABLE_RESOURCES[resource])
+    return _redact_sensitive_config(result)
 
 
 @mcp.tool()
@@ -250,7 +289,9 @@ async def arr_update_configuration(service: str, resource: str, item_id: int, it
         raise ValueError(f"resource must be one of: {', '.join(ARR_EDITABLE_RESOURCES)}")
     if item_id < 1 or not isinstance(item, dict) or int(item.get("id", 0)) != item_id:
         raise ValueError("item must be an object whose id matches the positive item_id")
-    return await _arr_request(service, "PUT", f"{ARR_EDITABLE_RESOURCES[resource]}/{item_id}", body=item)
+    current = await _arr_request(service, "GET", f"{ARR_EDITABLE_RESOURCES[resource]}/{item_id}")
+    safe_item = _restore_sensitive_config(current, item)
+    return await _arr_request(service, "PUT", f"{ARR_EDITABLE_RESOURCES[resource]}/{item_id}", body=safe_item)
 
 
 @mcp.tool()
