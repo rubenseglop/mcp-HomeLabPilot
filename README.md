@@ -56,7 +56,8 @@ The Scryer dashboard includes a schema-driven control center: it reads the insta
 - API keys and passwords are read from environment variables and must never be committed.
 - The server does not expose a generic internet HTTP proxy.
 - Write operations are available because this project is designed for full control. Treat the MCP endpoint and its credentials as administrator-level access to your media stack.
-- The web API requires an authenticated browser session. Torrent pause/resume and library edits require confirmation in the UI. Library updates fetch the current Radarr/Sonarr object and change only the requested monitoring/profile fields, preserving the remaining metadata.
+- The web API requires an authenticated browser session and rejects cross-origin browser POSTs. Torrent pause/resume, library edits, configuration creation and deletion require confirmation in the UI. Library updates fetch the current Radarr/Sonarr object and change only the requested monitoring/profile fields, preserving the remaining metadata.
+- Radarr, Sonarr and Prowlarr configuration records can be listed, edited, created from native JSON payloads and deleted. These configuration mutations require `admin`; secret fields are redacted from responses and existing secrets are preserved when editing records.
 - The assistant should ask before irreversible actions such as deleting library files, removing titles with files, deleting torrents and data, or changing global settings.
 - Docker management is a planned optional module. It will use separate permissions and a restricted control layer; no unrestricted Docker socket access is enabled.
 
@@ -137,7 +138,6 @@ The container runs as a non-root user, drops Linux capabilities, and uses a read
 
 ## Next development steps
 
-1. Add richer library details (monitoring, quality-profile editing and release search/grabbing are now available).
-2. Add dedicated Scryer workflows on top of the live schema browser, plus Bazarr management and operation history/auditing.
-3. Add fine-grained permissions and safer previews for destructive operations.
-4. Add optional Docker management behind a separate restricted permission boundary.
+1. Add dedicated Scryer workflows on top of the live schema browser and native Bazarr configuration forms.
+2. Add operation history/auditing and safer previews for destructive operations.
+3. Add optional Docker management behind a separate restricted permission boundary.
