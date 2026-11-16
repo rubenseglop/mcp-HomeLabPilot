@@ -150,3 +150,11 @@ def test_dashboard_session_is_random_and_not_the_mcp_token():
     cookie = next(value for name, value in start["headers"] if name == b"set-cookie")
     assert b"test-secret-token" not in cookie
     assert b"HttpOnly" in cookie
+
+
+def test_dashboard_library_view_has_monitor_and_quality_profile_controls():
+    start, body = call_asgi(make_app(), "/")
+    assert start["status"] == 200
+    assert b"data-library-monitored" in body
+    assert b"data-library-profile" in body
+    assert b"/web-api/library/update" in body
