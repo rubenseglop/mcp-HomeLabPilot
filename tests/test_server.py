@@ -69,3 +69,33 @@ def test_web_add_rejects_unknown_service():
 
     with pytest.raises(ValueError, match="service must be radarr or sonarr"):
         asyncio.run(server._web_api_request("/web-api/catalog/add", "POST", {}, {"service": "prowlarr"}))
+
+
+
+@pytest.mark.parametrize(
+    ("status_code", "body"),
+    [(204, ""), (200, "Ok.")],
+)
+def test_qbittorrent_login_accepts_success_responses(status_code, body):
+    from types import SimpleNamespace
+    from stackarr.server import _check_qbittorrent_login
+
+    response = SimpleNamespace(
+        status_code=status_code,
+        text=body,
+        raise_for_status=lambda: None,
+    )
+    _check_qbittorrent_login(response)
+
+
+def test_qbittorrent_login_rejects_unexpected_response():
+    from types import SimpleNamespace
+    from stackarr.server import _check_qbittorrent_login
+
+    response = SimpleNamespace(
+        status_code=200,
+        text="Fails.",
+        raise_for_status=lambda: None,
+    )
+    with pytest.raises(RuntimeError, match="rejected"):
+        _check_qbittorrent_login(response)
