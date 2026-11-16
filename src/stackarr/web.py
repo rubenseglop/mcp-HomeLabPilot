@@ -94,10 +94,12 @@ class StackARRWebMiddleware:
         app: Any,
         token: str,
         status_callback: Callable[[], Awaitable[dict[str, Any]]],
+        api_callback: Callable[[str, str, dict[str, list[str]], dict[str, Any]], Awaitable[Any]] | None = None,
     ):
         self.app = app
         self.token = token
         self.status_callback = status_callback
+        self.api_callback = api_callback
 
     @staticmethod
     async def _respond(send: Any, status: int, body: bytes, content_type: bytes = b"application/json", extra_headers: list[tuple[bytes, bytes]] | None = None) -> None:
@@ -150,13 +152,26 @@ class StackARRWebMiddleware:
             await self._respond(send, 200, b'{"ok":true}', extra_headers=[(b"set-cookie", b"stackarr_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0")])
             return
 
-        if path == "/web-api/status" and method == "GET":
+        if path.startswith("/web-api/"):
             if not authenticated:
                 await self._respond(send, 401, b'{"error":"Unauthorized"}')
                 return
             try:
-                result = await self.status_callback()
+                if path == "/web-api/status" and method == "GET":
+                    result = await self.status_callback()
+                elif self.api_callback is not None and method in {"GET", "POST"}:
+                    query = parse_qs(scope.get("query_string", b"").decode("utf-8", "replace"))
+                    raw = await self._body(receive) if method == "POST" else b"{}"
+                    payload = json.loads(raw or b"{}")
+                    if not isinstance(payload, dict):
+                        raise ValueError("Request body must be a JSON object")
+                    result = await self.api_callback(path, method, query, payload)
+                else:
+                    await self._respond(send, 404, b'{"error":"Not found"}')
+                    return
                 await self._respond(send, 200, json.dumps(result, default=str).encode())
+            except ValueError as exc:
+                await self._respond(send, 400, json.dumps({"error": str(exc)}).encode())
             except Exception as exc:
                 await self._respond(send, 502, json.dumps({"error": str(exc)}).encode())
             return
