@@ -191,7 +191,19 @@ async function openView(view){const target=$('workspace');target.textContent='Lo
    html='<h3>Search '+(service==='radarr'?'movies':'series')+'</h3><form id="catalog-search" class="actions" style="flex-wrap:wrap"><input id="catalog-term" placeholder="Enter a title…" required style="min-width:240px;flex:1;background:#0e1728;border:1px solid #34435d;border-radius:9px;padding:10px;color:#e8edf5"><button>Search</button></form><div id="catalog-results" style="margin-top:14px" class="muted">Search the metadata catalogue to add a title.</div>';
    target.innerHTML=html;target.dataset.catalogService=service;return;
  }
- if(view==='movies'||view==='series'){const service=view==='movies'?'radarr':'sonarr';data=await request('/web-api/library?service='+service);const rows=(data||[]).map(x=>'<tr><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(x.title||x.titleSlug)+'</td><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(x.year||x.yearStart)+'</td><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(x.status)+'</td><td style="padding:10px;border-bottom:1px solid #25344d">'+(x.monitored?'Yes':'No')+'</td></tr>');html='<h3>'+ (view==='movies'?'Movies':'Series') +' <span class="muted">('+rows.length+')</span></h3>'+table(['Title','Year','Status','Monitored'],rows);}
+ if(view==='movies'||view==='series'){
+ const service=view==='movies'?'radarr':'sonarr';
+ const [library,setup]=await Promise.all([
+  request('/web-api/library?service='+service),
+  request('/web-api/setup?service='+service)
+ ]);
+ const profiles=setup.quality_profiles||[];
+ const rows=(library||[]).map(x=>{
+  const options=profiles.map(p=>'<option value="'+esc(p.id)+'"'+(Number(p.id)===Number(x.qualityProfileId)?' selected':'')+'>'+esc(p.name)+'</option>').join('');
+  return '<tr><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(x.title||x.titleSlug)+'</td><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(x.year||x.yearStart)+'</td><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(x.status)+'</td><td style="padding:10px;border-bottom:1px solid #25344d"><input type="checkbox" data-library-monitored style="width:auto;margin:0" '+(x.monitored?'checked':'')+'></td><td style="padding:10px;border-bottom:1px solid #25344d"><select data-library-profile style="max-width:190px;background:#0e1728;color:#e8edf5;padding:7px;border:1px solid #34435d;border-radius:8px">'+options+'</select></td><td style="padding:10px;border-bottom:1px solid #25344d"><button data-library-save data-service="'+service+'" data-id="'+esc(x.id)+'">Save</button></td></tr>';
+ }).join('');
+ html='<h3>'+ (view==='movies'?'Movies':'Series') +' <span class="muted">('+((library||[]).length)+')</span></h3><p class="muted">Change monitoring and quality profile per title. Save applies only these two fields.</p>'+table(['Title','Year','Status','Monitored','Quality profile',''],rows);
+}
  else if(view==='radarr-queue'||view==='sonarr-queue'){const service=view==='radarr-queue'?'radarr':'sonarr';data=await request('/web-api/queue?service='+service);const records=data.records||[];const rows=records.map(x=>'<tr><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(x.title)+'</td><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(x.status)+'</td><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(x.trackedDownloadStatus)+'</td><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(x.errorMessage)+'</td></tr>');html='<h3>'+service+' queue <span class="muted">('+records.length+')</span></h3>'+table(['Title','Status','Import state','Message'],rows);}
  else if(view==='downloads'){data=await request('/web-api/torrents');const rows=(data||[]).map(x=>'<tr><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(x.name)+'</td><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(x.state)+'</td><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(x.progress===undefined?'—':Math.round(x.progress*100)+'%')+'</td><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(x.category)+'</td><td style="padding:10px;border-bottom:1px solid #25344d"><button data-torrent-action="pause" data-hash="'+esc(x.hash)+'">Pause</button> <button data-torrent-action="resume" data-hash="'+esc(x.hash)+'">Resume</button></td></tr>');html='<h3>Active downloads <span class="muted">('+rows.length+')</span></h3>'+table(['Name','State','Progress','Category','Controls'],rows);}
  target.innerHTML=html||'<div class="muted">No records found.</div>';
@@ -219,6 +231,20 @@ $('workspace').addEventListener('submit',async e=>{
  }catch(err){out.innerHTML='<div class="error">'+esc(err.message)+'</div>';}
 });
 $('workspace').addEventListener('click',async e=>{const add=e.target.closest('[data-add-title]');if(add){const card=add.closest('.card');const service=add.dataset.service,id=Number(add.dataset.id);if(!confirm('Add this title to '+service+'?'))return;add.disabled=true;try{const body={service,root_folder_path:card.querySelector('[data-root]').value,quality_profile_id:Number(card.querySelector('[data-profile]').value),monitored:true,search_now:card.querySelector('[data-search-now]').checked};body[service==='radarr'?'tmdb_id':'tvdb_id']=id;await request('/web-api/catalog/add',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});add.textContent='Added';}catch(err){alert(err.message);add.disabled=false;}return;}const b=e.target.closest('[data-torrent-action]');if(!b)return;const action=b.dataset.torrentAction;const verb=action==='pause'?'pause':'resume';if(!confirm('Are you sure you want to '+verb+' this torrent?'))return;b.disabled=true;try{await request('/web-api/torrents/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,hashes:b.dataset.hash})});await openView('downloads');}catch(err){alert(err.message);b.disabled=false;}});
+$('workspace').addEventListener('click',async e=>{
+ const button=e.target.closest('[data-library-save]');
+ if(!button)return;
+ const row=button.closest('tr');
+ const profile=row.querySelector('[data-library-profile]');
+ const body={service:button.dataset.service,id:Number(button.dataset.id),monitored:row.querySelector('[data-library-monitored]').checked};
+ if(profile&&profile.value)body.quality_profile_id=Number(profile.value);
+ if(!confirm('Save monitoring and quality profile for this title?'))return;
+ button.disabled=true;
+ try{
+  await request('/web-api/library/update',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  button.textContent='Saved';
+ }catch(err){alert('Could not update title: '+err.message);button.disabled=false;}
+});
 (async()=>{try{render(await request('/web-api/status'));showApp();}catch(e){showLogin();}})();
 setInterval(()=>{if(!$('app').classList.contains('hidden'))refresh();},30000);
 </script>
