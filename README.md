@@ -42,7 +42,7 @@ Set `STACKARR_MCP_PERMISSION_LEVEL` in the private `.env` file to control what a
 
 The generic Radarr/Sonarr/Prowlarr REST bridge applies the same checks: GET is read-only, ordinary writes require operations, and deletes or configuration/system endpoints require admin. Scryer GraphQL queries are read-only; GraphQL mutations require admin in this first version.
 
-The level applies to every MCP client authenticated with the configured bearer token. It does not change the separate browser-dashboard login or its controls. Changing the level requires recreating the StackARR container. Invalid values fail closed. Use `read` when connecting an unfamiliar MCP client; raise it to `operations` or `admin` only when those capabilities are needed.
+The level is enforced server-side for shared write operations from both MCP tools and the browser dashboard; the dashboard still has its own separate login. Changing the level requires recreating the StackARR container. Invalid values fail closed. Use `read` when connecting an unfamiliar MCP client; raise it to `operations` or `admin` only when those capabilities are needed. Permission is not a per-action approval prompt: an MCP client should still obtain the user's explicit confirmation before invoking sensitive admin operations.
 
 ## Security model
 
