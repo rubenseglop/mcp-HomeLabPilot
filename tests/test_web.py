@@ -279,3 +279,11 @@ def test_downloads_view_exposes_category_and_safe_remove_controls():
     assert b"data-torrent-delete" in body
     assert b"delete_files:false" in body
     assert body.count("StackARR · Web dashboard and MCP endpoint in one application".encode()) == 1
+
+
+def test_dashboard_surfaces_backend_error_details_and_uses_live_scryer_schema():
+    start, body = call_asgi(make_app(), "/")
+    assert start["status"] == 200
+    assert b"data.error||data.detail||data.message" in body
+    assert b"query StackStatus { scryerVersion }" not in body
+    assert b"Write a query using an operation shown in the schema above." in body
