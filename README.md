@@ -6,7 +6,7 @@ It connects to the native APIs of Radarr, Sonarr, Prowlarr, Bazarr, Scryer and q
 
 ## Web dashboard
 
-StackARR serves its browser dashboard and MCP endpoint from the same application and port. Open `http://YOUR_DOCKER_HOST:8765/` to sign in with `MCP_AUTH_TOKEN`. The browser receives an HttpOnly session cookie; the token is not stored in browser local storage.
+StackARR serves its browser dashboard and MCP endpoint from the same application and port. Open `http://YOUR_DOCKER_HOST:8765/` and sign in with `STACKARR_WEB_USERNAME` and `STACKARR_WEB_PASSWORD`. These dashboard credentials are separate from `MCP_AUTH_TOKEN`; the MCP bearer token is only for MCP clients. The browser receives a random, HttpOnly session cookie and does not store either credential in browser local storage.
 
 The dashboard currently includes live service status, Radarr movie and Sonarr series library browsing, Radarr/Sonarr queue inspection, qBittorrent torrent listing with pause/resume controls, and metadata catalogue search with workflows to add movies or series using the configured root folders and quality profiles. Settings can edit existing Radarr/Sonarr quality profiles, delay profiles, indexers, download clients and notifications; Prowlarr indexers, download clients and notifications; and an allowlist of qBittorrent preferences. Secret fields are redacted when configurations are read and restored server-side when records are updated. Browser requests use the same configured service API layer as MCP; they are not a separate integration. The overview refreshes automatically every 30 seconds.
 
@@ -44,7 +44,7 @@ The API bridge supports the native operations exposed by each application, rathe
 
 ## Configure
 
-Copy `.env.example` to `.env` and fill in the URLs and credentials for the applications you have installed. Keep `.env` outside Git.
+Copy `.env.example` to `.env` and fill in the URLs and credentials for the applications you have installed. Set `STACKARR_WEB_USERNAME` and `STACKARR_WEB_PASSWORD` to your dashboard login and a long, unique password. Keep `.env` outside Git.
 
 Every URL must be reachable **from inside the StackARR container**. The correct address depends on your deployment:
 - If StackARR and an application share a Docker network, use that application's Docker DNS name and internal port.
@@ -81,7 +81,7 @@ Run the unit tests with `pip install -e ".[test]"` followed by `pytest`.
    cp .env.example .env
    openssl rand -hex 32
    ```
-   Put the generated value in `MCP_AUTH_TOKEN`, then fill in the URLs and credentials for the applications you use. Do not publish or share the `.env` file.
+   Put the generated value in `MCP_AUTH_TOKEN`. Set `STACKARR_WEB_USERNAME` and `STACKARR_WEB_PASSWORD` for browser login, then fill in the URLs and credentials for the applications you use. Do not publish or share the `.env` file.
 3. Ensure StackARR can reach the configured application URLs from its container. The supplied Compose file creates an isolated StackARR network by default. If your applications are on other Docker networks, attach StackARR to those existing networks in `compose.yaml`. For each network, add it to the service's `networks` list and declare it at the bottom as external, using your own network name. For example:
    ```yaml
    services:
