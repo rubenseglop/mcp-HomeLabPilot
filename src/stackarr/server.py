@@ -733,6 +733,16 @@ async def _web_api_request(
         action = str(payload.get("action", ""))
         hashes = str(payload.get("hashes", ""))
         return await qbittorrent_control_torrents(action, hashes)
+    if method == "POST" and path == "/web-api/torrents/category":
+        hashes = str(payload.get("hashes", ""))
+        category = str(payload.get("category", ""))
+        return await qbittorrent_set_category(hashes, category)
+    if method == "POST" and path == "/web-api/torrents/delete":
+        hashes = str(payload.get("hashes", ""))
+        delete_files = payload.get("delete_files", False)
+        if not isinstance(delete_files, bool):
+            raise ValueError("delete_files must be a boolean")
+        return await qbittorrent_delete_torrents(hashes, delete_files)
     raise ValueError("Unknown StackARR web API operation")
 
 
