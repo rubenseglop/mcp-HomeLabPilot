@@ -672,6 +672,20 @@ async def _web_api_request(
             )
         raise ValueError("service must be radarr or sonarr")
 
+    if method == "POST" and path == "/web-api/api":
+        service = str(payload.get("service", ""))
+        api_method = str(payload.get("method", "GET")).upper()
+        api_path = str(payload.get("path", ""))
+        params = payload.get("params", {})
+        body = payload.get("body")
+        if service not in {"radarr", "sonarr", "prowlarr", "bazarr"}:
+            raise ValueError("service must be radarr, sonarr, prowlarr or bazarr")
+        if api_method not in {"GET", "POST", "PUT", "PATCH", "DELETE"}:
+            raise ValueError("method must be GET, POST, PUT, PATCH or DELETE")
+        if not isinstance(params, dict):
+            raise ValueError("params must be a JSON object")
+        return await arr_api_request(service, api_method, api_path, params=params, body=body)
+
     if method == "GET" and path == "/web-api/settings":
         service = (query.get("service") or [""])[0]
         resource = (query.get("resource") or [""])[0]
