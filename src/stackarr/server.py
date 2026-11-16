@@ -156,7 +156,7 @@ async def scryer_graphql(
     download clients, settings and job controls. Use documented GraphQL
     operations and inputs for the installed Scryer version.
     """
-    if re.search(r"\\bmutation\\b", query, re.IGNORECASE):
+    if re.search(r"\bmutation\b", query, re.IGNORECASE):
         _require_permission("admin")
     base = _base_url("SCRYER_URL")
     token = os.getenv("SCRYER_API_KEY", "").strip()
