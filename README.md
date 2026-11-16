@@ -6,7 +6,9 @@ It connects to the native APIs of Radarr, Sonarr, Prowlarr, Bazarr, Scryer and q
 
 ## Web dashboard
 
-StackARR serves its browser dashboard and MCP endpoint from the same application and port. Open `http://YOUR_DOCKER_HOST:8765/` to sign in with `MCP_AUTH_TOKEN`. The browser receives an HttpOnly session cookie; the token is not stored in browser local storage. The initial dashboard provides live service connectivity and version status, refreshing automatically every 30 seconds. Library, queue, release and download-management screens can be added as subsequent UI work.
+StackARR serves its browser dashboard and MCP endpoint from the same application and port. Open `http://YOUR_DOCKER_HOST:8765/` to sign in with `MCP_AUTH_TOKEN`. The browser receives an HttpOnly session cookie; the token is not stored in browser local storage.
+
+The dashboard currently includes live service status, Radarr movie and Sonarr series library browsing, Radarr/Sonarr queue inspection, and qBittorrent torrent listing with pause/resume controls. Browser requests use the same configured service API layer as MCP; they are not a separate integration. The overview refreshes automatically every 30 seconds.
 
 By default, Compose publishes the port on loopback only. To open the dashboard from another device on your LAN, set `STACKARR_BIND_ADDRESS=0.0.0.0` in your private `.env` and recreate the container. This also makes the authenticated MCP endpoint reachable on the LAN. Do not forward this port from your router to the public internet. For remote access, use a private VPN such as Tailscale or a trusted HTTPS access layer.
 
@@ -36,7 +38,9 @@ The API bridge supports the native operations exposed by each application, rathe
 - API keys and passwords are read from environment variables and must never be committed.
 - The server does not expose a generic internet HTTP proxy.
 - Write operations are available because this project is designed for full control. Treat the MCP endpoint and its credentials as administrator-level access to your media stack.
+- The web API requires an authenticated browser session. Torrent pause/resume actions ask for confirmation in the UI.
 - The assistant should ask before irreversible actions such as deleting library files, removing titles with files, deleting torrents and data, or changing global settings.
+- Docker management is a planned optional module. It will use separate permissions and a restricted control layer; no unrestricted Docker socket access is enabled.
 
 ## Configure
 
@@ -115,6 +119,7 @@ The container runs as a non-root user, drops Linux capabilities, and uses a read
 
 ## Next development steps
 
-1. Expand the typed tools with monitoring, quality-profile changes, commands, and safe delete/preview workflows.
-2. Use `scryer_introspect` against the installed Scryer version, then build safe typed workflows for title discovery, library management, requests, releases and subtitles.
-3. Add qBittorrent file-upload support for adding .torrent files.
+1. Add catalogue search and add-title workflows to the browser interface.
+2. Add richer library details, edit/monitor controls, and release selection/grabbing.
+3. Add Bazarr and Scryer management screens and operation history/auditing.
+4. Add optional Docker management behind a separate restricted permission boundary.
