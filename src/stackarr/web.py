@@ -297,9 +297,40 @@ class StackARRWebMiddleware:
         self.token = token
         self.web_username = web_username
         self.web_password = web_password or token
-        self.sessions: dict[str, float] = {}
+        # Stable signing key: sessions survive container restarts without storing
+        # the MCP token or requiring a server-side session database.
+        self.session_signing_key = hmac.new(
+            token.encode("utf-8"), b"stackarr-web-session-v1", hashlib.sha256
+        ).digest()
         self.status_callback = status_callback
         self.api_callback = api_callback
+
+    def _create_session(self) -> str:
+        expires = int(time.time()) + 30 * 24 * 60 * 60
+        payload = f"{expires}.{secrets.token_urlsafe(24)}"
+        signature = hmac.new(
+            self.session_signing_key, payload.encode("ascii"), hashlib.sha256
+        ).hexdigest()
+        return base64.urlsafe_b64encode(f"{payload}.{signature}".encode("ascii")).decode("ascii").rstrip("=")
+
+    def _verify_session(self, session: str) -> bool:
+        if not session or len(session) > 512:
+            return False
+        try:
+            padded = session + "=" * (-len(session) % 4)
+            decoded = base64.urlsafe_b64decode(padded.encode("ascii")).decode("ascii")
+            expires_text, nonce, signature = decoded.split(".", 2)
+            payload = f"{expires_text}.{nonce}"
+            expected = hmac.new(
+                self.session_signing_key, payload.encode("ascii"), hashlib.sha256
+            ).hexdigest()
+            return (
+                expires_text.isdigit()
+                and int(expires_text) > int(time.time())
+                and hmac.compare_digest(signature, expected)
+            )
+        except (ValueError, UnicodeError):
+            return False
 
     @staticmethod
     async def _respond(send: Any, status: int, body: bytes, content_type: bytes = b"application/json", extra_headers: list[tuple[bytes, bytes]] | None = None) -> None:
@@ -328,11 +359,7 @@ class StackARRWebMiddleware:
         headers = dict(scope.get("headers", []))
         cookie = headers.get(b"cookie", b"").decode("latin1")
         session = next((part.strip()[len("stackarr_session="):] for part in cookie.split(";") if part.strip().startswith("stackarr_session=")), "")
-        now = time.time()
-        expires = self.sessions.get(session, 0)
-        authenticated = bool(session) and expires > now
-        if session and not authenticated:
-            self.sessions.pop(session, None)
+        authenticated = self._verify_session(session)
 
         if path == "/" and method == "GET":
             await self._respond(send, 200, DASHBOARD.encode(), b"text/html; charset=utf-8")
@@ -350,10 +377,9 @@ class StackARRWebMiddleware:
             if not (valid_user and valid_password):
                 await self._respond(send, 401, b'{"error":"Unauthorized"}')
                 return
-            session_id = secrets.token_urlsafe(32)
-            self.sessions[session_id] = time.time() + 43200
+            session_id = self._create_session()
             secure = b"; Secure" if headers.get(b"x-forwarded-proto", b"").lower() == b"https" else b""
-            cookie_value = b"stackarr_session=" + session_id.encode() + b"; HttpOnly; SameSite=Strict; Path=/; Max-Age=43200" + secure
+            cookie_value = b"stackarr_session=" + session_id.encode() + b"; HttpOnly; SameSite=Strict; Path=/; Max-Age=2592000" + secure
             await self._respond(send, 200, b'{"ok":true}', extra_headers=[(b"set-cookie", cookie_value)])
             return
 
