@@ -115,17 +115,53 @@ async function openView(view){const target=$('workspace');target.textContent='Lo
  let data,html='';
 
  if(view==='scryer'){
-   html='<h3>Scryer · GraphQL</h3><p class="muted">Explore and operate Scryer through its native GraphQL API. Queries are read-only; mutations require StackARR admin permission. Use the Scryer API documentation for operation names and input types.</p><label class="muted">GraphQL operation</label><textarea id="scryer-query" rows="9" spellcheck="false" style="width:100%;background:#0b1322;color:#dce7f8;border:1px solid #34435d;border-radius:9px;padding:12px;font:13px ui-monospace,monospace">query StackStatus { scryerVersion }</textarea><label class="muted">Variables · JSON object (optional)</label><textarea id="scryer-variables" rows="4" spellcheck="false" style="width:100%;background:#0b1322;color:#dce7f8;border:1px solid #34435d;border-radius:9px;padding:12px;font:13px ui-monospace,monospace">{}</textarea><div class="actions" style="margin-top:10px"><button id="scryer-run">Execute GraphQL</button><button id="scryer-introspect">Load schema overview</button></div><pre id="scryer-result" class="info" style="white-space:pre-wrap;overflow-wrap:anywhere;margin-top:14px">Ready.</pre>';
+   html='<h3>Scryer · Control center</h3><p class="muted">Live status and a schema-driven view of the GraphQL API. The available fields are read from your installed Scryer version; no operation names are assumed.</p><div class="grid" id="scryer-summary" style="margin:12px 0"><article class="card"><div class="muted">Connection</div><div class="name" id="scryer-connection">Checking…</div></article><article class="card"><div class="muted">GraphQL queries</div><div class="name" id="scryer-query-count">—</div></article><article class="card"><div class="muted">GraphQL mutations</div><div class="name" id="scryer-mutation-count">—</div></article></div><div class="actions" style="flex-wrap:wrap;margin:12px 0"><button id="scryer-refresh">Refresh schema</button><input id="scryer-filter" placeholder="Filter operations…" style="max-width:280px;margin:0"></div><div id="scryer-schema" class="info">Loading Scryer schema…</div><details class="card" open style="margin-top:14px"><summary style="cursor:pointer;font-weight:650">GraphQL console</summary><div style="margin-top:12px"><label class="muted">GraphQL operation</label><textarea id="scryer-query" rows="7" spellcheck="false" style="width:100%;background:#0b1322;color:#dce7f8;border:1px solid #34435d;border-radius:9px;padding:12px;font:13px ui-monospace,monospace">query StackStatus { scryerVersion }</textarea><label class="muted">Variables · JSON object (optional)</label><textarea id="scryer-variables" rows="3" spellcheck="false" style="width:100%;background:#0b1322;color:#dce7f8;border:1px solid #34435d;border-radius:9px;padding:12px;font:12px ui-monospace,monospace">{}</textarea><div class="actions" style="margin-top:10px"><button id="scryer-run">Execute query</button></div><pre id="scryer-result" class="info" style="white-space:pre-wrap;overflow-wrap:anywhere;margin-top:12px">Ready.</pre></div></details>';
    target.innerHTML=html;
+   const typeName=t=>{if(!t)return 'Unknown';if(t.name)return t.name;return (t.kind==='NON_NULL'?'':'')+(typeName(t.ofType)||'Unknown')+(t.kind==='NON_NULL'?'!':t.kind==='LIST'?'[]':'');};
+   const schemaBox=$('scryer-schema');
+   let schemaData=null;
+   const renderSchema=()=>{
+    if(!schemaData)return;
+    const filter=$('scryer-filter').value.trim().toLowerCase();
+    const groups=[['Queries',schemaData.queryType],['Mutations',schemaData.mutationType]];
+    schemaBox.innerHTML=groups.map(([label,root])=>{
+     const fields=root?.fields||[];
+     const filtered=fields.filter(f=>(f.name+' '+(f.description||'')+' '+(f.args||[]).map(a=>a.name).join(' ')).toLowerCase().includes(filter));
+     return '<section style="margin:8px 0 18px"><div class="cardtop"><strong>'+label+'</strong><span class="pill">'+filtered.length+' / '+fields.length+'</span></div>'+(filtered.length?filtered.map(f=>{
+      const args=(f.args||[]).map(a=>'<div class="muted" style="margin:4px 0 0 12px"><code>'+esc(a.name)+'</code>: '+esc(typeName(a.type))+(a.defaultValue!==null&&a.defaultValue!==undefined?' · default '+esc(a.defaultValue):'')+'</div>').join('');
+      return '<details style="padding:10px 0;border-bottom:1px solid #293750"><summary style="cursor:pointer"><strong>'+esc(f.name)+'</strong> <span class="muted">→ '+esc(typeName(f.type))+'</span></summary>'+(f.description?'<p class="muted">'+esc(f.description)+'</p>':'')+(args||'<p class="muted">No arguments</p>')+'</details>';
+     }).join(''):'<p class="muted">No matching operations.</p>')+'</section>';
+    }).join('');
+   };
+   async function loadScryerSchema(){
+    $('scryer-refresh').disabled=true;$('scryer-connection').textContent='Connecting…';schemaBox.textContent='Reading GraphQL schema…';
+    const introspection='query StackARRSchema { __schema { queryType { name fields(includeDeprecated:true) { name description args { name description defaultValue type { kind name ofType { kind name ofType { kind name ofType { kind name ofType { kind name } } } } } } type { kind name ofType { kind name ofType { kind name ofType { kind name ofType { kind name } } } } } } } mutationType { name fields(includeDeprecated:true) { name description args { name description defaultValue type { kind name ofType { kind name ofType { kind name ofType { kind name } } } } } type { kind name ofType { kind name ofType { kind name ofType { kind name } } } } } } } }';
+    try{
+     const result=await request('/web-api/scryer/graphql',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query:introspection})});
+     if(result.errors?.length)throw new Error(result.errors.map(x=>x.message).join('; '));
+     schemaData=result.data?.__schema;
+     if(!schemaData)throw new Error('Scryer did not return a GraphQL schema.');
+     $('scryer-connection').textContent='Connected';
+     $('scryer-query-count').textContent=(schemaData.queryType?.fields||[]).length;
+     $('scryer-mutation-count').textContent=(schemaData.mutationType?.fields||[]).length;
+     renderSchema();
+    }catch(err){$('scryer-connection').textContent='Unavailable';schemaBox.innerHTML='<div class="error">'+esc(err.message)+'</div>';}
+    finally{$('scryer-refresh').disabled=false;}
+   }
+   $('scryer-filter').addEventListener('input',renderSchema);
+   $('scryer-refresh').addEventListener('click',loadScryerSchema);
    $('scryer-run').addEventListener('click',async()=>{
     const out=$('scryer-result');out.textContent='Executing…';
-    try{let variables=JSON.parse($('scryer-variables').value||'{}');if(!variables||typeof variables!=='object'||Array.isArray(variables))throw new Error('Variables must be a JSON object');const result=await request('/web-api/scryer/graphql',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query:$('scryer-query').value,variables})});out.textContent=JSON.stringify(result,null,2);}
-    catch(err){out.textContent='Error: '+err.message;}
+    try{
+     const variables=JSON.parse($('scryer-variables').value||'{}');
+     if(!variables||typeof variables!=='object'||Array.isArray(variables))throw new Error('Variables must be a JSON object');
+     const queryText=$('scryer-query').value;
+     if(!queryText.trim())throw new Error('GraphQL operation cannot be empty');
+     const result=await request('/web-api/scryer/graphql',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query:queryText,variables})});
+     out.textContent=JSON.stringify(result,null,2);
+    }catch(err){out.textContent='Error: '+err.message;}
    });
-   $('scryer-introspect').addEventListener('click',async()=>{
-    $('scryer-query').value='query StackARRSchema { __schema { queryType { name fields { name description } } mutationType { name fields { name description } } } }';
-    $('scryer-run').click();
-   });
+   await loadScryerSchema();
    return;
  }
  if(view==='settings'){
