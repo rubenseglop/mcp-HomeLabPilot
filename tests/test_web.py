@@ -166,3 +166,44 @@ def test_dashboard_library_has_release_search_and_grab_controls():
     assert b"data-library-releases" in body
     assert b"data-grab-release" in body
     assert b"/web-api/releases/grab" in body
+
+
+def test_dashboard_session_survives_middleware_restart():
+    first = make_app()
+    login, _ = call_asgi(
+        first, "/web-login", method="POST",
+        headers=[(b"content-type", b"application/json")],
+        body=json.dumps({"username": "testuser", "password": "test-password"}).encode(),
+    )
+    cookie = next(value.split(b";", 1)[0] for name, value in login["headers"] if name == b"set-cookie")
+
+    # A new middleware instance represents a container/process restart.
+    restarted = make_app()
+    start, body = call_asgi(restarted, "/web-api/status", headers=[(b"cookie", cookie)])
+    assert start["status"] == 200
+    assert b'"radarr"' in body
+
+
+def test_dashboard_session_rejects_tampered_cookie():
+    app = make_app()
+    login, _ = call_asgi(
+        app, "/web-login", method="POST",
+        headers=[(b"content-type", b"application/json")],
+        body=json.dumps({"username": "testuser", "password": "test-password"}).encode(),
+    )
+    cookie = next(value.split(b";", 1)[0] for name, value in login["headers"] if name == b"set-cookie")
+    name, value = cookie.split(b"=", 1)
+    tampered = value[:-1] + (b"A" if value[-1:] != b"A" else b"B")
+    start, _ = call_asgi(app, "/web-api/status", headers=[(b"cookie", name + b"=" + tampered)])
+    assert start["status"] == 401
+
+
+def test_dashboard_cookie_is_persistent_for_thirty_days():
+    app = make_app()
+    login, _ = call_asgi(
+        app, "/web-login", method="POST",
+        headers=[(b"content-type", b"application/json")],
+        body=json.dumps({"username": "testuser", "password": "test-password"}).encode(),
+    )
+    cookie = next(value for name, value in login["headers"] if name == b"set-cookie")
+    assert b"Max-Age=2592000" in cookie
