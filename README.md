@@ -1,52 +1,62 @@
 # StackARR MCP
 
-MCP server for **read-only diagnosis** of a self-hosted *arr stack.
+A unified MCP server to **control your media stack from an MCP client such as ChatGPT**.
 
-The goal is to let an MCP client inspect Radarr, Sonarr, Prowlarr, Bazarr and qBittorrent together, correlate their state, and explain where a media workflow is stuck — without changing configuration, queue items, downloads, or library files.
+It connects directly to the native APIs of Radarr, Sonarr, Prowlarr, Bazarr, Scryer and qBittorrent. The goal is not to build another dashboard: it is to expose the applications' capabilities as tools the assistant can call.
 
-## Principles
+## Current implementation
 
-- Read-only: this server only calls API endpoints intended for inspection.
-- Secrets stay in environment variables; never commit real API keys or passwords.
-- Local-first: run it next to the Docker stack, or connect it to services reachable over your LAN.
-- Diagnostic output should identify evidence, the likely failing stage, and a safe suggested remedy.
+- `arr_api_request`: full REST API bridge for Radarr, Sonarr, Prowlarr and Bazarr.
+- `scryer_graphql`: GraphQL query/mutation bridge for Scryer.
+- `qbittorrent_api_request`: qBittorrent Web API bridge, including queue/download controls.
+- `stack_status`: connectivity and version checks.
 
-## Current status
+The API bridge supports the native operations exposed by each application, rather than hard-coding a small set of workflows. This lets us add higher-level, easy-to-use tools without losing access to less common features.
 
-Initial scaffold. The first implementation provides connection checks and read-only queue snapshots for Radarr, Sonarr, Prowlarr and qBittorrent. Bazarr is included in configuration and will be added to the diagnostic probes after its API behavior is verified against the deployed version.
+## Security model
 
-## Configuration
+- The caller cannot supply a hostname: requests are restricted to the base URLs configured in environment variables.
+- API keys and passwords are read from environment variables and must never be committed.
+- The server does not expose a generic internet HTTP proxy.
+- Write operations are available because this project is designed for full control. Treat the MCP endpoint and its credentials as administrator-level access to your media stack.
+- The assistant should ask before irreversible actions such as deleting library files, removing titles with files, deleting torrents and data, or changing global settings.
 
-Copy `.env.example` to `.env` and fill in the URLs and API keys for the services you use.
+## Configure
 
-Do not publish `.env`, API keys, passwords, or access tokens.
+Copy `.env.example` to `.env` and fill in the URLs and credentials. Keep `.env` outside Git.
 
-## Run locally
+Use Docker service names when StackARR shares a Docker network with the applications; otherwise use reachable LAN URLs. The default examples are placeholders and may need changing for your Compose network.
 
-Requires Python 3.11 or newer.
+Scryer uses its GraphQL API at `/graphql` and a bearer API key. Create an API key in Scryer's security settings and give it the permissions needed for the operations you want StackARR to perform.
+
+## Install locally
+
+Requires Python 3.11+.
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 pip install -e .
 cp .env.example .env
-# Edit .env, then:
+# Edit .env, then export its variables before launching:
 set -a && source .env && set +a
 stackarr-mcp
 ```
 
-The server uses MCP over stdio. Configure your MCP client to launch `stackarr-mcp` with the required environment variables.
+The server uses MCP over stdio. Configure the MCP client to launch `stackarr-mcp` with the environment variables.
 
-## Available tools
+## API references
 
-- `stack_status`: checks connectivity and reports application versions/status.
-- `get_download_queue`: reads the Radarr, Sonarr and qBittorrent queues and returns a compact snapshot.
+- Radarr: `/api/v3`
+- Sonarr: `/api/v3`
+- Prowlarr: `/api/v1`
+- Bazarr: native API under `/api`
+- Scryer: GraphQL at `/graphql`
+- qBittorrent: Web API under `/api/v2`
 
-All tools are observational. No command is provided to add, remove, rename, import, search-and-grab, or modify media.
+## Next development steps
 
-## Planned
-
-1. Add Bazarr diagnostics and subtitle status.
-2. Correlate a title across the request, *arr queue, download client, import history and library.
-3. Add a `diagnose_media` tool with evidence, first failing stage, and remedy.
-4. Add tests with mocked API responses and deployment examples for Docker/Portainer.
+1. Add curated, strongly typed tools for common requests (add/search/grab/update/remove) so the model does not need to construct raw API calls.
+2. Add schema-aware Scryer tools for title discovery, library management, requests, release search/grab, subtitles, indexers, clients and settings.
+3. Add qBittorrent file-upload support for adding .torrent files.
+4. Add tests using mocked APIs and a Docker Compose deployment example.
