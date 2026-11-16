@@ -630,6 +630,16 @@ async def _web_api_request(
             service, item_id, monitored=monitored,
             quality_profile_id=int(profile_id) if profile_id is not None else None,
         )
+    if method == "GET" and path == "/web-api/releases":
+        service = (query.get("service") or [""])[0]
+        item_id = int((query.get("id") or ["0"])[0])
+        return await arr_search_releases(service, item_id)
+    if method == "POST" and path == "/web-api/releases/grab":
+        return await arr_grab_release(
+            str(payload.get("service", "")),
+            str(payload.get("guid", "")),
+            int(payload.get("indexer_id", 0)),
+        )
     if method == "GET" and path == "/web-api/library":
         service = (query.get("service") or [""])[0]
         return await arr_list_library(service)
