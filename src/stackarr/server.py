@@ -49,7 +49,8 @@ def _arr_api_required_permission(method: str, path: str) -> str:
     normalized = path.lower()
     admin_fragments = (
         "/qualityprofile", "/delayprofile", "/indexer", "/downloadclient",
-        "/notification", "/config/", "/system/",
+        "/notification", "/config/", "/system/", "/command", "/bulk",
+        "/settings", "/application", "/rootfolder", "/languageprofile", "/auth/",
     )
     if method == "DELETE" or any(fragment in normalized for fragment in admin_fragments):
         return "admin"
