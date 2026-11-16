@@ -223,6 +223,16 @@ ARR_EDITABLE_RESOURCES = {
     "downloadclient": "/api/v3/downloadclient",
     "notification": "/api/v3/notification",
 }
+
+ARR_EDITABLE_RESOURCES_BY_SERVICE = {
+    "radarr": ARR_EDITABLE_RESOURCES,
+    "sonarr": ARR_EDITABLE_RESOURCES,
+    "prowlarr": {
+        "indexer": "/api/v1/indexer",
+        "downloadclient": "/api/v1/downloadclient",
+        "notification": "/api/v1/notification",
+    },
+}
 SENSITIVE_CONFIG_KEY = re.compile(
     r'(?:password|passwd|api.?key|token|secret|credential|auth.?key|private.?key)',
     re.IGNORECASE,
@@ -271,27 +281,30 @@ QBITTORRENT_EDITABLE_PREFERENCES = {
 
 @mcp.tool()
 async def arr_get_configuration(service: str, resource: str) -> Any:
-    """Read editable configuration records from Radarr or Sonarr."""
-    if service not in {"radarr", "sonarr"}:
-        raise ValueError("service must be radarr or sonarr")
-    if resource not in ARR_EDITABLE_RESOURCES:
-        raise ValueError(f"resource must be one of: {', '.join(ARR_EDITABLE_RESOURCES)}")
-    result = await _arr_request(service, "GET", ARR_EDITABLE_RESOURCES[resource])
+    """Read editable configuration records from Radarr, Sonarr or Prowlarr."""
+    resources = ARR_EDITABLE_RESOURCES_BY_SERVICE.get(service)
+    if resources is None:
+        raise ValueError("service must be radarr, sonarr or prowlarr")
+    if resource not in resources:
+        raise ValueError(f"resource for {service} must be one of: {', '.join(resources)}")
+    result = await _arr_request(service, "GET", resources[resource])
     return _redact_sensitive_config(result)
 
 
 @mcp.tool()
 async def arr_update_configuration(service: str, resource: str, item_id: int, item: dict[str, Any]) -> Any:
-    """Update an existing Radarr/Sonarr quality profile, delay profile, indexer, download client or notification."""
-    if service not in {"radarr", "sonarr"}:
-        raise ValueError("service must be radarr or sonarr")
-    if resource not in ARR_EDITABLE_RESOURCES:
-        raise ValueError(f"resource must be one of: {', '.join(ARR_EDITABLE_RESOURCES)}")
+    """Update an existing editable configuration record in Radarr, Sonarr or Prowlarr."""
+    resources = ARR_EDITABLE_RESOURCES_BY_SERVICE.get(service)
+    if resources is None:
+        raise ValueError("service must be radarr, sonarr or prowlarr")
+    if resource not in resources:
+        raise ValueError(f"resource for {service} must be one of: {', '.join(resources)}")
     if item_id < 1 or not isinstance(item, dict) or int(item.get("id", 0)) != item_id:
         raise ValueError("item must be an object whose id matches the positive item_id")
-    current = await _arr_request(service, "GET", f"{ARR_EDITABLE_RESOURCES[resource]}/{item_id}")
+    endpoint = resources[resource]
+    current = await _arr_request(service, "GET", f"{endpoint}/{item_id}")
     safe_item = _restore_sensitive_config(current, item)
-    return await _arr_request(service, "PUT", f"{ARR_EDITABLE_RESOURCES[resource]}/{item_id}", body=safe_item)
+    return await _arr_request(service, "PUT", f"{endpoint}/{item_id}", body=safe_item)
 
 
 @mcp.tool()
