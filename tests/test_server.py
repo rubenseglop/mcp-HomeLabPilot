@@ -112,6 +112,7 @@ def test_arr_configuration_update_rejects_unknown_resource():
 def test_qbittorrent_preferences_reject_sensitive_or_unknown_keys(monkeypatch):
     import asyncio
     import stackarr.server as server
+    monkeypatch.setenv("STACKARR_MCP_PERMISSION_LEVEL", "admin")
 
     async def fake_request(method, path, params=None, data=None):
         return {"ok": True}
@@ -148,6 +149,7 @@ def test_arr_configuration_redacts_secret_fields_recursively():
 def test_arr_update_configuration_restores_redacted_secrets(monkeypatch):
     import asyncio
     import stackarr.server as server
+    monkeypatch.setenv("STACKARR_MCP_PERMISSION_LEVEL", "admin")
 
     calls = []
     current = {
@@ -184,6 +186,7 @@ def test_arr_update_configuration_restores_redacted_secrets(monkeypatch):
 def test_prowlarr_configuration_uses_v1_endpoints(monkeypatch):
     import asyncio
     import stackarr.server as server
+    monkeypatch.setenv("STACKARR_MCP_PERMISSION_LEVEL", "admin")
 
     calls = []
 
@@ -299,3 +302,85 @@ def test_web_release_routes_dispatch_search_and_grab(monkeypatch):
     assert releases == [{"guid": "release-guid"}]
     assert grabbed == {"queued": True}
     assert calls == [("search", "radarr", 42), ("grab", "radarr", "release-guid", 8)]
+
+
+
+@pytest.mark.parametrize(
+    ("level", "required", "allowed"),
+    [
+        ("read", "read", True),
+        ("read", "operations", False),
+        ("operations", "operations", True),
+        ("operations", "admin", False),
+        ("admin", "admin", True),
+    ],
+)
+def test_permission_levels_enforce_hierarchy(monkeypatch, level, required, allowed):
+    from stackarr.server import _require_permission
+
+    monkeypatch.setenv("STACKARR_MCP_PERMISSION_LEVEL", level)
+    if allowed:
+        _require_permission(required)
+    else:
+        with pytest.raises(PermissionError, match="requires"):
+            _require_permission(required)
+
+
+def test_invalid_permission_level_fails_closed(monkeypatch):
+    from stackarr.server import _require_permission
+
+    monkeypatch.setenv("STACKARR_MCP_PERMISSION_LEVEL", "superuser")
+    with pytest.raises(RuntimeError, match="must be read, operations or admin"):
+        _require_permission("read")
+
+
+@pytest.mark.parametrize(
+    ("method", "path", "expected"),
+    [
+        ("GET", "/api/v3/movie", "read"),
+        ("POST", "/api/v3/movie", "operations"),
+        ("PUT", "/api/v3/series/12", "operations"),
+        ("DELETE", "/api/v3/movie/12", "admin"),
+        ("PUT", "/api/v3/qualityprofile/2", "admin"),
+        ("POST", "/api/v1/indexer", "admin"),
+    ],
+)
+def test_generic_arr_api_permission_classification(method, path, expected):
+    from stackarr.server import _arr_api_required_permission
+
+    assert _arr_api_required_permission(method, path) == expected
+
+
+def test_read_permission_blocks_generic_arr_write_before_api_call(monkeypatch):
+    import asyncio
+    import stackarr.server as server
+
+    async def unexpected_request(*args, **kwargs):
+        raise AssertionError("API must not be called when permission is denied")
+
+    monkeypatch.setattr(server, "_arr_request", unexpected_request)
+    monkeypatch.setenv("STACKARR_MCP_PERMISSION_LEVEL", "read")
+    with pytest.raises(PermissionError, match="requires 'operations'"):
+        asyncio.run(server.arr_api_request("radarr", "POST", "/api/v3/movie", body={"tmdbId": 1}))
+
+
+def test_operations_permission_blocks_destructive_arr_api_write(monkeypatch):
+    import asyncio
+    import stackarr.server as server
+
+    async def unexpected_request(*args, **kwargs):
+        raise AssertionError("API must not be called when permission is denied")
+
+    monkeypatch.setattr(server, "_arr_request", unexpected_request)
+    monkeypatch.setenv("STACKARR_MCP_PERMISSION_LEVEL", "operations")
+    with pytest.raises(PermissionError, match="requires 'admin'"):
+        asyncio.run(server.arr_api_request("radarr", "DELETE", "/api/v3/movie/12"))
+
+
+def test_scryer_mutation_requires_admin(monkeypatch):
+    import asyncio
+    import stackarr.server as server
+
+    monkeypatch.setenv("STACKARR_MCP_PERMISSION_LEVEL", "operations")
+    with pytest.raises(PermissionError, match="requires 'admin'"):
+        asyncio.run(server.scryer_graphql("mutation { deleteMovie(id: 1) { id } }"))
