@@ -503,9 +503,10 @@ def test_arr_configuration_create_requires_admin_and_redacts_response(monkeypatc
     assert result == {"id": 12, "name": "Indexer"}
 
 
-def test_arr_configuration_create_rejects_existing_id():
+def test_arr_configuration_create_rejects_existing_id(monkeypatch):
     import asyncio
     import stackarr.server as server
+    monkeypatch.setenv("STACKARR_MCP_PERMISSION_LEVEL", "admin")
     with pytest.raises(ValueError, match="id omitted or set to 0"):
         asyncio.run(server.arr_create_configuration("radarr", "indexer", {"id": 9}))
 
