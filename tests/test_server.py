@@ -101,11 +101,10 @@ def test_qbittorrent_login_rejects_unexpected_response():
         _check_qbittorrent_login(response)
 
 
-def test_arr_configuration_update_rejects_unknown_resource():
+def test_arr_configuration_update_rejects_unknown_resource(monkeypatch):
     import asyncio
     import stackarr.server as server
-    import os
-    os.environ["STACKARR_MCP_PERMISSION_LEVEL"] = "admin"
+    monkeypatch.setenv("STACKARR_MCP_PERMISSION_LEVEL", "admin")
 
     with pytest.raises(ValueError, match="resource for radarr must be one of"):
         asyncio.run(server.arr_update_configuration("radarr", "system", 1, {"id": 1}))
