@@ -268,7 +268,6 @@ ARR_EDITABLE_RESOURCES = {
 
 ARR_EDITABLE_RESOURCES_BY_SERVICE = {
     "radarr": ARR_EDITABLE_RESOURCES,
-    "sonarr": ARR_EDITABLE_RESOURCES,
     "prowlarr": {
         "indexer": "/api/v1/indexer",
         "downloadclient": "/api/v1/downloadclient",
