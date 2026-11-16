@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import hmac
 import json
+import secrets
+import time
 from typing import Any, Awaitable, Callable
 from urllib.parse import parse_qs
 
@@ -49,8 +51,8 @@ input{width:100%;padding:12px;border:1px solid #34435d;border-radius:10px;backgr
 <body>
 <div id="login" class="hidden">
   <div class="brand"><div class="logo">S</div><div><h1>StackARR</h1><div class="sub">Media stack control center</div></div></div>
-  <p>Sign in with your StackARR access token. Your browser session is stored in an HttpOnly cookie.</p>
-  <form id="login-form"><input id="password" type="password" autocomplete="current-password" placeholder="StackARR access token" required><button>Sign in</button></form>
+  <p>Sign in with your StackARR dashboard account. Your browser session is stored in an HttpOnly cookie.</p>
+  <form id="login-form"><input id="username" autocomplete="username" placeholder="Username" required><input id="password" type="password" autocomplete="current-password" placeholder="Password" required><button>Sign in</button></form>
   <div id="login-error" class="error"></div>
 </div>
 <main id="app" class="shell hidden">
@@ -86,7 +88,7 @@ function render(data){
  $('services').innerHTML=entries.map(([name,v])=>'<article class="card"><div class="cardtop"><div class="name">'+esc(name[0].toUpperCase()+name.slice(1))+'</div><span class="status '+(v.ok?'ok':'bad')+'">'+(v.ok?'Online':'Attention')+'</span></div><div class="version">'+(v.version?'Version '+esc(v.version):v.app_name?esc(v.app_name):v.ok?'Connected':'Not connected')+'</div>'+(v.error?'<div class="error">'+esc(v.error)+'</div>':'')+'</article>').join('');
 }
 async function refresh(){ $('refresh').disabled=true;$('refresh').textContent='Loading…';try{render(await request('/web-api/status'));}catch(e){if(e.message==='unauthorized')showLogin();else $('healthy').textContent=e.message;}finally{$('refresh').disabled=false;$('refresh').textContent='Refresh';}}
-$('login-form').addEventListener('submit',async e=>{e.preventDefault();$('login-error').textContent='';try{await request('/web-login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:$('password').value})});$('password').value='';showApp();await refresh();}catch(e){$('login-error').textContent='Login failed. Check the token and try again.';}});
+$('login-form').addEventListener('submit',async e=>{e.preventDefault();$('login-error').textContent='';try{await request('/web-login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:$('username').value,password:$('password').value})});$('password').value='';showApp();await refresh();}catch(e){$('login-error').textContent='Login failed. Check your username and password.';}});
 $('refresh').addEventListener('click',refresh);
 $('logout').addEventListener('click',async()=>{await fetch('/web-logout',{method:'POST',credentials:'same-origin'});showLogin();});
 function cell(v){return esc(v===null||v===undefined?'—':v);}
@@ -233,9 +235,14 @@ class StackARRWebMiddleware:
         token: str,
         status_callback: Callable[[], Awaitable[dict[str, Any]]],
         api_callback: Callable[[str, str, dict[str, list[str]], dict[str, Any]], Awaitable[Any]] | None = None,
+        web_username: str = "admin",
+        web_password: str | None = None,
     ):
         self.app = app
         self.token = token
+        self.web_username = web_username
+        self.web_password = web_password or token
+        self.sessions: dict[str, float] = {}
         self.status_callback = status_callback
         self.api_callback = api_callback
 
@@ -266,7 +273,11 @@ class StackARRWebMiddleware:
         headers = dict(scope.get("headers", []))
         cookie = headers.get(b"cookie", b"").decode("latin1")
         session = next((part.strip()[len("stackarr_session="):] for part in cookie.split(";") if part.strip().startswith("stackarr_session=")), "")
-        authenticated = bool(session) and hmac.compare_digest(session, self.token)
+        now = time.time()
+        expires = self.sessions.get(session, 0)
+        authenticated = bool(session) and expires > now
+        if session and not authenticated:
+            self.sessions.pop(session, None)
 
         if path == "/" and method == "GET":
             await self._respond(send, 200, DASHBOARD.encode(), b"text/html; charset=utf-8")
