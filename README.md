@@ -2,19 +2,19 @@
 
 A unified media-stack application combining a browser dashboard and an MCP server. Use the web interface directly, or connect an MCP client such as ChatGPT to the same backend.
 
-It connects to the native APIs of Radarr, Sonarr, Prowlarr, Bazarr, Scryer and qBittorrent. StackARR is designed to be installed by different users on different Docker hosts; it does not require any particular folder layout, IP address, container name, Docker network or storage system.
+It connects to the native APIs of Radarr, Sonarr, Prowlarr, Bazarr, Lidarr, Scryer and qBittorrent. StackARR is designed to be installed by different users on different Docker hosts; it does not require any particular folder layout, IP address, container name, Docker network or storage system.
 
 ## Web dashboard
 
 StackARR serves its browser dashboard and MCP endpoint from the same application and port. Open `http://YOUR_DOCKER_HOST:8765/` and sign in with `STACKARR_WEB_USERNAME` and `STACKARR_WEB_PASSWORD`. These dashboard credentials are separate from `MCP_AUTH_TOKEN`; the MCP bearer token is only for MCP clients. The browser receives a random, HttpOnly session cookie and does not store either credential in browser local storage.
 
-The dashboard currently includes live service status, Radarr movie and Sonarr series library browsing, Radarr/Sonarr queue inspection, qBittorrent torrent listing with pause/resume controls, category assignment and removal (downloaded files are kept by default), and metadata catalogue search with workflows to add movies or series using the configured root folders and quality profiles. Settings can edit existing Radarr/Sonarr quality profiles, delay profiles, indexers, download clients and notifications; Prowlarr indexers, download clients and notifications; and an allowlist of qBittorrent preferences. Secret fields are redacted when configurations are read and restored server-side when records are updated. Browser requests use the same configured service API layer as MCP; they are not a separate integration. The overview refreshes automatically every 30 seconds.
+The dashboard currently includes live service status, Radarr movie, Sonarr series and Lidarr artist/album library browsing, queue inspection and history/missing-album views, qBittorrent torrent listing with pause/resume controls, category assignment and removal (downloaded files are kept by default), and metadata catalogue search with workflows to add movies, series or artists using the configured root folders and profiles. Settings can edit existing Radarr/Sonarr quality profiles, delay profiles, indexers, download clients and notifications; Prowlarr indexers, download clients and notifications; and an allowlist of qBittorrent preferences. Secret fields are redacted when configurations are read and restored server-side when records are updated. Browser requests use the same configured service API layer as MCP; they are not a separate integration. The overview refreshes automatically every 30 seconds.
 
 By default, Compose publishes the port on loopback only. To open the dashboard from another device on your LAN, set `STACKARR_BIND_ADDRESS=0.0.0.0` in your private `.env` and recreate the container. This also makes the authenticated MCP endpoint reachable on the LAN. Do not forward this port from your router to the public internet. For remote access, use a private VPN such as Tailscale or a trusted HTTPS access layer.
 
 ## Current implementation
 
-- `arr_api_request`: full REST API bridge for Radarr, Sonarr, Prowlarr and Bazarr.
+- `arr_api_request`: full REST API bridge for Radarr, Sonarr, Prowlarr, Bazarr and Lidarr.
 - `scryer_graphql`: GraphQL query/mutation bridge for Scryer.
 - `qbittorrent_api_request`: qBittorrent Web API bridge, including queue/download controls.
 - `stack_status`: connectivity and version checks.
@@ -23,7 +23,7 @@ By default, Compose publishes the port on loopback only. To open the dashboard f
 - `qbittorrent_control_torrents`: pause, resume, recheck or reannounce.
 - `qbittorrent_delete_torrents`: remove torrents, optionally including their data files.
 - `qbittorrent_set_category`: change torrent categories.
-- `arr_list_library`: list Radarr movies or Sonarr series.\n- `arr_update_library_item`: update monitoring and/or quality profile for an existing movie or series while preserving all other fields.
+- `arr_list_library`: list Radarr movies, Sonarr series or Lidarr artists.\n- `arr_update_library_item`: update monitoring and profiles for an existing movie, series or artist while preserving all other fields.\n- `arr_add_artist`, `lidarr_list_albums`, `lidarr_update_album`, `lidarr_get_history` and `lidarr_get_missing_albums`: dedicated Lidarr music-library workflows.
 - `arr_search_catalog`: find movies/series by title.
 - `arr_get_queue`: inspect download/import queues.
 - `arr_get_setup_options`: retrieve valid root folders and quality profiles.
@@ -46,7 +46,7 @@ The level is enforced server-side for shared write operations from both MCP tool
 
 ## Configuration coverage
 
-The dashboard exposes an Advanced API explorer for the native REST APIs of Radarr, Sonarr, Prowlarr and Bazarr. It supports GET, POST, PUT, PATCH and DELETE with JSON query parameters and request bodies; API keys remain server-side and the same server-side permission checks used by MCP are applied to every request. This provides access to endpoints that do not yet have dedicated forms. The dashboard also exposes native Radarr and Sonarr configuration records through their APIs: quality and delay profiles, indexers, download clients, notifications, quality definitions, custom formats, import lists, metadata records and tags. Sonarr additionally exposes language and release profiles. Availability varies by application version and API schema; unsupported endpoints are reported by the application rather than silently emulated. Singleton application settings (for example host, UI and media-management settings) and options that require a service restart are not yet exposed as editable forms.
+The dashboard exposes an Advanced API explorer for the native REST APIs of Radarr, Sonarr, Prowlarr, Bazarr and Lidarr. It supports GET, POST, PUT, PATCH and DELETE with JSON query parameters and request bodies; API keys remain server-side and the same server-side permission checks used by MCP are applied to every request. This provides access to endpoints that do not yet have dedicated forms. The dashboard also exposes native Radarr and Sonarr configuration records through their APIs: quality and delay profiles, indexers, download clients, notifications, quality definitions, custom formats, import lists, metadata records and tags. Sonarr additionally exposes language and release profiles. Availability varies by application version and API schema; unsupported endpoints are reported by the application rather than silently emulated. Singleton application settings (for example host, UI and media-management settings) and options that require a service restart are not yet exposed as editable forms.
 
 The Scryer dashboard includes a schema-driven control center: it reads the installed GraphQL schema, separates query and mutation fields, shows descriptions, argument types and return types, and supports filtering. A GraphQL console with JSON variables is included for operations not yet represented by dedicated workflows. The schema view is generated from the live Scryer instance rather than assuming a fixed API version. Read-only queries are available at every permission level; GraphQL mutations require admin. The same scryer_graphql MCP tool exposes the native API.
 
@@ -57,7 +57,7 @@ The Scryer dashboard includes a schema-driven control center: it reads the insta
 - The server does not expose a generic internet HTTP proxy.
 - Write operations are available because this project is designed for full control. Treat the MCP endpoint and its credentials as administrator-level access to your media stack.
 - The web API requires an authenticated browser session and rejects cross-origin browser POSTs. Torrent pause/resume, library edits, configuration creation and deletion require confirmation in the UI. Library updates fetch the current Radarr/Sonarr object and change only the requested monitoring/profile fields, preserving the remaining metadata.
-- Radarr, Sonarr and Prowlarr configuration records can be listed, edited, created from native JSON payloads and deleted. These configuration mutations require `admin`; secret fields are redacted from responses and existing secrets are preserved when editing records.
+- Radarr, Sonarr, Prowlarr and Lidarr configuration records can be listed, edited, created from native JSON payloads and deleted. These configuration mutations require `admin`; secret fields are redacted from responses and existing secrets are preserved when editing records.
 - The assistant should ask before irreversible actions such as deleting library files, removing titles with files, deleting torrents and data, or changing global settings.
 - Docker management is a planned optional module. It will use separate permissions and a restricted control layer; no unrestricted Docker socket access is enabled.
 
@@ -132,7 +132,7 @@ The container runs as a non-root user, drops Linux capabilities, and uses a read
 - Radarr: `/api/v3`
 - Sonarr: `/api/v3`
 - Prowlarr: `/api/v1`
-- Bazarr: native API under `/api`
+- Bazarr: native API under `/api`\n- Lidarr: `/api/v1`
 - Scryer: GraphQL at `/graphql`
 - qBittorrent: Web API under `/api/v2`
 
