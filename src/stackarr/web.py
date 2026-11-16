@@ -111,10 +111,18 @@ async function openView(view){const target=$('workspace');target.textContent='Lo
  let data,html='';
 
  if(view==='settings'){
-   html='<h3>Configuration</h3><p class="muted">Edit existing Radarr/Sonarr profiles, indexers and download clients, or selected qBittorrent preferences. Review each JSON object before saving.</p><div class="actions" style="flex-wrap:wrap;margin:12px 0"><select id="settings-service" style="background:#0e1728;color:#e8edf5;padding:9px;border:1px solid #34435d;border-radius:8px"><option value="radarr">Radarr</option><option value="sonarr">Sonarr</option><option value="qbittorrent">qBittorrent</option></select><select id="settings-resource" style="background:#0e1728;color:#e8edf5;padding:9px;border:1px solid #34435d;border-radius:8px"><option value="qualityprofile">Quality profiles</option><option value="delayprofile">Delay profiles</option><option value="indexer">Indexers</option><option value="downloadclient">Download clients</option><option value="notification">Notifications</option></select><button id="load-settings">Load settings</button></div><div id="settings-records" class="muted">Choose an application and load its configuration.</div>';
+   html='<h3>Configuration</h3><p class="muted">Edit Radarr/Sonarr profiles and integrations, Prowlarr indexers and download clients, or selected qBittorrent preferences. Review each JSON object before saving.</p><div class="actions" style="flex-wrap:wrap;margin:12px 0"><select id="settings-service" style="background:#0e1728;color:#e8edf5;padding:9px;border:1px solid #34435d;border-radius:8px"><option value="radarr">Radarr</option><option value="sonarr">Sonarr</option><option value="prowlarr">Prowlarr</option><option value="qbittorrent">qBittorrent</option></select><select id="settings-resource" style="background:#0e1728;color:#e8edf5;padding:9px;border:1px solid #34435d;border-radius:8px"><option value="qualityprofile">Quality profiles</option><option value="delayprofile">Delay profiles</option><option value="indexer">Indexers</option><option value="downloadclient">Download clients</option><option value="notification">Notifications</option></select><button id="load-settings">Load settings</button></div><div id="settings-records" class="muted">Choose an application and load its configuration.</div>';
    target.innerHTML=html;
    const svc=$('settings-service'),res=$('settings-resource'),records=$('settings-records');
-   const updateResource=()=>{res.disabled=svc.value==='qbittorrent';};
+   const updateResource=()=>{
+    const service=svc.value;
+    res.disabled=service==='qbittorrent';
+    const prowlarrResources=new Set(['indexer','downloadclient','notification']);
+    Array.from(res.options).forEach(option=>{
+     option.disabled=service==='prowlarr'&&!prowlarrResources.has(option.value);
+    });
+    if(service==='prowlarr'&&!prowlarrResources.has(res.value))res.value='indexer';
+   };
    svc.addEventListener('change',updateResource);updateResource();
    $('load-settings').addEventListener('click',async()=>{
     records.textContent='Loading configuration…';
