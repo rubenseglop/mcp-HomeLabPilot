@@ -66,7 +66,7 @@ input{width:100%;padding:12px;border:1px solid #34435d;border-radius:10px;backgr
       <button data-view="movies">Movies · Radarr</button><button data-view="series">Series · Sonarr</button>
       <button data-view="radarr-queue">Radarr queue</button><button data-view="sonarr-queue">Sonarr queue</button>
       <button data-view="downloads">Downloads · qBittorrent</button>
-      <button data-view="search-movies">Search movies</button><button data-view="search-series">Search series</button>
+      <button data-view="search-movies">Search movies</button><button data-view="search-series">Search series</button><button data-view="settings">Settings</button>
     </div>
     <div class="info" id="workspace"><strong>Select a section</strong><br>Browse your library, inspect import queues and manage active downloads.</div>
   </section>
@@ -93,6 +93,33 @@ function cell(v){return esc(v===null||v===undefined?'—':v);}
 function table(headers,rows){return '<div style="overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr>'+headers.map(h=>'<th style="text-align:left;padding:10px;border-bottom:1px solid #34435d;color:#91a0b8">'+esc(h)+'</th>').join('')+'</tr></thead><tbody>'+rows.join('')+'</tbody></table></div>';}
 async function openView(view){const target=$('workspace');target.textContent='Loading…';try{
  let data,html='';
+
+ if(view==='settings'){
+   html='<h3>Configuration</h3><p class="muted">Edit existing Radarr/Sonarr profiles, indexers and download clients, or selected qBittorrent preferences. Review each JSON object before saving.</p><div class="actions" style="flex-wrap:wrap;margin:12px 0"><select id="settings-service" style="background:#0e1728;color:#e8edf5;padding:9px;border:1px solid #34435d;border-radius:8px"><option value="radarr">Radarr</option><option value="sonarr">Sonarr</option><option value="qbittorrent">qBittorrent</option></select><select id="settings-resource" style="background:#0e1728;color:#e8edf5;padding:9px;border:1px solid #34435d;border-radius:8px"><option value="qualityprofile">Quality profiles</option><option value="delayprofile">Delay profiles</option><option value="indexer">Indexers</option><option value="downloadclient">Download clients</option><option value="notification">Notifications</option></select><button id="load-settings">Load settings</button></div><div id="settings-records" class="muted">Choose an application and load its configuration.</div>';
+   target.innerHTML=html;
+   const svc=$('settings-service'),res=$('settings-resource'),records=$('settings-records');
+   const updateResource=()=>{res.disabled=svc.value==='qbittorrent';};
+   svc.addEventListener('change',updateResource);updateResource();
+   $('load-settings').addEventListener('click',async()=>{
+    records.textContent='Loading configuration…';
+    try{
+     const service=svc.value,resource=res.value;
+     const data=await request('/web-api/settings?service='+service+'&resource='+resource);
+     if(service==='qbittorrent'){
+      records.innerHTML='<div class="card"><div class="name">qBittorrent preferences</div><p class="muted">Only approved download, path, speed and queue options are exposed here. Credentials and web security settings are excluded.</p><textarea id="settings-json" rows="18" style="width:100%;background:#0b1322;color:#dce7f8;border:1px solid #34435d;border-radius:9px;padding:12px;font:12px ui-monospace,monospace">'+esc(JSON.stringify(data,null,2))+'</textarea><button id="save-qbit-settings" style="margin-top:10px">Save preferences</button></div>';
+      $('save-qbit-settings').addEventListener('click',async()=>{try{const preferences=JSON.parse($('settings-json').value);if(!confirm('Apply these qBittorrent preferences?'))return;await request('/web-api/settings/update',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({service:'qbittorrent',preferences})});alert('Preferences saved.');}catch(err){alert('Could not save: '+err.message);}});
+      return;
+     }
+     const items=Array.isArray(data)?data:[];
+     if(!items.length){records.textContent='No configuration records found.';return;}
+     records.innerHTML=items.map((item,i)=>'<details class="card" style="margin:10px 0"><summary style="cursor:pointer"><strong>'+esc(item.name||item.host||item.path||resource+' #'+(item.id??i))+'</strong> <span class="muted">ID '+esc(item.id??'—')+'</span></summary><textarea data-config-json="'+i+'" rows="14" style="width:100%;margin-top:12px;background:#0b1322;color:#dce7f8;border:1px solid #34435d;border-radius:9px;padding:12px;font:12px ui-monospace,monospace">'+esc(JSON.stringify(item,null,2))+'</textarea><button data-save-config="'+i+'" data-id="'+esc(item.id)+'" style="margin-top:8px">Save changes</button></details>').join('');
+     records.querySelectorAll('[data-save-config]').forEach(button=>button.addEventListener('click',async()=>{
+      try{const item=JSON.parse(records.querySelector('[data-config-json="'+button.dataset.saveConfig+'"]').value);if(!confirm('Save changes to '+(item.name||resource+' #'+button.dataset.id)+'?'))return;await request('/web-api/settings/update',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({service,resource,id:Number(button.dataset.id),item})});alert('Configuration saved.');}catch(err){alert('Could not save: '+err.message);}
+     }));
+    }catch(err){records.innerHTML='<div class="error">'+esc(err.message)+'</div>';}
+   });
+   return;
+ }
  if(view==='search-movies'||view==='search-series'){
    const service=view==='search-movies'?'radarr':'sonarr';
    html='<h3>Search '+(service==='radarr'?'movies':'series')+'</h3><form id="catalog-search" class="actions" style="flex-wrap:wrap"><input id="catalog-term" placeholder="Enter a title…" required style="min-width:240px;flex:1;background:#0e1728;border:1px solid #34435d;border-radius:9px;padding:10px;color:#e8edf5"><button>Search</button></form><div id="catalog-results" style="margin-top:14px" class="muted">Search the metadata catalogue to add a title.</div>';
