@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "stackarr-mcp"
-version = "0.2.0"
-description = "Read-only MCP diagnostics for a self-hosted *arr media stack"
+version = "0.3.0"
+description = "Full-control MCP server for a self-hosted media stack"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
