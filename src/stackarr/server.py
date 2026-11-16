@@ -8,12 +8,14 @@ becoming a general-purpose HTTP proxy.
 from __future__ import annotations
 
 import asyncio
+import hmac
 import os
 from typing import Any
 from urllib.parse import urljoin
 
 import httpx
 from mcp.server.fastmcp import FastMCP
+import uvicorn
 
 mcp = FastMCP("StackARR")
 TIMEOUT = float(os.getenv("HTTP_TIMEOUT", "15"))
@@ -395,9 +397,47 @@ async def qbittorrent_set_category(hashes: str, category: str) -> Any:
     )
 
 
+class _BearerAuthMiddleware:
+    """Protect the remote MCP endpoint with a constant-time bearer-token check."""
+
+    def __init__(self, app: Any, token: str):
+        self.app = app
+        self.token = token.encode("utf-8")
+
+    async def __call__(self, scope: dict[str, Any], receive: Any, send: Any) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        headers = dict(scope.get("headers", []))
+        supplied = headers.get(b"authorization", b"").decode("utf-8", "ignore")
+        expected = "Bearer " + self.token.decode("utf-8")
+        if not hmac.compare_digest(supplied, expected):
+            body = b'{"error":"Unauthorized"}'
+            await send({
+                "type": "http.response.start",
+                "status": 401,
+                "headers": [(b"content-type", b"application/json"), (b"content-length", str(len(body)).encode())],
+            })
+            await send({"type": "http.response.body", "body": body})
+            return
+        await self.app(scope, receive, send)
+
+
 def main() -> None:
-    """Run StackARR as an MCP server over stdio."""
-    mcp.run(transport="stdio")
+    """Run StackARR over stdio (default) or authenticated Streamable HTTP."""
+    transport = os.getenv("MCP_TRANSPORT", "stdio").strip().lower()
+    if transport == "stdio":
+        mcp.run(transport="stdio")
+        return
+    if transport != "streamable-http":
+        raise ValueError("MCP_TRANSPORT must be 'stdio' or 'streamable-http'")
+    token = os.getenv("MCP_AUTH_TOKEN", "").strip()
+    if len(token) < 32:
+        raise ValueError("MCP_AUTH_TOKEN must contain at least 32 characters for HTTP mode")
+    host = os.getenv("MCP_HOST", "0.0.0.0")
+    port = int(os.getenv("MCP_PORT", "8000"))
+    app = _BearerAuthMiddleware(mcp.streamable_http_app(), token)
+    uvicorn.run(app, host=host, port=port, log_level="info")
 
 
 if __name__ == "__main__":
