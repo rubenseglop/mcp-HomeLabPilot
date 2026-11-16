@@ -44,6 +44,12 @@ The generic Radarr/Sonarr/Prowlarr REST bridge applies the same checks: GET is r
 
 The level is enforced server-side for shared write operations from both MCP tools and the browser dashboard; the dashboard still has its own separate login. Changing the level requires recreating the StackARR container. Invalid values fail closed. Use `read` when connecting an unfamiliar MCP client; raise it to `operations` or `admin` only when those capabilities are needed. Permission is not a per-action approval prompt: an MCP client should still obtain the user's explicit confirmation before invoking sensitive admin operations.
 
+## Configuration coverage
+
+The dashboard exposes native Radarr and Sonarr configuration records through their APIs: quality and delay profiles, indexers, download clients, notifications, quality definitions, custom formats, import lists, metadata records and tags. Sonarr additionally exposes language and release profiles. Availability varies by application version and API schema; unsupported endpoints are reported by the application rather than silently emulated. Singleton application settings (for example host, UI and media-management settings) and options that require a service restart are not yet exposed as editable forms.
+
+The Scryer dashboard includes a GraphQL console with variables and schema introspection. Read-only queries are available at every permission level; GraphQL mutations require admin. The same scryer_graphql MCP tool exposes the native API.
+
 ## Security model
 
 - The caller cannot supply a hostname: requests are restricted to the base URLs configured by the operator.
