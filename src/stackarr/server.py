@@ -139,7 +139,6 @@ async def scryer_graphql(
         return _decode_response(response)
 
 
-@mcp.tool()
 def _check_qbittorrent_login(response: httpx.Response) -> None:
     """Accept qBittorrent's successful WebUI login response variants."""
     response.raise_for_status()
