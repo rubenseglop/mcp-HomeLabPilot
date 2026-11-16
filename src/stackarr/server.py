@@ -425,6 +425,25 @@ class _BearerAuthMiddleware:
         await self.app(scope, receive, send)
 
 
+async def _web_api_request(
+    path: str, method: str, query: dict[str, list[str]], payload: dict[str, Any]
+) -> Any:
+    """Shared browser API actions; all service calls reuse the same configured API layer."""
+    if method == "GET" and path == "/web-api/library":
+        service = (query.get("service") or [""])[0]
+        return await arr_list_library(service)
+    if method == "GET" and path == "/web-api/queue":
+        service = (query.get("service") or [""])[0]
+        return await arr_get_queue(service)
+    if method == "GET" and path == "/web-api/torrents":
+        return await qbittorrent_list_torrents(limit=200)
+    if method == "POST" and path == "/web-api/torrents/control":
+        action = str(payload.get("action", ""))
+        hashes = str(payload.get("hashes", ""))
+        return await qbittorrent_control_torrents(action, hashes)
+    raise ValueError("Unknown StackARR web API operation")
+
+
 def main() -> None:
     """Run StackARR over stdio (default) or authenticated Streamable HTTP."""
     transport = os.getenv("MCP_TRANSPORT", "stdio").strip().lower()
@@ -439,7 +458,7 @@ def main() -> None:
     host = os.getenv("MCP_HOST", "0.0.0.0")
     port = int(os.getenv("MCP_PORT", "8000"))
     app = _BearerAuthMiddleware(mcp.streamable_http_app(), token)
-    app = StackARRWebMiddleware(app, token, stack_status)
+    app = StackARRWebMiddleware(app, token, stack_status, _web_api_request)
     uvicorn.run(app, host=host, port=port, log_level="info")
 
 
