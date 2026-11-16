@@ -214,3 +214,59 @@ def test_prowlarr_configuration_rejects_unsupported_resource():
 
     with pytest.raises(ValueError, match="resource for prowlarr"):
         asyncio.run(server.arr_get_configuration("prowlarr", "qualityprofile"))
+
+
+def test_arr_update_library_item_preserves_existing_fields_and_updates_requested_values(monkeypatch):
+    import asyncio
+    import stackarr.server as server
+
+    calls = []
+    current = {
+        "id": 42, "title": "Example", "monitored": True,
+        "qualityProfileId": 3, "rootFolderPath": "/media/movies",
+        "images": [{"coverType": "poster", "url": "/poster.jpg"}],
+    }
+
+    async def fake_request(service, method, path, params=None, body=None):
+        calls.append((service, method, path, body))
+        return current if method == "GET" else body
+
+    monkeypatch.setattr(server, "_arr_request", fake_request)
+    result = asyncio.run(server.arr_update_library_item(
+        "radarr", 42, monitored=False, quality_profile_id=7
+    ))
+
+    assert result["monitored"] is False
+    assert result["qualityProfileId"] == 7
+    assert result["rootFolderPath"] == "/media/movies"
+    assert result["images"] == current["images"]
+    assert calls[0][0:3] == ("radarr", "GET", "/api/v3/movie/42")
+    assert calls[1][0:3] == ("radarr", "PUT", "/api/v3/movie/42")
+
+
+def test_arr_update_library_item_rejects_empty_update():
+    import asyncio
+    import stackarr.server as server
+
+    with pytest.raises(ValueError, match="At least one"):
+        asyncio.run(server.arr_update_library_item("sonarr", 1))
+
+
+def test_web_library_update_dispatches_only_requested_fields(monkeypatch):
+    import asyncio
+    import stackarr.server as server
+
+    calls = []
+
+    async def fake_update(service, item_id, monitored=None, quality_profile_id=None):
+        calls.append((service, item_id, monitored, quality_profile_id))
+        return {"id": item_id}
+
+    monkeypatch.setattr(server, "arr_update_library_item", fake_update)
+    result = asyncio.run(server._web_api_request(
+        "/web-api/library/update", "POST", {},
+        {"service": "sonarr", "id": 84, "monitored": True, "quality_profile_id": 5},
+    ))
+
+    assert result == {"id": 84}
+    assert calls == [("sonarr", 84, True, 5)]
