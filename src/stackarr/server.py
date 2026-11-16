@@ -41,7 +41,7 @@ def _safe_path(path: str) -> str:
         not path.startswith("/")
         or path.startswith("//")
         or "://" in path
-        or "\\\\" in path
+        or "\\" in path
         or any(segment == ".." for segment in path.split("/"))
         or any(ord(char) < 32 for char in path)
     ):
@@ -270,7 +270,7 @@ async def arr_add_movie(
         "rootFolderPath": root_folder_path,
         "qualityProfileId": quality_profile_id,
         "monitored": monitored,
-        "addOptions": {"search בער": False, "searchForMovie": search_now},
+        "addOptions": {"searchForMovie": search_now},
     }
     return await _arr_request("radarr", "POST", "/api/v3/movie", body=payload)
 
@@ -320,6 +320,78 @@ async def arr_grab_release(service: str, guid: str, indexer_id: int) -> Any:
     return await _arr_request(
         service, "POST", "/api/v3/release",
         body={"guid": guid, "indexerId": indexer_id},
+    )
+
+
+@mcp.tool()
+async def scryer_introspect() -> Any:
+    """Discover Scryer's live GraphQL query and mutation fields and their arguments."""
+    query = """
+    query StackARRSchema {
+      __schema {
+        queryType { name fields { name description args { name type { kind name ofType { kind name ofType { kind name } } } } } }
+        mutationType { name fields { name description args { name type { kind name ofType { kind name ofType { kind name } } } } } }
+      }
+    }
+    """
+    return await scryer_graphql(query)
+
+
+@mcp.tool()
+async def qbittorrent_list_torrents(
+    filter: str = "all",
+    category: str | None = None,
+    tag: str | None = None,
+    sort: str = "added_on",
+    reverse: bool = True,
+    limit: int = 100,
+) -> Any:
+    """List qBittorrent torrents, optionally filtered by state, category or tag."""
+    if limit < 1 or limit > 500:
+        raise ValueError("limit must be between 1 and 500")
+    params: dict[str, Any] = {"filter": filter, "sort": sort, "reverse": str(reverse).lower(), "limit": limit}
+    if category:
+        params["category"] = category
+    if tag:
+        params["tag"] = tag
+    return await qbittorrent_api_request("GET", "/api/v2/torrents/info", params=params)
+
+
+@mcp.tool()
+async def qbittorrent_control_torrents(action: str, hashes: str) -> Any:
+    """Pause, resume, recheck or reannounce selected torrents using comma-separated hashes."""
+    endpoints = {
+        "pause": "/api/v2/torrents/pause",
+        "resume": "/api/v2/torrents/resume",
+        "recheck": "/api/v2/torrents/recheck",
+        "reannounce": "/api/v2/torrents/reannounce",
+    }
+    if action not in endpoints:
+        raise ValueError(f"action must be one of: {', '.join(endpoints)}")
+    if not hashes.strip():
+        raise ValueError("hashes cannot be empty")
+    return await qbittorrent_api_request("POST", endpoints[action], data={"hashes": hashes})
+
+
+@mcp.tool()
+async def qbittorrent_delete_torrents(hashes: str, delete_files: bool = False) -> Any:
+    """Remove torrents. Set delete_files=true only when the user explicitly wants data files deleted too."""
+    if not hashes.strip():
+        raise ValueError("hashes cannot be empty")
+    return await qbittorrent_api_request(
+        "POST", "/api/v2/torrents/delete",
+        data={"hashes": hashes, "deleteFiles": str(delete_files).lower()},
+    )
+
+
+@mcp.tool()
+async def qbittorrent_set_category(hashes: str, category: str) -> Any:
+    """Assign one qBittorrent category to selected torrents."""
+    if not hashes.strip() or not category.strip():
+        raise ValueError("hashes and category are required")
+    return await qbittorrent_api_request(
+        "POST", "/api/v2/torrents/setCategory",
+        data={"hashes": hashes, "category": category},
     )
 
 
