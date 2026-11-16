@@ -169,7 +169,7 @@ async function openView(view){const target=$('workspace');target.textContent='Lo
    target.innerHTML=html;
    $('api-service').addEventListener('change',()=>{
     const service=$('api-service').value;
-    $('api-path').value=service==='prowlarr'?'/api/v1/system/status':service==='bazarr'?'/api/system/status':'/api/v3/system/status';
+    $('api-path').value=service==='prowlarr'||service==='lidarr'?'/api/v1/system/status':service==='bazarr'?'/api/system/status':'/api/v3/system/status';
    });
    $('api-clear').addEventListener('click',()=>{$('api-result').textContent='Ready.';});
    $('api-run').addEventListener('click',async()=>{
@@ -345,16 +345,37 @@ $('workspace').addEventListener('submit',async e=>{
   const roots=setup.root_folders||[],profiles=setup.quality_profiles||[];
   if(!roots.length||!profiles.length){out.innerHTML='<div class="error">Configure at least one root folder and quality profile in '+esc(service)+'.</div>';return;}
   out.innerHTML=items.map(item=>{
-   const id=service==='radarr'?item.tmdbId:item.tvdbId;
-   const name=esc(item.title||item.titleSlug||'Untitled'),year=esc(item.year||item.yearStart||'');
+   const id=service==='radarr'?item.tmdbId:service==='sonarr'?item.tvdbId:item.foreignArtistId;
+   const artistName=service==='lidarr'?item.artistName:'';
+   const name=esc(service==='lidarr'?item.artistName:item.title||item.titleSlug||'Untitled'),year=esc(item.year||item.yearStart||'');
    const rootOptions=roots.map(x=>'<option value="'+esc(x.path)+'">'+esc(x.path)+'</option>').join('');
    const profileOptions=profiles.map(x=>'<option value="'+esc(x.id)+'">'+esc(x.name)+'</option>').join('');
-   return '<article class="card" style="margin:10px 0"><div class="cardtop"><div class="name">'+name+' <span class="muted">'+year+'</span></div><span class="muted">'+(id?'ID '+esc(id):'No external ID')+'</span></div><div class="version">'+esc(item.overview||'')+'</div>'+(id?'<div class="actions" style="flex-wrap:wrap;margin-top:12px"><select data-root style="max-width:250px;background:#0e1728;color:#e8edf5;padding:8px;border:1px solid #34435d;border-radius:8px">'+rootOptions+'</select><select data-profile style="max-width:220px;background:#0e1728;color:#e8edf5;padding:8px;border:1px solid #34435d;border-radius:8px">'+profileOptions+'</select><label class="muted"><input type="checkbox" data-search-now> Search immediately</label><button data-add-title data-service="'+service+'" data-id="'+esc(id)+'">Add to '+service+'</button></div>':'')+'</article>';
+   const metadataOptions=(setup.metadata_profiles||[]).map(x=>'<option value="'+esc(x.id)+'">'+esc(x.name)+'</option>').join('');
+   const extra=service==='lidarr'?'<select data-metadata-profile style="max-width:220px;background:#0e1728;color:#e8edf5;padding:8px;border:1px solid #34435d;border-radius:8px">'+metadataOptions+'</select>':'';
+   return '<article class="card" '+(service==='lidarr'?'data-artist-name="'+esc(artistName)+'" ':'')+'style="margin:10px 0"><div class="cardtop"><div class="name">'+name+' <span class="muted">'+year+'</span></div><span class="muted">'+(id?'ID '+esc(id):'No external ID')+'</span></div><div class="version">'+esc(item.disambiguation||item.overview||'')+'</div>'+(id?'<div class="actions" style="flex-wrap:wrap;margin-top:12px"><select data-root style="max-width:250px;background:#0e1728;color:#e8edf5;padding:8px;border:1px solid #34435d;border-radius:8px">'+rootOptions+'</select><select data-profile style="max-width:220px;background:#0e1728;color:#e8edf5;padding:8px;border:1px solid #34435d;border-radius:8px">'+profileOptions+'</select>'+extra+'<label class="muted"><input type="checkbox" data-search-now> Search immediately</label><button data-add-title data-service="'+service+'" data-id="'+esc(id)+'">Add to '+service+'</button></div>':'')+'</article>';
   }).join('');
  }catch(err){out.innerHTML='<div class="error">'+esc(err.message)+'</div>';}
 });
-$('workspace').addEventListener('click',async e=>{const add=e.target.closest('[data-add-title]');if(add){const card=add.closest('.card');const service=add.dataset.service,id=Number(add.dataset.id);if(!confirm('Add this title to '+service+'?'))return;add.disabled=true;try{const body={service,root_folder_path:card.querySelector('[data-root]').value,quality_profile_id:Number(card.querySelector('[data-profile]').value),monitored:true,search_now:card.querySelector('[data-search-now]').checked};body[service==='radarr'?'tmdb_id':'tvdb_id']=id;await request('/web-api/catalog/add',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});add.textContent='Added';}catch(err){alert(err.message);add.disabled=false;}return;}const category=e.target.closest('[data-torrent-set-category]');if(category){const row=category.closest('tr'),value=row.querySelector('[data-torrent-category]').value.trim();if(!value){alert('Enter a category name.');return;}category.disabled=true;try{await request('/web-api/torrents/category',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({hashes:category.dataset.hash,category:value})});category.textContent='Saved';}catch(err){alert(err.message);category.disabled=false;}return;}const remove=e.target.closest('[data-torrent-delete]');if(remove){if(!confirm('Remove this torrent from qBittorrent? Downloaded files will be kept.'))return;remove.disabled=true;try{await request('/web-api/torrents/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({hashes:remove.dataset.hash,delete_files:false})});await openView('downloads');}catch(err){alert(err.message);remove.disabled=false;}return;}const b=e.target.closest('[data-torrent-action]');if(!b)return;const action=b.dataset.torrentAction;const verb=action==='pause'?'pause':'resume';if(!confirm('Are you sure you want to '+verb+' this torrent?'))return;b.disabled=true;try{await request('/web-api/torrents/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,hashes:b.dataset.hash})});await openView('downloads');}catch(err){alert(err.message);b.disabled=false;}});
+$('workspace').addEventListener('click',async e=>{const add=e.target.closest('[data-add-title]');if(add){const card=add.closest('.card');const service=add.dataset.service,id=Number(add.dataset.id);if(!confirm('Add this title to '+service+'?'))return;add.disabled=true;try{const body={service,root_folder_path:card.querySelector('[data-root]').value,quality_profile_id:Number(card.querySelector('[data-profile]').value),monitored:true,search_now:card.querySelector('[data-search-now]').checked};if(service==='radarr')body.tmdb_id=Number(id);else if(service==='sonarr')body.tvdb_id=Number(id);else{body.foreign_artist_id=id;body.artist_name=card.dataset.artistName;body.metadata_profile_id=Number(card.querySelector('[data-metadata-profile]').value);}await request('/web-api/catalog/add',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});add.textContent='Added';}catch(err){alert(err.message);add.disabled=false;}return;}const category=e.target.closest('[data-torrent-set-category]');if(category){const row=category.closest('tr'),value=row.querySelector('[data-torrent-category]').value.trim();if(!value){alert('Enter a category name.');return;}category.disabled=true;try{await request('/web-api/torrents/category',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({hashes:category.dataset.hash,category:value})});category.textContent='Saved';}catch(err){alert(err.message);category.disabled=false;}return;}const remove=e.target.closest('[data-torrent-delete]');if(remove){if(!confirm('Remove this torrent from qBittorrent? Downloaded files will be kept.'))return;remove.disabled=true;try{await request('/web-api/torrents/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({hashes:remove.dataset.hash,delete_files:false})});await openView('downloads');}catch(err){alert(err.message);remove.disabled=false;}return;}const b=e.target.closest('[data-torrent-action]');if(!b)return;const action=b.dataset.torrentAction;const verb=action==='pause'?'pause':'resume';if(!confirm('Are you sure you want to '+verb+' this torrent?'))return;b.disabled=true;try{await request('/web-api/torrents/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,hashes:b.dataset.hash})});await openView('downloads');}catch(err){alert(err.message);b.disabled=false;}});
 $('workspace').addEventListener('click',async e=>{
+ const artistAlbums=e.target.closest('[data-artist-albums]');
+ if(artistAlbums){
+  const out=$('artist-albums');out.innerHTML='<div class="muted">Loading albums…</div>';artistAlbums.disabled=true;
+  try{
+   const albums=await request('/web-api/albums?artist_id='+artistAlbums.dataset.id);
+   const rows=(albums||[]).map(album=>'<tr><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(album.title)+'</td><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(album.releaseDate)+'</td><td style="padding:10px;border-bottom:1px solid #25344d"><input type="checkbox" data-album-monitored style="width:auto;margin:0" '+(album.monitored?'checked':'')+'></td><td style="padding:10px;border-bottom:1px solid #25344d"><button data-album-save data-id="'+esc(album.id)+'">Save</button> <button data-library-releases data-service="lidarr" data-id="'+esc(album.id)+'">Search releases</button></td></tr>');
+   out.innerHTML='<h3>Albums <span class="muted">('+rows.length+')</span></h3>'+table(['Album','Release date','Monitored','Actions'],rows)+'<div id="release-results" style="margin-top:14px"></div>';
+  }catch(err){out.innerHTML='<div class="error">'+esc(err.message)+'</div>';}
+  finally{artistAlbums.disabled=false;}
+  return;
+ }
+ const albumSave=e.target.closest('[data-album-save]');
+ if(albumSave){
+  const row=albumSave.closest('tr'),monitored=row.querySelector('[data-album-monitored]').checked;
+  if(!confirm('Save album monitoring?'))return;albumSave.disabled=true;
+  try{await request('/web-api/albums/update',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:Number(albumSave.dataset.id),monitored})});albumSave.textContent='Saved';}
+  catch(err){alert(err.message);albumSave.disabled=false;}return;
+ }
  const search=e.target.closest('[data-library-releases]');
  if(search){
   const out=$('release-results');
@@ -388,8 +409,10 @@ $('workspace').addEventListener('click',async e=>{
  if(!button)return;
  const row=button.closest('tr');
  const profile=row.querySelector('[data-library-profile]');
+ const metadataProfile=row.querySelector('[data-library-metadata-profile]');
  const body={service:button.dataset.service,id:Number(button.dataset.id),monitored:row.querySelector('[data-library-monitored]').checked};
  if(profile&&profile.value)body.quality_profile_id=Number(profile.value);
+ if(metadataProfile&&metadataProfile.value)body.metadata_profile_id=Number(metadataProfile.value);
  if(!confirm('Save monitoring and quality profile for this title?'))return;
  button.disabled=true;
  try{
