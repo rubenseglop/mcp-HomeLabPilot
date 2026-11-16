@@ -60,7 +60,16 @@ input{width:100%;padding:12px;border:1px solid #34435d;border-radius:10px;backgr
   </header>
   <div class="hero"><div><h2>Overview</h2><div class="muted">Live connectivity of your configured services</div></div><div class="summary"><span class="pill" id="healthy">Checking…</span><span class="pill" id="updated">Not updated yet</span></div></div>
   <div class="grid" id="services"></div>
-  <section class="section"><div class="sectionhead">About this dashboard</div><div class="info">This is the first built-in StackARR web view. It shares the same service configuration and API layer as the MCP server. More library, queue, release and download-management views can be added without creating a second backend.</div></section>
+  <section class="section">
+    <div class="sectionhead">Media management</div>
+    <div class="actions" style="flex-wrap:wrap;margin-bottom:14px">
+      <button data-view="movies">Movies · Radarr</button><button data-view="series">Series · Sonarr</button>
+      <button data-view="radarr-queue">Radarr queue</button><button data-view="sonarr-queue">Sonarr queue</button>
+      <button data-view="downloads">Downloads · qBittorrent</button>
+    </div>
+    <div class="info" id="workspace"><strong>Select a section</strong><br>Browse your library, inspect import queues and manage active downloads.</div>
+  </section>
+  <div class="foot">StackARR · Web dashboard and MCP endpoint in one application</div>
   <div class="foot">StackARR · Web dashboard and MCP endpoint in one application</div>
 </main>
 <script>
@@ -79,6 +88,17 @@ async function refresh(){ $('refresh').disabled=true;$('refresh').textContent='L
 $('login-form').addEventListener('submit',async e=>{e.preventDefault();$('login-error').textContent='';try{await request('/web-login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:$('password').value})});$('password').value='';showApp();await refresh();}catch(e){$('login-error').textContent='Login failed. Check the token and try again.';}});
 $('refresh').addEventListener('click',refresh);
 $('logout').addEventListener('click',async()=>{await fetch('/web-logout',{method:'POST',credentials:'same-origin'});showLogin();});
+function cell(v){return esc(v===null||v===undefined?'—':v);}
+function table(headers,rows){return '<div style="overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr>'+headers.map(h=>'<th style="text-align:left;padding:10px;border-bottom:1px solid #34435d;color:#91a0b8">'+esc(h)+'</th>').join('')+'</tr></thead><tbody>'+rows.join('')+'</tbody></table></div>';}
+async function openView(view){const target=$('workspace');target.textContent='Loading…';try{
+ let data,html='';
+ if(view==='movies'||view==='series'){const service=view==='movies'?'radarr':'sonarr';data=await request('/web-api/library?service='+service);const rows=(data||[]).map(x=>'<tr><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(x.title||x.titleSlug)+'</td><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(x.year||x.yearStart)+'</td><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(x.status)+'</td><td style="padding:10px;border-bottom:1px solid #25344d">'+(x.monitored?'Yes':'No')+'</td></tr>');html='<h3>'+ (view==='movies'?'Movies':'Series') +' <span class="muted">('+rows.length+')</span></h3>'+table(['Title','Year','Status','Monitored'],rows);}
+ else if(view==='radarr-queue'||view==='sonarr-queue'){const service=view==='radarr-queue'?'radarr':'sonarr';data=await request('/web-api/queue?service='+service);const records=data.records||[];const rows=records.map(x=>'<tr><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(x.title)+'</td><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(x.status)+'</td><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(x.tr trackedDownloadStatus||x.trackedDownloadStatus)+'</td><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(x.errorMessage)+'</td></tr>');html='<h3>'+service+' queue <span class="muted">('+records.length+')</span></h3>'+table(['Title','Status','Import state','Message'],rows);}
+ else if(view==='downloads'){data=await request('/web-api/torrents');const rows=(data||[]).map(x=>'<tr><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(x.name)+'</td><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(x.state)+'</td><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(x.progress===undefined?'—':Math.round(x.progress*100)+'%')+'</td><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(x.category)+'</td><td style="padding:10px;border-bottom:1px solid #25344d"><button data-torrent-action="pause" data-hash="'+esc(x.hash)+'">Pause</button> <button data-torrent-action="resume" data-hash="'+esc(x.hash)+'">Resume</button></td></tr>');html='<h3>Active downloads <span class="muted">('+rows.length+')</span></h3>'+table(['Name','State','Progress','Category','Controls'],rows);}
+ target.innerHTML=html||'<div class="muted">No records found.</div>';
+ }catch(e){target.innerHTML='<div class="error">'+esc(e.message)+'</div>';}}
+document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>openView(b.dataset.view)));
+$('workspace').addEventListener('click',async e=>{const b=e.target.closest('[data-torrent-action]');if(!b)return;const action=b.dataset.torrentAction;const verb=action==='pause'?'pause':'resume';if(!confirm('Are you sure you want to '+verb+' this torrent?'))return;b.disabled=true;try{await request('/web-api/torrents/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,hashes:b.dataset.hash})});await openView('downloads');}catch(err){alert(err.message);b.disabled=false;}});
 (async()=>{try{render(await request('/web-api/status'));showApp();}catch(e){showLogin();}})();
 setInterval(()=>{if(!$('app').classList.contains('hidden'))refresh();},30000);
 </script>
