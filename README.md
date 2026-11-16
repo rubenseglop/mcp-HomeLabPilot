@@ -61,7 +61,7 @@ Run the unit tests with `pip install -e ".[test]"` followed by `pytest`.
 ## Docker deployment in an existing stack
 
 1. Copy `.env.example` to `.env` on the Docker host and fill in the application URLs and credentials. Generate `MCP_AUTH_TOKEN` with `openssl rand -hex 32`.
-2. Set `STACKARR_DOCKER_NETWORK` to the existing Docker network shared by the *arr apps, Scryer and qBittorrent. The example uses `downloads_default`; verify the actual network before starting.
+2. StackARR must join every Docker network containing a service it needs to reach. The Compose file defaults to these three networks: `arr_default` (Radarr, Sonarr, Prowlarr and Bazarr), `scryer_default` (Scryer) and `downloads_default` (qBittorrent). Override the corresponding `STACKARR_*_NETWORK` variables in `.env` only if your network names differ.
 3. Run `docker compose up -d --build` from this repository directory.
 4. The MCP endpoint is `http://127.0.0.1:8765/mcp` by default and requires `Authorization: Bearer <MCP_AUTH_TOKEN>`. It is bound to loopback, not exposed directly to the LAN or internet. Put it behind a trusted private access layer (for example, Tailscale Serve) before connecting a remote MCP client.
 5. Check `docker compose logs -f stackarr` for startup and connection errors.
