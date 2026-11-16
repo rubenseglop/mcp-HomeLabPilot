@@ -120,3 +120,61 @@ def test_qbittorrent_preferences_reject_sensitive_or_unknown_keys(monkeypatch):
     with pytest.raises(ValueError, match="Unsupported qBittorrent preferences"):
         asyncio.run(server.qbittorrent_update_preferences({"web_ui_password": "secret"}))
 
+
+
+def test_arr_configuration_redacts_secret_fields_recursively():
+    from stackarr.server import _redact_sensitive_config
+
+    original = {
+        "id": 7,
+        "name": "Indexer",
+        "fields": [
+            {"name": "baseUrl", "value": "https://indexer.example"},
+            {"name": "apiKey", "value": "secret-api-key"},
+            {"name": "password", "value": "secret-password"},
+        ],
+        "nested": {"accessToken": "secret-token", "enabled": True},
+    }
+    safe = _redact_sensitive_config(original)
+    assert safe["fields"][0]["value"] == "https://indexer.example"
+    assert safe["fields"][1] == {"name": "apiKey"}
+    assert safe["fields"][2] == {"name": "password"}
+    assert safe["nested"] == {"enabled": True}
+    assert "secret-api-key" not in repr(safe)
+    assert "secret-password" not in repr(safe)
+    assert "secret-token" not in repr(safe)
+
+
+def test_arr_update_configuration_restores_redacted_secrets(monkeypatch):
+    import asyncio
+    import stackarr.server as server
+
+    calls = []
+    current = {
+        "id": 7,
+        "name": "Indexer",
+        "fields": [
+            {"name": "apiKey", "value": "keep-this-key"},
+            {"name": "baseUrl", "value": "https://old.example"},
+        ],
+        "password": "keep-this-password",
+    }
+
+    async def fake_request(service, method, path, params=None, body=None):
+        calls.append((service, method, path, body))
+        if method == "GET":
+            return current
+        return body
+
+    monkeypatch.setattr(server, "_arr_request", fake_request)
+    submitted = server._redact_sensitive_config(current)
+    submitted["name"] = "Updated indexer"
+    submitted["fields"][1]["value"] = "https://new.example"
+    result = asyncio.run(server.arr_update_configuration("radarr", "indexer", 7, submitted))
+
+    assert result["fields"][0]["value"] == "keep-this-key"
+    assert result["password"] == "keep-this-password"
+    assert result["fields"][1]["value"] == "https://new.example"
+    assert calls[0][1:3] == ("GET", "/api/v3/indexer/7")
+    assert calls[1][1:3] == ("PUT", "/api/v3/indexer/7")
+
