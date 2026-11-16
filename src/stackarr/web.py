@@ -70,7 +70,7 @@ input{width:100%;padding:12px;border:1px solid #34435d;border-radius:10px;backgr
       <button data-view="movies">Movies · Radarr</button><button data-view="series">Series · Sonarr</button>
       <button data-view="radarr-queue">Radarr queue</button><button data-view="sonarr-queue">Sonarr queue</button>
       <button data-view="downloads">Downloads · qBittorrent</button>
-      <button data-view="search-movies">Search movies</button><button data-view="search-series">Search series</button><button data-view="scryer">Scryer</button><button data-view="settings">Settings</button>
+      <button data-view="search-movies">Search movies</button><button data-view="search-series">Search series</button><button data-view="scryer">Scryer</button><button data-view="settings">Settings</button><button data-view="api-explorer">Advanced API</button>
     </div>
     <div class="info" id="workspace"><strong>Select a section</strong><br>Browse your library, inspect import queues and manage active downloads.</div>
   </section>
@@ -162,6 +162,30 @@ async function openView(view){const target=$('workspace');target.textContent='Lo
     }catch(err){out.textContent='Error: '+err.message;}
    });
    await loadScryerSchema();
+   return;
+ }
+ if(view==='api-explorer'){
+   html='<h3>Advanced API explorer</h3><p class="muted">Access the native REST APIs of Radarr, Sonarr, Prowlarr and Bazarr. This exposes endpoints that do not yet have dedicated forms. API keys remain server-side. Permission checks are enforced by StackARR for every request.</p><div class="card" style="margin:12px 0"><div class="grid"><label><span class="muted">Service</span><select id="api-service" style="width:100%;background:#0e1728;color:#e8edf5;padding:10px;border:1px solid #34435d;border-radius:8px"><option value="radarr">Radarr</option><option value="sonarr">Sonarr</option><option value="prowlarr">Prowlarr</option><option value="bazarr">Bazarr</option></select></label><label><span class="muted">HTTP method</span><select id="api-method" style="width:100%;background:#0e1728;color:#e8edf5;padding:10px;border:1px solid #34435d;border-radius:8px"><option>GET</option><option>POST</option><option>PUT</option><option>PATCH</option><option>DELETE</option></select></label></div><label style="display:block;margin-top:12px"><span class="muted">API path</span><input id="api-path" value="/api/v3/system/status" spellcheck="false" style="width:100%;background:#0b1322;color:#e8edf5;border:1px solid #34435d;border-radius:8px;padding:10px"></label><label style="display:block;margin-top:12px"><span class="muted">Query parameters · JSON object (optional)</span><textarea id="api-params" rows="3" spellcheck="false" style="width:100%;background:#0b1322;color:#dce7f8;border:1px solid #34435d;border-radius:9px;padding:10px;font:12px ui-monospace,monospace">{}</textarea></label><label style="display:block;margin-top:12px"><span class="muted">Request body · JSON (optional)</span><textarea id="api-body" rows="7" spellcheck="false" style="width:100%;background:#0b1322;color:#dce7f8;border:1px solid #34435d;border-radius:9px;padding:10px;font:12px ui-monospace,monospace">{}</textarea></label><div class="actions" style="margin-top:12px"><button id="api-run">Send request</button><button id="api-clear">Clear response</button></div><pre id="api-result" class="info" style="white-space:pre-wrap;overflow-wrap:anywhere;margin-top:12px">Ready.</pre></div><p class="muted">Examples: Radarr/Sonarr <code>/api/v3/movie</code>, Prowlarr <code>/api/v1/indexer</code>, Bazarr <code>/api/system/status</code>. GET requests require read access; normal writes require operations; configuration, system and destructive operations require admin. Check the target application API documentation before changing unfamiliar endpoints.</p>';
+   target.innerHTML=html;
+   $('api-service').addEventListener('change',()=>{
+    const service=$('api-service').value;
+    $('api-path').value=service==='prowlarr'?'/api/v1/system/status':service==='bazarr'?'/api/system/status':'/api/v3/system/status';
+   });
+   $('api-clear').addEventListener('click',()=>{$('api-result').textContent='Ready.';});
+   $('api-run').addEventListener('click',async()=>{
+    const out=$('api-result'),button=$('api-run');out.textContent='Sending request…';button.disabled=true;
+    try{
+     const params=JSON.parse($('api-params').value||'{}');
+     if(!params||typeof params!=='object'||Array.isArray(params))throw new Error('Query parameters must be a JSON object.');
+     const method=$('api-method').value,rawBody=$('api-body').value.trim();
+     const body=rawBody?JSON.parse(rawBody):null;
+     const path=$('api-path').value.trim();
+     if(!path.startsWith('/')||path.startsWith('//')||path.includes('://')||path.includes('\\'))throw new Error('Enter a safe API path beginning with one /.');
+     const result=await request('/web-api/api',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({service:$('api-service').value,method,path,params,body})});
+     out.textContent=JSON.stringify(result,null,2);
+    }catch(err){out.textContent='Error: '+err.message;}
+    finally{button.disabled=false;}
+   });
    return;
  }
  if(view==='settings'){
