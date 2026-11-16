@@ -1,8 +1,14 @@
-# StackARR MCP
+# StackARR
 
-A unified MCP server to **control a self-hosted media stack from an MCP client such as ChatGPT**.
+A unified media-stack application combining a browser dashboard and an MCP server. Use the web interface directly, or connect an MCP client such as ChatGPT to the same backend.
 
 It connects to the native APIs of Radarr, Sonarr, Prowlarr, Bazarr, Scryer and qBittorrent. StackARR is designed to be installed by different users on different Docker hosts; it does not require any particular folder layout, IP address, container name, Docker network or storage system.
+
+## Web dashboard
+
+StackARR serves its browser dashboard and MCP endpoint from the same application and port. Open `http://YOUR_DOCKER_HOST:8765/` to sign in with `MCP_AUTH_TOKEN`. The browser receives an HttpOnly session cookie; the token is not stored in browser local storage. The initial dashboard provides live service connectivity and version status, refreshing automatically every 30 seconds. Library, queue, release and download-management screens can be added as subsequent UI work.
+
+By default, Compose publishes the port on loopback only. To open the dashboard from another device on your LAN, set `STACKARR_BIND_ADDRESS=0.0.0.0` in your private `.env` and recreate the container. This also makes the authenticated MCP endpoint reachable on the LAN. Do not forward this port from your router to the public internet. For remote access, use a private VPN such as Tailscale or a trusted HTTPS access layer.
 
 ## Current implementation
 
@@ -94,7 +100,7 @@ Run the unit tests with `pip install -e ".[test]"` followed by `pytest`.
    docker compose logs -f stackarr
    ```
 
-The MCP endpoint is `http://127.0.0.1:8765/mcp` by default and requires `Authorization: Bearer <MCP_AUTH_TOKEN>`. It is bound to loopback, not exposed directly to the LAN or internet. Put it behind a trusted private access layer before connecting a remote MCP client.
+The MCP endpoint is `http://YOUR_DOCKER_HOST:8765/mcp` and requires `Authorization: Bearer <MCP_AUTH_TOKEN>`. The dashboard is at the same host and port, at `/`. By default both are bound to loopback; set `STACKARR_BIND_ADDRESS=0.0.0.0` for LAN access. Never expose the port directly to the public internet.
 
 The container runs as a non-root user, drops Linux capabilities, and uses a read-only filesystem.
 
