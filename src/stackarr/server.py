@@ -17,6 +17,8 @@ import httpx
 from mcp.server.fastmcp import FastMCP
 import uvicorn
 
+from stackarr.web import StackARRWebMiddleware
+
 mcp = FastMCP("StackARR")
 TIMEOUT = float(os.getenv("HTTP_TIMEOUT", "15"))
 
@@ -437,6 +439,7 @@ def main() -> None:
     host = os.getenv("MCP_HOST", "0.0.0.0")
     port = int(os.getenv("MCP_PORT", "8000"))
     app = _BearerAuthMiddleware(mcp.streamable_http_app(), token)
+    app = StackARRWebMiddleware(app, token, stack_status)
     uvicorn.run(app, host=host, port=port, log_level="info")
 
 
