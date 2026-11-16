@@ -70,7 +70,7 @@ input{width:100%;padding:12px;border:1px solid #34435d;border-radius:10px;backgr
       <button data-view="movies">Movies · Radarr</button><button data-view="series">Series · Sonarr</button>
       <button data-view="radarr-queue">Radarr queue</button><button data-view="sonarr-queue">Sonarr queue</button>
       <button data-view="downloads">Downloads · qBittorrent</button>
-      <button data-view="search-movies">Search movies</button><button data-view="search-series">Search series</button><button data-view="settings">Settings</button>
+      <button data-view="search-movies">Search movies</button><button data-view="search-series">Search series</button><button data-view="scryer">Scryer</button><button data-view="settings">Settings</button>
     </div>
     <div class="info" id="workspace"><strong>Select a section</strong><br>Browse your library, inspect import queues and manage active downloads.</div>
   </section>
@@ -114,8 +114,22 @@ function table(headers,rows){return '<div style="overflow:auto"><table style="wi
 async function openView(view){const target=$('workspace');target.textContent='Loading…';try{
  let data,html='';
 
+ if(view==='scryer'){
+   html='<h3>Scryer · GraphQL</h3><p class="muted">Explore and operate Scryer through its native GraphQL API. Queries are read-only; mutations require StackARR admin permission. Use the Scryer API documentation for operation names and input types.</p><label class="muted">GraphQL operation</label><textarea id="scryer-query" rows="9" spellcheck="false" style="width:100%;background:#0b1322;color:#dce7f8;border:1px solid #34435d;border-radius:9px;padding:12px;font:13px ui-monospace,monospace">query StackStatus { scryerVersion }</textarea><label class="muted">Variables · JSON object (optional)</label><textarea id="scryer-variables" rows="4" spellcheck="false" style="width:100%;background:#0b1322;color:#dce7f8;border:1px solid #34435d;border-radius:9px;padding:12px;font:13px ui-monospace,monospace">{}</textarea><div class="actions" style="margin-top:10px"><button id="scryer-run">Execute GraphQL</button><button id="scryer-introspect">Load schema overview</button></div><pre id="scryer-result" class="info" style="white-space:pre-wrap;overflow-wrap:anywhere;margin-top:14px">Ready.</pre>';
+   target.innerHTML=html;
+   $('scryer-run').addEventListener('click',async()=>{
+    const out=$('scryer-result');out.textContent='Executing…';
+    try{let variables=JSON.parse($('scryer-variables').value||'{}');if(!variables||typeof variables!=='object'||Array.isArray(variables))throw new Error('Variables must be a JSON object');const result=await request('/web-api/scryer/graphql',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query:$('scryer-query').value,variables})});out.textContent=JSON.stringify(result,null,2);}
+    catch(err){out.textContent='Error: '+err.message;}
+   });
+   $('scryer-introspect').addEventListener('click',async()=>{
+    $('scryer-query').value='query StackARRSchema { __schema { queryType { name fields { name description } } mutationType { name fields { name description } } } }';
+    $('scryer-run').click();
+   });
+   return;
+ }
  if(view==='settings'){
-   html='<h3>Configuration</h3><p class="muted">Edit Radarr/Sonarr profiles and integrations, Prowlarr indexers and download clients, or selected qBittorrent preferences. Review each JSON object before saving.</p><div class="actions" style="flex-wrap:wrap;margin:12px 0"><select id="settings-service" style="background:#0e1728;color:#e8edf5;padding:9px;border:1px solid #34435d;border-radius:8px"><option value="radarr">Radarr</option><option value="sonarr">Sonarr</option><option value="prowlarr">Prowlarr</option><option value="qbittorrent">qBittorrent</option></select><select id="settings-resource" style="background:#0e1728;color:#e8edf5;padding:9px;border:1px solid #34435d;border-radius:8px"><option value="qualityprofile">Quality profiles</option><option value="delayprofile">Delay profiles</option><option value="indexer">Indexers</option><option value="downloadclient">Download clients</option><option value="notification">Notifications</option></select><button id="load-settings">Load settings</button></div><div id="settings-records" class="muted">Choose an application and load its configuration.</div>';
+   html='<h3>Configuration</h3><p class="muted">Edit Radarr/Sonarr profiles and integrations, Prowlarr indexers and download clients, or selected qBittorrent preferences. Review each JSON object before saving.</p><div class="actions" style="flex-wrap:wrap;margin:12px 0"><select id="settings-service" style="background:#0e1728;color:#e8edf5;padding:9px;border:1px solid #34435d;border-radius:8px"><option value="radarr">Radarr</option><option value="sonarr">Sonarr</option><option value="prowlarr">Prowlarr</option><option value="qbittorrent">qBittorrent</option></select><select id="settings-resource" style="background:#0e1728;color:#e8edf5;padding:9px;border:1px solid #34435d;border-radius:8px"><option value="qualityprofile">Quality profiles</option><option value="delayprofile">Delay profiles</option><option value="indexer">Indexers</option><option value="downloadclient">Download clients</option><option value="notification">Notifications</option><option value="qualitydefinition">Quality definitions</option><option value="customformat">Custom formats</option><option value="importlist">Import lists</option><option value="metadata">Metadata</option><option value="tag">Tags</option><option value="languageprofile">Language profiles (Sonarr)</option><option value="releaseprofile">Release profiles (Sonarr)</option></select><button id="load-settings">Load settings</button></div><div id="settings-records" class="muted">Choose an application and load its configuration.</div>';
    target.innerHTML=html;
    const svc=$('settings-service'),res=$('settings-resource'),records=$('settings-records');
    const updateResource=()=>{
