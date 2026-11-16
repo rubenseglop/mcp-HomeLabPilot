@@ -178,3 +178,37 @@ def test_arr_update_configuration_restores_redacted_secrets(monkeypatch):
     assert calls[0][1:3] == ("GET", "/api/v3/indexer/7")
     assert calls[1][1:3] == ("PUT", "/api/v3/indexer/7")
 
+
+
+
+def test_prowlarr_configuration_uses_v1_endpoints(monkeypatch):
+    import asyncio
+    import stackarr.server as server
+
+    calls = []
+
+    async def fake_request(service, method, path, params=None, body=None):
+        calls.append((service, method, path, body))
+        if method == "GET":
+            return [{"id": 9, "name": "Indexer", "apiKey": "hidden"}]
+        return body
+
+    monkeypatch.setattr(server, "_arr_request", fake_request)
+    result = asyncio.run(server.arr_get_configuration("prowlarr", "indexer"))
+    assert result == [{"id": 9, "name": "Indexer"}]
+
+    updated = asyncio.run(server.arr_update_configuration(
+        "prowlarr", "indexer", 9, {"id": 9, "name": "Updated"}
+    ))
+    assert updated["apiKey"] == "hidden"
+    assert calls[0][0:3] == ("prowlarr", "GET", "/api/v1/indexer")
+    assert calls[1][0:3] == ("prowlarr", "GET", "/api/v1/indexer/9")
+    assert calls[2][0:3] == ("prowlarr", "PUT", "/api/v1/indexer/9")
+
+
+def test_prowlarr_configuration_rejects_unsupported_resource():
+    import asyncio
+    import stackarr.server as server
+
+    with pytest.raises(ValueError, match="resource for prowlarr"):
+        asyncio.run(server.arr_get_configuration("prowlarr", "qualityprofile"))
