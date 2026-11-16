@@ -358,6 +358,35 @@ async def arr_update_configuration(service: str, resource: str, item_id: int, it
 
 
 @mcp.tool()
+async def arr_create_configuration(service: str, resource: str, item: dict[str, Any]) -> Any:
+    """Create a configuration record in Radarr, Sonarr or Prowlarr (admin only)."""
+    _require_permission("admin")
+    resources = ARR_EDITABLE_RESOURCES_BY_SERVICE.get(service)
+    if resources is None:
+        raise ValueError("service must be radarr, sonarr or prowlarr")
+    if resource not in resources:
+        raise ValueError(f"resource for {service} must be one of: {', '.join(resources)}")
+    if not isinstance(item, dict) or item.get("id", 0) not in (0, None):
+        raise ValueError("new configuration item must be a JSON object with id omitted or set to 0")
+    created = await _arr_request(service, "POST", resources[resource], body=item)
+    return _redact_sensitive_config(created)
+
+
+@mcp.tool()
+async def arr_delete_configuration(service: str, resource: str, item_id: int) -> Any:
+    """Delete a configuration record in Radarr, Sonarr or Prowlarr (admin only)."""
+    _require_permission("admin")
+    resources = ARR_EDITABLE_RESOURCES_BY_SERVICE.get(service)
+    if resources is None:
+        raise ValueError("service must be radarr, sonarr or prowlarr")
+    if resource not in resources:
+        raise ValueError(f"resource for {service} must be one of: {', '.join(resources)}")
+    if item_id < 1:
+        raise ValueError("item_id must be positive")
+    return await _arr_request(service, "DELETE", f"{resources[resource]}/{item_id}")
+
+
+@mcp.tool()
 async def qbittorrent_get_preferences() -> dict[str, Any]:
     """Read a safe allowlist of qBittorrent download and connection preferences."""
     prefs = await qbittorrent_api_request("GET", "/api/v2/app/preferences")
@@ -694,6 +723,18 @@ async def _web_api_request(
         if service == "qbittorrent":
             return await qbittorrent_get_preferences()
         return await arr_get_configuration(service, resource)
+    if method == "POST" and path == "/web-api/settings/create":
+        return await arr_create_configuration(
+            str(payload.get("service", "")),
+            str(payload.get("resource", "")),
+            payload.get("item", {}),
+        )
+    if method == "POST" and path == "/web-api/settings/delete":
+        return await arr_delete_configuration(
+            str(payload.get("service", "")),
+            str(payload.get("resource", "")),
+            int(payload.get("id", 0)),
+        )
     if method == "POST" and path == "/web-api/settings/update":
         service = str(payload.get("service", ""))
         if service == "qbittorrent":
