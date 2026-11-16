@@ -46,7 +46,7 @@ def make_app():
         await send({"type": "http.response.start", "status": 404, "headers": []})
         await send({"type": "http.response.body", "body": b""})
 
-    return StackARRWebMiddleware(fallback, "test-secret-token", status)
+    return StackARRWebMiddleware(fallback, "test-secret-token", status, web_username="testuser", web_password="test-password")
 
 
 def test_dashboard_is_served():
@@ -67,7 +67,7 @@ def test_login_sets_cookie_and_cookie_authorizes_dashboard_api():
         "/web-login",
         method="POST",
         headers=[(b"content-type", b"application/json")],
-        body=json.dumps({"password": "test-secret-token"}).encode(),
+        body=json.dumps({"username": "testuser", "password": "test-password"}).encode(),
     )
     assert start["status"] == 200
     cookie = next(value for name, value in start["headers"] if name == b"set-cookie")
@@ -97,8 +97,10 @@ def test_authenticated_web_api_calls_shared_backend():
         await send({"type": "http.response.start", "status": 404, "headers": []})
         await send({"type": "http.response.body", "body": b""})
 
-    app = StackARRWebMiddleware(fallback, "test-secret-token", status, api)
-    start, _ = call_asgi(app, "/web-api/library", headers=[(b"cookie", b"stackarr_session=test-secret-token")])
+    app = StackARRWebMiddleware(fallback, "test-secret-token", status, api, web_username="testuser", web_password="test-password")
+    login, _ = call_asgi(app, "/web-login", method="POST", headers=[(b"content-type", b"application/json")], body=json.dumps({"username": "testuser", "password": "test-password"}).encode())
+    cookie = next(value.split(b";", 1)[0] for name, value in login["headers"] if name == b"set-cookie")
+    start, _ = call_asgi(app, "/web-api/library", headers=[(b"cookie", cookie)])
     assert start["status"] == 200
     assert calls[0][0] == "/web-api/library"
     assert calls[0][1] == "GET"
@@ -126,3 +128,25 @@ def test_dashboard_settings_includes_prowlarr():
     assert start["status"] == 200
     assert b'<option value="prowlarr">Prowlarr</option>' in body
     assert b"prowlarrResources" in body
+
+
+def test_dashboard_login_rejects_wrong_username_or_password():
+    app = make_app()
+    start, _ = call_asgi(
+        app, "/web-login", method="POST",
+        headers=[(b"content-type", b"application/json")],
+        body=json.dumps({"username": "wrong", "password": "test-password"}).encode(),
+    )
+    assert start["status"] == 401
+
+
+def test_dashboard_session_is_random_and_not_the_mcp_token():
+    app = make_app()
+    start, _ = call_asgi(
+        app, "/web-login", method="POST",
+        headers=[(b"content-type", b"application/json")],
+        body=json.dumps({"username": "testuser", "password": "test-password"}).encode(),
+    )
+    cookie = next(value for name, value in start["headers"] if name == b"set-cookie")
+    assert b"test-secret-token" not in cookie
+    assert b"HttpOnly" in cookie
