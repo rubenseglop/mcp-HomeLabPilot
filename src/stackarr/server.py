@@ -429,6 +429,28 @@ async def _web_api_request(
     path: str, method: str, query: dict[str, list[str]], payload: dict[str, Any]
 ) -> Any:
     """Shared browser API actions; all service calls reuse the same configured API layer."""
+    if method == "GET" and path == "/web-api/catalog":
+        service = (query.get("service") or [""])[0]
+        term = (query.get("term") or [""])[0]
+        return await arr_search_catalog(service, term)
+    if method == "GET" and path == "/web-api/setup":
+        service = (query.get("service") or [""])[0]
+        return await arr_get_setup_options(service)
+    if method == "POST" and path == "/web-api/catalog/add":
+        service = str(payload.get("service", ""))
+        monitored = bool(payload.get("monitored", True))
+        search_now = bool(payload.get("search_now", False))
+        if service == "radarr":
+            return await arr_add_movie(
+                int(payload.get("tmdb_id", 0)), str(payload.get("root_folder_path", "")),
+                int(payload.get("quality_profile_id", 0)), monitored, search_now,
+            )
+        if service == "sonarr":
+            return await arr_add_series(
+                int(payload.get("tvdb_id", 0)), str(payload.get("root_folder_path", "")),
+                int(payload.get("quality_profile_id", 0)), monitored=monitored, search_now=search_now,
+            )
+        raise ValueError("service must be radarr or sonarr")
     if method == "GET" and path == "/web-api/library":
         service = (query.get("service") or [""])[0]
         return await arr_list_library(service)
