@@ -10,6 +10,12 @@ It connects directly to the native APIs of Radarr, Sonarr, Prowlarr, Bazarr, Scr
 - `scryer_graphql`: GraphQL query/mutation bridge for Scryer.
 - `qbittorrent_api_request`: qBittorrent Web API bridge, including queue/download controls.
 - `stack_status`: connectivity and version checks.
+- `arr_list_library`: list Radarr movies or Sonarr series.
+- `arr_search_catalog`: find movies/series by title.
+- `arr_get_queue`: inspect download/import queues.
+- `arr_get_setup_options`: retrieve valid root folders and quality profiles.
+- `arr_add_movie` / `arr_add_series`: add titles by TMDB/TVDB ID.
+- `arr_search_releases` / `arr_grab_release`: search and send a selected release to the download client.
 
 The API bridge supports the native operations exposed by each application, rather than hard-coding a small set of workflows. This lets us add higher-level, easy-to-use tools without losing access to less common features.
 
@@ -56,7 +62,7 @@ The server uses MCP over stdio. Configure the MCP client to launch `stackarr-mcp
 
 ## Next development steps
 
-1. Add curated, strongly typed tools for common requests (add/search/grab/update/remove) so the model does not need to construct raw API calls.
+1. Expand the typed tools with monitoring, quality-profile changes, commands, and safe delete/preview workflows.
 2. Add schema-aware Scryer tools for title discovery, library management, requests, release search/grab, subtitles, indexers, clients and settings.
 3. Add qBittorrent file-upload support for adding .torrent files.
 4. Add tests using mocked APIs and a Docker Compose deployment example.
