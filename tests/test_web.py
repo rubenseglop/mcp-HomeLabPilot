@@ -123,6 +123,58 @@ def test_web_api_requires_session():
 
 
 
+def test_dashboard_exposes_advanced_api_explorer_and_bazarr():
+    start, body = call_asgi(make_app(), "/")
+    assert start["status"] == 200
+    assert b'data-view="api-explorer"' in body
+    assert b'<option value="bazarr">Bazarr</option>' in body
+    assert b'/web-api/api' in body
+
+
+def test_web_api_advanced_api_dispatches_to_shared_permission_checked_bridge(monkeypatch):
+    import asyncio
+    import stackarr.server as server
+
+    calls = []
+
+    async def fake_arr_api_request(service, method, path, params=None, body=None):
+        calls.append((service, method, path, params, body))
+        return {"ok": True}
+
+    monkeypatch.setattr(server, "arr_api_request", fake_arr_api_request)
+    result = asyncio.run(server._web_api_request(
+        "/web-api/api", "POST", {},
+        {"service": "bazarr", "method": "PUT", "path": "/api/providers/1",
+         "params": {"enabled": True}, "body": {"name": "Example"}},
+    ))
+    assert result == {"ok": True}
+    assert calls == [("bazarr", "PUT", "/api/providers/1",
+                      {"enabled": True}, {"name": "Example"})]
+
+
+def test_web_api_advanced_api_rejects_unknown_service():
+    import asyncio
+    import stackarr.server as server
+
+    with pytest.raises(ValueError, match="service must be radarr"):
+        asyncio.run(server._web_api_request(
+            "/web-api/api", "POST", {},
+            {"service": "docker", "method": "GET", "path": "/containers"},
+        ))
+
+
+def test_web_api_advanced_api_rejects_non_object_params():
+    import asyncio
+    import stackarr.server as server
+
+    with pytest.raises(ValueError, match="params must be a JSON object"):
+        asyncio.run(server._web_api_request(
+            "/web-api/api", "POST", {},
+            {"service": "radarr", "method": "GET", "path": "/api/v3/movie",
+             "params": []},
+        ))
+
+
 def test_dashboard_settings_includes_prowlarr():
     start, body = call_asgi(make_app(), "/")
     assert start["status"] == 200
