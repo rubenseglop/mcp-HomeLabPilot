@@ -90,6 +90,22 @@ $('login-form').addEventListener('submit',async e=>{e.preventDefault();$('login-
 $('refresh').addEventListener('click',refresh);
 $('logout').addEventListener('click',async()=>{await fetch('/web-logout',{method:'POST',credentials:'same-origin'});showLogin();});
 function cell(v){return esc(v===null||v===undefined?'—':v);}
+function fieldLabel(key){return String(key).replace(/([a-z0-9])([A-Z])/g,'$1 $2').replace(/[_-]+/g,' ').replace(/^./,c=>c.toUpperCase());}
+function configFields(value,path=[]){
+ if(!value||typeof value!=='object'||Array.isArray(value))return '';
+ return Object.entries(value).map(([key,v])=>{
+  if(/password|apikey|api_key|token|secret|credential/i.test(key))return '';
+  const p=esc(JSON.stringify([...path,key])),label=esc(fieldLabel(key));
+  const style='width:100%;background:#0b1322;color:#e8edf5;border:1px solid #34435d;border-radius:8px;padding:9px;margin-top:5px';
+  if(typeof v==='boolean')return '<label style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #25344d"><input data-config-path="'+p+'" type="checkbox" '+(v?'checked':'')+' style="width:auto;margin:0"><span>'+label+'</span></label>';
+  if(typeof v==='number')return '<label style="display:block;padding:7px 0"><span class="muted">'+label+'</span><input data-config-path="'+p+'" type="number" step="any" value="'+esc(v)+'" style="'+style+'"></label>';
+  if(typeof v==='string')return '<label style="display:block;padding:7px 0"><span class="muted">'+label+'</span><input data-config-path="'+p+'" type="text" value="'+esc(v)+'" style="'+style+'"></label>';
+  if(Array.isArray(v))return '<label style="display:block;padding:7px 0"><span class="muted">'+label+' · list / advanced values (JSON)</span><textarea data-config-path="'+p+'" rows="5" style="'+style+';font:12px ui-monospace,monospace">'+esc(JSON.stringify(v,null,2))+'</textarea></label>';
+  if(v&&typeof v==='object')return '<details open style="margin:8px 0 8px 12px;padding:8px 12px;border-left:2px solid #34435d"><summary style="cursor:pointer;color:#b8c5d8">'+label+'</summary>'+configFields(v,[...path,key])+'</details>';
+  return '<label style="display:block;padding:7px 0"><span class="muted">'+label+'</span><input data-config-path="'+p+'" type="text" value="'+esc(v??'')+'" style="'+style+'"></label>';
+ }).join('');
+}
+function setConfigPath(object,path,value){let target=object;for(let i=0;i<path.length-1;i++){if(!target[path[i]]||typeof target[path[i]]!=='object')target[path[i]]={};target=target[path[i]];}target[path[path.length-1]]=value;}
 function table(headers,rows){return '<div style="overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr>'+headers.map(h=>'<th style="text-align:left;padding:10px;border-bottom:1px solid #34435d;color:#91a0b8">'+esc(h)+'</th>').join('')+'</tr></thead><tbody>'+rows.join('')+'</tbody></table></div>';}
 async function openView(view){const target=$('workspace');target.textContent='Loading…';try{
  let data,html='';
@@ -138,9 +154,23 @@ async function openView(view){const target=$('workspace');target.textContent='Lo
      }
      const items=Array.isArray(data)?data:[];
      if(!items.length){records.textContent='No configuration records found.';return;}
-     records.innerHTML=items.map((item,i)=>'<details class="card" style="margin:10px 0"><summary style="cursor:pointer"><strong>'+esc(item.name||item.host||item.path||resource+' #'+(item.id??i))+'</strong> <span class="muted">ID '+esc(item.id??'—')+'</span></summary><textarea data-config-json="'+i+'" rows="14" style="width:100%;margin-top:12px;background:#0b1322;color:#dce7f8;border:1px solid #34435d;border-radius:9px;padding:12px;font:12px ui-monospace,monospace">'+esc(JSON.stringify(item,null,2))+'</textarea><button data-save-config="'+i+'" data-id="'+esc(item.id)+'" style="margin-top:8px">Save changes</button></details>').join('');
+     records.innerHTML=items.map((item,i)=>'<details class="card" style="margin:10px 0"><summary style="cursor:pointer"><strong>'+esc(item.name||item.host||item.path||resource+' #'+(item.id??i))+'</strong> <span class="muted">ID '+esc(item.id??'—')+'</span></summary><div data-config-form="'+i+'" style="margin-top:12px">'+configFields(item)+'</div><div class="actions" style="margin-top:10px"><button data-save-config="${i}" data-id="'+esc(item.id)+'">Save changes</button></div></details>').join('');
      records.querySelectorAll('[data-save-config]').forEach(button=>button.addEventListener('click',async()=>{
-      try{const item=JSON.parse(records.querySelector('[data-config-json="'+button.dataset.saveConfig+'"]').value);if(!confirm('Save changes to '+(item.name||resource+' #'+button.dataset.id)+'?'))return;await request('/web-api/settings/update',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({service,resource,id:Number(button.dataset.id),item})});alert('Configuration saved.');}catch(err){alert('Could not save: '+err.message);}
+      try{
+       const index=Number(button.dataset.saveConfig),item=JSON.parse(JSON.stringify(items[index]));
+       records.querySelectorAll('[data-config-form="'+index+'"] [data-config-path]').forEach(input=>{
+        const path=JSON.parse(input.dataset.configPath);let value;
+        if(input.type==='checkbox')value=input.checked;
+        else if(input.type==='number'){value=Number(input.value);if(!Number.isFinite(value))throw new Error('Invalid number in '+fieldLabel(path[path.length-1]));}
+        else if(input.tagName==='TEXTAREA'){try{value=JSON.parse(input.value);}catch(_){throw new Error('Invalid JSON in '+fieldLabel(path[path.length-1]));}}
+        else value=input.value;
+        setConfigPath(item,path,value);
+       });
+       if(!confirm('Save changes to '+(item.name||resource+' #'+button.dataset.id)+'?'))return;
+       button.disabled=true;
+       await request('/web-api/settings/update',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({service,resource,id:Number(button.dataset.id),item})});
+       button.textContent='Saved';button.disabled=false;
+      }catch(err){alert('Could not save: '+err.message);button.disabled=false;}
      }));
     }catch(err){records.innerHTML='<div class="error">'+esc(err.message)+'</div>';}
    });
