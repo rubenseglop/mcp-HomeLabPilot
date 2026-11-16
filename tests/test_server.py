@@ -434,3 +434,52 @@ def test_web_scryer_graphql_rejects_invalid_variables():
             "/web-api/scryer/graphql", "POST", {},
             {"query": "query { scryerVersion }", "variables": []},
         ))
+
+
+def test_web_torrent_category_route_dispatches_to_shared_tool(monkeypatch):
+    import asyncio
+    import stackarr.server as server
+
+    calls = []
+
+    async def fake_set_category(hashes, category):
+        calls.append((hashes, category))
+        return {"ok": True}
+
+    monkeypatch.setattr(server, "qbittorrent_set_category", fake_set_category)
+    result = asyncio.run(server._web_api_request(
+        "/web-api/torrents/category", "POST", {},
+        {"hashes": "abc123", "category": "series"},
+    ))
+    assert result == {"ok": True}
+    assert calls == [("abc123", "series")]
+
+
+def test_web_torrent_delete_route_dispatches_to_shared_tool(monkeypatch):
+    import asyncio
+    import stackarr.server as server
+
+    calls = []
+
+    async def fake_delete(hashes, delete_files=False):
+        calls.append((hashes, delete_files))
+        return {"ok": True}
+
+    monkeypatch.setattr(server, "qbittorrent_delete_torrents", fake_delete)
+    result = asyncio.run(server._web_api_request(
+        "/web-api/torrents/delete", "POST", {},
+        {"hashes": "abc123", "delete_files": False},
+    ))
+    assert result == {"ok": True}
+    assert calls == [("abc123", False)]
+
+
+def test_web_torrent_delete_rejects_non_boolean_delete_files():
+    import asyncio
+    import stackarr.server as server
+
+    with pytest.raises(ValueError, match="delete_files must be a boolean"):
+        asyncio.run(server._web_api_request(
+            "/web-api/torrents/delete", "POST", {},
+            {"hashes": "abc123", "delete_files": "true"},
+        ))
