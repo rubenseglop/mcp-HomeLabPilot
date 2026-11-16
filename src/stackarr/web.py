@@ -136,10 +136,12 @@ async function openView(view){const target=$('workspace');target.textContent='Lo
     const service=svc.value;
     res.disabled=service==='qbittorrent';
     const prowlarrResources=new Set(['indexer','downloadclient','notification']);
+    const radarrOnlyExcluded=new Set(['languageprofile','releaseprofile']);
     Array.from(res.options).forEach(option=>{
-     option.disabled=service==='prowlarr'&&!prowlarrResources.has(option.value);
+     option.disabled=(service==='prowlarr'&&!prowlarrResources.has(option.value))||(service==='radarr'&&radarrOnlyExcluded.has(option.value));
     });
     if(service==='prowlarr'&&!prowlarrResources.has(res.value))res.value='indexer';
+    if(service==='radarr'&&radarrOnlyExcluded.has(res.value))res.value='qualityprofile';
    };
    svc.addEventListener('change',updateResource);updateResource();
    $('load-settings').addEventListener('click',async()=>{
