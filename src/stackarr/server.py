@@ -140,6 +140,18 @@ async def scryer_graphql(
 
 
 @mcp.tool()
+def _check_qbittorrent_login(response: httpx.Response) -> None:
+    """Accept qBittorrent's successful WebUI login response variants."""
+    response.raise_for_status()
+    # Depending on qBittorrent version, a successful login returns either
+    # HTTP 200 with "Ok." or HTTP 204 with an empty response body.
+    if response.status_code == 204:
+        return
+    if response.status_code == 200 and response.text.strip() == "Ok.":
+        return
+    raise RuntimeError("qBittorrent rejected the configured credentials")
+
+
 async def qbittorrent_api_request(
     method: str,
     path: str,
@@ -168,9 +180,7 @@ async def qbittorrent_api_request(
             f"{base}/api/v2/auth/login",
             data={"username": username, "password": password},
         )
-        login.raise_for_status()
-        if login.text.strip() != "Ok.":
-            raise RuntimeError("qBittorrent rejected the configured credentials")
+        _check_qbittorrent_login(login)
         response = await client.request(
             method, f"{base}{path}", params=params, data=data
         )
