@@ -23,7 +23,7 @@ By default, Compose publishes the port on loopback only. To open the dashboard f
 - `qbittorrent_control_torrents`: pause, resume, recheck or reannounce.
 - `qbittorrent_delete_torrents`: remove torrents, optionally including their data files.
 - `qbittorrent_set_category`: change torrent categories.
-- `arr_list_library`: list Radarr movies or Sonarr series.
+- `arr_list_library`: list Radarr movies or Sonarr series.\n- `arr_update_library_item`: update monitoring and/or quality profile for an existing movie or series while preserving all other fields.
 - `arr_search_catalog`: find movies/series by title.
 - `arr_get_queue`: inspect download/import queues.
 - `arr_get_setup_options`: retrieve valid root folders and quality profiles.
@@ -38,7 +38,7 @@ The API bridge supports the native operations exposed by each application, rathe
 - API keys and passwords are read from environment variables and must never be committed.
 - The server does not expose a generic internet HTTP proxy.
 - Write operations are available because this project is designed for full control. Treat the MCP endpoint and its credentials as administrator-level access to your media stack.
-- The web API requires an authenticated browser session. Torrent pause/resume actions ask for confirmation in the UI.
+- The web API requires an authenticated browser session. Torrent pause/resume and library edits require confirmation in the UI. Library updates fetch the current Radarr/Sonarr object and change only the requested monitoring/profile fields, preserving the remaining metadata.
 - The assistant should ask before irreversible actions such as deleting library files, removing titles with files, deleting torrents and data, or changing global settings.
 - Docker management is a planned optional module. It will use separate permissions and a restricted control layer; no unrestricted Docker socket access is enabled.
 
@@ -119,7 +119,7 @@ The container runs as a non-root user, drops Linux capabilities, and uses a read
 
 ## Next development steps
 
-1. Add richer library details, edit/monitor controls, and release selection/grabbing.
+1. Add richer library details and release selection/grabbing (monitoring and quality-profile editing are now available).
 2. Add Bazarr and Scryer management screens and operation history/auditing.
 3. Add fine-grained permissions and safer previews for destructive operations.
 4. Add optional Docker management behind a separate restricted permission boundary.
