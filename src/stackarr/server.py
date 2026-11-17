@@ -14,6 +14,7 @@ import hmac
 import json
 import os
 import re
+from pathlib import PurePosixPath
 from typing import Any
 from urllib.parse import quote, urljoin
 
@@ -631,6 +632,168 @@ async def qbittorrent_update_preferences(preferences: dict[str, Any]) -> Any:
         "POST", "/api/v2/app/setPreferences",
         data={"json": json.dumps(preferences)},
     )
+
+
+def _validate_qbittorrent_location(location: str) -> str:
+    """Validate an absolute Linux path on the qBittorrent host."""
+    if not isinstance(location, str):
+        raise ValueError("location must be an absolute Linux path")
+    location = location.strip()
+    path = PurePosixPath(location)
+    if (
+        not location.startswith("/")
+        or location.startswith("//")
+        or "\\" in location
+        or any(part == ".." for part in location.split("/"))
+        or any(ord(char) < 32 for char in location)
+        or str(path) != (location.rstrip("/") or "/")
+    ):
+        raise ValueError("location must be a normalized absolute Linux path without '..'")
+    return location.rstrip("/") or "/"
+
+
+@mcp.tool()
+async def qbittorrent_list_categories() -> Any:
+    """List qBittorrent categories and their configured save paths."""
+    result = await qbittorrent_api_request("GET", "/api/v2/torrents/categories")
+    if not isinstance(result, dict):
+        raise RuntimeError("qBittorrent returned an unexpected category list")
+    return result
+
+
+@mcp.tool()
+async def qbittorrent_preview_update_category_path(category: str, save_path: str) -> Any:
+    """Preview changing a qBittorrent category's default save path."""
+    category = category.strip()
+    save_path = _validate_qbittorrent_location(save_path)
+    if not category:
+        raise ValueError("category cannot be empty")
+    categories = await qbittorrent_list_categories()
+    current = categories.get(category)
+    if not isinstance(current, dict):
+        raise ValueError(f"qBittorrent category does not exist: {category}")
+    previous_path = str(current.get("savePath", ""))
+    confirmation = f"UPDATE CATEGORY PATH: {category} -> {save_path}"
+    snapshot = {
+        "category": category,
+        "previous_save_path": previous_path,
+        "save_path": save_path,
+    }
+    return {
+        **snapshot,
+        "confirmation_text": confirmation,
+        "preview_token": _preview_token(snapshot),
+    }
+
+
+@mcp.tool()
+async def qbittorrent_update_category_path(
+    category: str, save_path: str, preview_token: str, typed_confirmation: str
+) -> Any:
+    """Change a qBittorrent category's save path after a current preview and typed confirmation."""
+    _require_permission("admin")
+    preview = await qbittorrent_preview_update_category_path(category, save_path)
+    if not preview_token.strip() or not hmac.compare_digest(
+        preview["preview_token"], preview_token
+    ):
+        raise ValueError("The category path preview is stale; request a new preview")
+    if typed_confirmation != preview["confirmation_text"]:
+        raise ValueError("typed_confirmation does not exactly match the preview")
+    await qbittorrent_api_request(
+        "POST",
+        "/api/v2/torrents/editCategory",
+        data={"category": preview["category"], "savePath": preview["save_path"]},
+    )
+    updated = await qbittorrent_list_categories()
+    actual = updated.get(preview["category"])
+    if not isinstance(actual, dict) or str(actual.get("savePath", "")) != preview["save_path"]:
+        raise RuntimeError("qBittorrent did not confirm the category save path change")
+    return {
+        "category": preview["category"],
+        "previous_save_path": preview["previous_save_path"],
+        "save_path": preview["save_path"],
+    }
+
+
+def _parse_torrent_hashes(hashes: str) -> list[str]:
+    selected = [item.strip().lower() for item in re.split(r"[|,]", hashes) if item.strip()]
+    if not selected or any(
+        not re.fullmatch(r"[a-f0-9]{40}|[a-f0-9]{64}", item) for item in selected
+    ):
+        raise ValueError("hashes must contain one or more valid torrent hashes")
+    if len(set(selected)) != len(selected):
+        raise ValueError("hashes must not contain duplicates")
+    return selected
+
+
+@mcp.tool()
+async def qbittorrent_preview_move_torrents(hashes: str, location: str) -> Any:
+    """Preview moving selected torrent data to an absolute path without changing anything."""
+    selected = _parse_torrent_hashes(hashes)
+    location = _validate_qbittorrent_location(location)
+    torrents = await qbittorrent_api_request(
+        "GET", "/api/v2/torrents/info", params={"hashes": "|".join(selected)}
+    )
+    if not isinstance(torrents, list):
+        raise RuntimeError("qBittorrent returned an unexpected torrent list")
+    by_hash = {
+        str(item.get("hash", "")).lower(): item
+        for item in torrents
+        if isinstance(item, dict)
+    }
+    if set(by_hash) != set(selected):
+        raise ValueError("One or more selected torrent hashes are missing from qBittorrent")
+    items = [
+        {
+            "hash": item_hash,
+            "name": str(by_hash[item_hash].get("name", "")),
+            "category": str(by_hash[item_hash].get("category", "")),
+            "state": str(by_hash[item_hash].get("state", "")),
+            "content_path": str(by_hash[item_hash].get("content_path", "")),
+            "save_path": str(by_hash[item_hash].get("save_path", "")),
+        }
+        for item_hash in selected
+    ]
+    moving = [item for item in items if item["save_path"] != location]
+    snapshot = {"items": moving, "location": location}
+    confirmation = f"MOVE {len(moving)} TORRENTS TO: {location}"
+    return {
+        "hashes": [item["hash"] for item in moving],
+        "items": [
+            {key: value for key, value in item.items() if key != "hash"}
+            for item in moving
+        ],
+        "location": location,
+        "already_at_location": len(items) - len(moving),
+        "confirmation_text": confirmation,
+        "preview_token": _preview_token(snapshot),
+    }
+
+
+@mcp.tool()
+async def qbittorrent_move_torrents(
+    hashes: str, location: str, preview_token: str, typed_confirmation: str
+) -> Any:
+    """Move selected torrent data after a fresh snapshot preview and exact typed confirmation."""
+    _require_permission("admin")
+    preview = await qbittorrent_preview_move_torrents(hashes, location)
+    if not preview_token.strip() or not hmac.compare_digest(
+        preview["preview_token"], preview_token
+    ):
+        raise ValueError("The move preview is stale; request a new preview")
+    if typed_confirmation != preview["confirmation_text"]:
+        raise ValueError("typed_confirmation does not exactly match the preview")
+    if preview["items"]:
+        await qbittorrent_api_request(
+            "POST",
+            "/api/v2/torrents/setLocation",
+            data={"hashes": "|".join(preview["hashes"]), "location": preview["location"]},
+        )
+    return {
+        "requested": len(preview["items"]),
+        "already_at_location": preview["already_at_location"],
+        "location": preview["location"],
+    }
 
 
 @mcp.tool()

@@ -28,9 +28,12 @@ By default, Compose publishes the port on loopback only. To open the dashboard f
 - `qbittorrent_preview_delete_torrents` / `qbittorrent_delete_torrents`: snapshot and typed confirmation before torrent removal or data deletion.
 - `docker_list_allowlisted_containers` / `docker_control_allowlisted_container`: optional allowlisted start/stop/restart via the restricted gateway.
 - `qbittorrent_list_torrents`: list and filter torrents.
+- `qbittorrent_list_categories`: inspect qBittorrent categories and their save paths.
 - `qbittorrent_control_torrents`: pause, resume, recheck or reannounce.
 - `qbittorrent_delete_torrents`: remove torrents, optionally including their data files, after a fresh preview and exact confirmation.
 - `qbittorrent_set_category`: change torrent categories.
+- `qbittorrent_preview_update_category_path` / `qbittorrent_update_category_path`: preview and confirm a category save-path change. Updating the category path does not move existing torrent data; use the torrent-location workflow for that.
+- `qbittorrent_preview_move_torrents` / `qbittorrent_move_torrents`: snapshot and typed confirmation before moving selected torrent data to another absolute path on the qBittorrent host.
 - `arr_list_library`: list Radarr movies, Sonarr series or Lidarr artists.
 - `arr_update_library_item`: update monitoring and profiles for an existing movie, series or artist while preserving all other fields.
 - `arr_add_artist`, `lidarr_list_albums`, `lidarr_update_album`, `lidarr_get_history` and `lidarr_get_missing_albums`: dedicated Lidarr music-library workflows.
