@@ -340,6 +340,15 @@ def test_settings_dashboard_has_configuration_create_edit_delete_controls():
     assert b"/web-api/settings/preview-delete" in body
 
 
+def test_dashboard_has_persistent_english_spanish_language_switch():
+    start, body = call_asgi(make_app(), "/")
+    assert start["status"] == 200
+    assert b'data-language="en"' in body and "🇬🇧".encode() in body
+    assert b'data-language="es"' in body and "🇪🇸".encode() in body
+    assert b"stackarr-language" in body
+    assert "Películas".encode() in body
+
+
 def test_dashboard_exposes_complete_lidarr_music_workflows():
     start, body = call_asgi(make_app(), "/")
     assert start["status"] == 200
