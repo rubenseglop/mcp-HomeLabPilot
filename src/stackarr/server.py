@@ -16,6 +16,7 @@ from urllib.parse import urljoin
 
 import httpx
 from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 import uvicorn
 
 from stackarr.web import StackARRWebMiddleware
@@ -950,7 +951,20 @@ def main() -> None:
         raise ValueError("MCP_AUTH_TOKEN must contain at least 32 characters for HTTP mode")
     host = os.getenv("MCP_HOST", "0.0.0.0")
     port = int(os.getenv("MCP_PORT", "8000"))
-    app = _BearerAuthMiddleware(mcp.streamable_http_app(), token)
+    allowed_hosts = [
+        value.strip()
+        for value in os.getenv(
+            "STACKARR_MCP_ALLOWED_HOSTS",
+            "localhost:*,127.0.0.1:*,[::1]:*",
+        ).split(",")
+        if value.strip()
+    ]
+    if not allowed_hosts:
+        raise ValueError("STACKARR_MCP_ALLOWED_HOSTS must contain at least one host pattern")
+    transport_security = TransportSecuritySettings(allowed_hosts=allowed_hosts)
+    app = _BearerAuthMiddleware(
+        mcp.streamable_http_app(transport_security=transport_security), token
+    )
     web_username = os.getenv("STACKARR_WEB_USERNAME", "admin").strip() or "admin"
     web_password = os.getenv("STACKARR_WEB_PASSWORD", "").strip() or token
     app = StackARRWebMiddleware(

@@ -126,6 +126,8 @@ Run the unit tests with `pip install -e ".[test]"` followed by `pytest`.
 
 The MCP endpoint is `http://YOUR_DOCKER_HOST:8765/mcp` and requires `Authorization: Bearer <MCP_AUTH_TOKEN>`. The dashboard is at the same host and port, at `/`. By default both are bound to loopback; set `STACKARR_BIND_ADDRESS=0.0.0.0` for LAN access. Never expose the port directly to the public internet.
 
+The MCP HTTP transport validates the incoming `Host` header to prevent DNS-rebinding attacks. Set `STACKARR_MCP_ALLOWED_HOSTS` to a comma-separated allowlist matching the host and published port used by your MCP client (for example, `localhost:*,127.0.0.1:*,[::1]:*,192.168.1.61:8765`). Entries are exact patterns; `host:*` allows any port for that hostname. Add each LAN, Tailscale, or reverse-proxy hostname that clients actually use.
+
 The container runs as a non-root user, drops Linux capabilities, and uses a read-only filesystem.
 
 ## API references
