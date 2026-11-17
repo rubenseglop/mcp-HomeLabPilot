@@ -21,8 +21,29 @@ import uvicorn
 
 from stackarr.web import StackARRWebMiddleware
 
-mcp = FastMCP("StackARR")
 TIMEOUT = float(os.getenv("HTTP_TIMEOUT", "15"))
+
+
+def _mcp_allowed_hosts() -> list[str]:
+    """Read the explicit Host allowlist for the MCP HTTP transport."""
+    hosts = [
+        value.strip()
+        for value in os.getenv(
+            "STACKARR_MCP_ALLOWED_HOSTS",
+            "localhost:*,127.0.0.1:*,[::1]:*",
+        ).split(",")
+        if value.strip()
+    ]
+    if not hosts:
+        raise ValueError("STACKARR_MCP_ALLOWED_HOSTS must contain at least one host pattern")
+    return hosts
+
+
+mcp = FastMCP(
+    "StackARR",
+    host=os.getenv("MCP_HOST", "0.0.0.0"),
+    transport_security=TransportSecuritySettings(allowed_hosts=_mcp_allowed_hosts()),
+)
 
 MCP_PERMISSION_LEVELS = {"read": 0, "operations": 1, "admin": 2}
 
@@ -951,20 +972,7 @@ def main() -> None:
         raise ValueError("MCP_AUTH_TOKEN must contain at least 32 characters for HTTP mode")
     host = os.getenv("MCP_HOST", "0.0.0.0")
     port = int(os.getenv("MCP_PORT", "8000"))
-    allowed_hosts = [
-        value.strip()
-        for value in os.getenv(
-            "STACKARR_MCP_ALLOWED_HOSTS",
-            "localhost:*,127.0.0.1:*,[::1]:*",
-        ).split(",")
-        if value.strip()
-    ]
-    if not allowed_hosts:
-        raise ValueError("STACKARR_MCP_ALLOWED_HOSTS must contain at least one host pattern")
-    transport_security = TransportSecuritySettings(allowed_hosts=allowed_hosts)
-    app = _BearerAuthMiddleware(
-        mcp.streamable_http_app(transport_security=transport_security), token
-    )
+    app = _BearerAuthMiddleware(mcp.streamable_http_app(), token)
     web_username = os.getenv("STACKARR_WEB_USERNAME", "admin").strip() or "admin"
     web_password = os.getenv("STACKARR_WEB_PASSWORD", "").strip() or token
     app = StackARRWebMiddleware(
