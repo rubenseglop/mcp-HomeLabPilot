@@ -8,7 +8,7 @@ It connects to the native APIs of Radarr, Sonarr, Prowlarr, Bazarr, Lidarr, Scry
 
 StackARR serves its browser dashboard and MCP endpoint from the same application and port. Open `http://YOUR_DOCKER_HOST:8765/` and sign in with `STACKARR_WEB_USERNAME` and `STACKARR_WEB_PASSWORD`. These dashboard credentials are separate from `MCP_AUTH_TOKEN`; the MCP bearer token is only for MCP clients. The browser receives a random, HttpOnly session cookie and does not store either credential in browser local storage.
 
-The dashboard currently includes live service status, Radarr movie, Sonarr series and Lidarr artist/album library browsing, queue inspection and history/missing-album views, qBittorrent torrent listing with pause/resume controls, category assignment and removal (downloaded files are kept by default), and metadata catalogue search with workflows to add movies, series or artists using the configured root folders and profiles. Settings can edit existing Radarr/Sonarr quality profiles, delay profiles, indexers, download clients and notifications; Prowlarr indexers, download clients and notifications; and an allowlist of qBittorrent preferences. Secret fields are redacted when configurations are read and restored server-side when records are updated. Browser requests use the same configured service API layer as MCP; they are not a separate integration. The overview refreshes automatically every 30 seconds.
+The dashboard currently includes live service status, Radarr movie, Sonarr series and Lidarr artist/album browsing, queue/history views, qBittorrent controls, Scryer library/requests/audit/recycle-bin views, and StackARR operation history. Configuration includes a curated Bazarr subtitle settings form, ARR profiles and integrations, Prowlarr configuration, and selected qBittorrent preferences. Destructive deletions display a current snapshot, require a typed confirmation, and reject stale previews. The optional Docker view is available only through the restricted Docker profile. Secret fields are redacted when configurations are read and restored server-side when records are updated.
 
 By default, Compose publishes the port on loopback only. To open the dashboard from another device on your LAN, set `STACKARR_BIND_ADDRESS=0.0.0.0` in your private `.env` and recreate the container. This also makes the authenticated MCP endpoint reachable on the LAN. Do not forward this port from your router to the public internet. For remote access, use a private VPN such as Tailscale or a trusted HTTPS access layer.
 
@@ -20,11 +20,20 @@ By default, Compose publishes the port on loopback only. To open the dashboard f
 - `stack_status`: connectivity and version checks.
 - `scryer_introspect`: discover the live Scryer GraphQL query/mutation schema.
 - `scryer_list_recycled_items`: read Scryer's recycle-bin settings and paged recycled-file details, including scheduled purge dates.
+- `scryer_list_titles`, `scryer_list_media_requests`, `scryer_list_audit_events`: dedicated read-only Scryer catalog, request and audit workflows.
+- `scryer_preview_delete_title` / `scryer_delete_title`: deletion preview, fingerprint check and typed confirmation. Destructive fields are blocked in the generic GraphQL tool.
+- `stackarr_get_operation_history`: read StackARR's metadata-only local audit trail.
+- `bazarr_get_settings` / `bazarr_update_settings`: curated native Bazarr settings form and admin-only updates.
+- `arr_preview_delete_configuration` / `arr_delete_configuration`: preview and confirm configuration deletion; generic ARR DELETE is blocked.
+- `qbittorrent_preview_delete_torrents` / `qbittorrent_delete_torrents`: snapshot and typed confirmation before torrent removal or data deletion.
+- `docker_list_allowlisted_containers` / `docker_control_allowlisted_container`: optional allowlisted start/stop/restart via the restricted gateway.
 - `qbittorrent_list_torrents`: list and filter torrents.
 - `qbittorrent_control_torrents`: pause, resume, recheck or reannounce.
-- `qbittorrent_delete_torrents`: remove torrents, optionally including their data files.
+- `qbittorrent_delete_torrents`: remove torrents, optionally including their data files, after a fresh preview and exact confirmation.
 - `qbittorrent_set_category`: change torrent categories.
-- `arr_list_library`: list Radarr movies, Sonarr series or Lidarr artists.\n- `arr_update_library_item`: update monitoring and profiles for an existing movie, series or artist while preserving all other fields.\n- `arr_add_artist`, `lidarr_list_albums`, `lidarr_update_album`, `lidarr_get_history` and `lidarr_get_missing_albums`: dedicated Lidarr music-library workflows.
+- `arr_list_library`: list Radarr movies, Sonarr series or Lidarr artists.
+- `arr_update_library_item`: update monitoring and profiles for an existing movie, series or artist while preserving all other fields.
+- `arr_add_artist`, `lidarr_list_albums`, `lidarr_update_album`, `lidarr_get_history` and `lidarr_get_missing_albums`: dedicated Lidarr music-library workflows.
 - `arr_search_catalog`: find movies/series by title.
 - `arr_get_queue`: inspect download/import queues.
 - `arr_get_setup_options`: retrieve valid root folders and quality profiles.
@@ -39,17 +48,19 @@ Set `STACKARR_MCP_PERMISSION_LEVEL` in the private `.env` file to control what a
 
 - `read`: inspect service status, libraries, queues, releases, torrents and configuration. All writes are blocked.
 - `operations`: the default. Includes ordinary media operations such as adding titles, grabbing releases, changing monitoring, categorizing torrents and pausing/resuming/rechecking downloads.
-- `admin`: also permits sensitive configuration changes, qBittorrent preference changes, torrent deletion and generic ARR API DELETE requests.
+- `admin`: also permits sensitive configuration changes and qBittorrent preference changes. Deletions require their preview/confirmation workflows.
 
-The generic Radarr/Sonarr/Prowlarr REST bridge applies the same checks: GET is read-only, ordinary writes require operations, and deletes or configuration/system endpoints require admin. Scryer GraphQL queries are read-only; GraphQL mutations require admin in this first version.
+The generic ARR REST bridge applies the same checks: GET is read-only, ordinary writes require operations, and configuration/system endpoints require admin. Direct ARR DELETE requests are refused; configuration deletion uses a preview token and exact typed confirmation. Scryer mutations require admin, and destructive mutations are available only through dedicated preview/confirmation tools.
 
 The level is enforced server-side for shared write operations from both MCP tools and the browser dashboard; the dashboard still has its own separate login. Changing the level requires recreating the StackARR container. Invalid values fail closed. Use `read` when connecting an unfamiliar MCP client; raise it to `operations` or `admin` only when those capabilities are needed. Permission is not a per-action approval prompt: an MCP client should still obtain the user's explicit confirmation before invoking sensitive admin operations.
 
 ## Configuration coverage
 
-The dashboard exposes an Advanced API explorer for the native REST APIs of Radarr, Sonarr, Prowlarr, Bazarr and Lidarr. It supports GET, POST, PUT, PATCH and DELETE with JSON query parameters and request bodies; API keys remain server-side and the same server-side permission checks used by MCP are applied to every request. This provides access to endpoints that do not yet have dedicated forms. The dashboard also exposes native Radarr and Sonarr configuration records through their APIs: quality and delay profiles, indexers, download clients, notifications, quality definitions, custom formats, import lists, metadata records and tags. Sonarr additionally exposes language and release profiles. Availability varies by application version and API schema; unsupported endpoints are reported by the application rather than silently emulated. Singleton application settings (for example host, UI and media-management settings) and options that require a service restart are not yet exposed as editable forms.
+The dashboard exposes an Advanced API explorer for the native REST APIs of Radarr, Sonarr, Prowlarr, Bazarr and Lidarr. It supports GET, POST, PUT and PATCH with JSON query parameters and request bodies; direct DELETE is refused in favor of preview workflows. API keys remain server-side and permission checks apply to every request. Dedicated forms cover ARR configuration records, selected Bazarr system/subtitle settings, and qBittorrent preferences. Bazarr writes use its native form-encoded settings endpoint and an explicit allowlist; provider credentials and restart-sensitive settings are excluded.
 
-The Scryer dashboard includes a schema-driven control center: it reads the installed GraphQL schema, separates query and mutation fields, shows descriptions, argument types and return types, and supports filtering. A dedicated, read-only recycle-bin view shows the configured retention, effective paths, recycled files, reasons and scheduled purge dates. A GraphQL console with JSON variables is included for operations not yet represented by dedicated workflows. The schema view is generated from the live Scryer instance rather than assuming a fixed API version. Read-only queries are available at every permission level; GraphQL mutations require admin. The same scryer_graphql MCP tool exposes the native API.
+The Scryer dashboard includes a schema-driven control center plus dedicated library search, media request, audit log and recycle-bin views. The schema view is generated from the installed instance. Deleting a title requires a preview fingerprint and the exact confirmation prompt returned by Scryer. The generic GraphQL console remains useful for other operations, but destructive delete fields are blocked there.
+
+StackARR records successful and failed writes initiated through its API in a local SQLite audit database. It stores timestamp, source, service, operation, target and outcome; request bodies, API keys and tokens are excluded. Compose persists the database in the `stackarr_state` named volume. The dashboard and `stackarr_get_operation_history` show recent events; the log is capped at 10,000 entries.
 
 ## Security model
 
@@ -57,10 +68,10 @@ The Scryer dashboard includes a schema-driven control center: it reads the insta
 - API keys and passwords are read from environment variables and must never be committed.
 - The server does not expose a generic internet HTTP proxy.
 - Write operations are available because this project is designed for full control. Treat the MCP endpoint and its credentials as administrator-level access to your media stack.
-- The web API requires an authenticated browser session and rejects cross-origin browser POSTs. Torrent pause/resume, library edits, configuration creation and deletion require confirmation in the UI. Library updates fetch the current Radarr/Sonarr object and change only the requested monitoring/profile fields, preserving the remaining metadata.
+- The web API requires an authenticated browser session and rejects cross-origin browser POSTs. Destructive actions show a current preview and require exact typed confirmation; snapshot fingerprints reject stale previews. Library updates fetch the current ARR object and change only requested fields.
 - Radarr, Sonarr, Prowlarr and Lidarr configuration records can be listed, edited, created from native JSON payloads and deleted. These configuration mutations require `admin`; secret fields are redacted from responses and existing secrets are preserved when editing records.
 - The assistant should ask before irreversible actions such as deleting library files, removing titles with files, deleting torrents and data, or changing global settings.
-- Docker management is a planned optional module. It will use separate permissions and a restricted control layer; no unrestricted Docker socket access is enabled.
+- Optional Docker controls are disabled by default. Only a separate gateway mounts the Docker socket; StackARR can list and start/stop/restart exact allowlisted containers. It does not expose create, delete, exec, image, volume or arbitrary Engine API routes. The Docker socket remains host-powerful if the gateway itself is compromised, so enable the profile only on a trusted host and keep its network private.
 
 ## Configure
 
@@ -74,6 +85,8 @@ Every URL must be reachable **from inside the StackARR container**. The correct 
 You do not need to configure services you do not use. Leave their variables empty.
 
 Scryer uses its GraphQL API at `/graphql` and a bearer API key. Create an API key in Scryer's security settings and give it the permissions needed for the operations you want StackARR to perform.
+
+Operation previews are signed with `STACKARR_PREVIEW_SECRET`; if it is unset, StackARR uses `MCP_AUTH_TOKEN`. Keep the signing secret stable between preview and confirmation calls.
 
 ## Install locally
 
@@ -126,6 +139,8 @@ Run the unit tests with `pip install -e ".[test]"` followed by `pytest`.
 
 The MCP endpoint is `http://YOUR_DOCKER_HOST:8765/mcp` and requires `Authorization: Bearer <MCP_AUTH_TOKEN>`. The dashboard is at the same host and port, at `/`. By default both are bound to loopback; set `STACKARR_BIND_ADDRESS=0.0.0.0` for LAN access. Never expose the port directly to the public internet.
 
+Docker management is opt-in. Set `STACKARR_DOCKER_ENABLED=true`, `STACKARR_DOCKER_PERMISSION_LEVEL=operations`, a unique 32-character-or-longer `STACKARR_DOCKER_GATEWAY_TOKEN`, and a comma-separated exact container name/ID allowlist in `.env`. Then start the optional gateway with `docker compose --profile docker up -d --build`. The gateway is not published on a host port and accepts only list/start/stop/restart for allowlisted containers. The Docker socket is host-powerful; enabling the module means trusting the gateway and its host.
+
 The MCP HTTP transport validates the incoming `Host` header to prevent DNS-rebinding attacks. Set `STACKARR_MCP_ALLOWED_HOSTS` to a comma-separated allowlist matching the host and published port used by your MCP client (for example, `localhost:*,127.0.0.1:*,[::1]:*,192.168.1.61:8765`). Entries are exact patterns; `host:*` allows any port for that hostname. Add each LAN, Tailscale, or reverse-proxy hostname that clients actually use.
 
 The container runs as a non-root user, drops Linux capabilities, and uses a read-only filesystem.
@@ -135,13 +150,14 @@ The container runs as a non-root user, drops Linux capabilities, and uses a read
 - Radarr: `/api/v3`
 - Sonarr: `/api/v3`
 - Prowlarr: `/api/v1`
-- Bazarr: native API under `/api`\n- Lidarr: `/api/v1`
+- Bazarr: native API under `/api`
+- Lidarr: `/api/v1`
 - Scryer: GraphQL at `/graphql`
 - qBittorrent: Web API under `/api/v2`
 
-## Next development steps
+## Completed development roadmap
 
-1. Add more dedicated Scryer workflows and native Bazarr configuration forms.
-2. Add operation history/auditing and safer previews for destructive operations.
-3. Add optional Docker management behind a separate restricted permission boundary.
+- Added dedicated Scryer library, request, audit and deletion-preview workflows, plus curated native Bazarr settings forms.
+- Added a persistent operation audit log and snapshot-bound, typed confirmations for destructive deletion flows.
+- Added an opt-in Docker gateway with its own permission level, container allowlist and restricted start/stop/restart API.
 

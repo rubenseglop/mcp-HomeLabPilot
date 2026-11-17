@@ -10,6 +10,11 @@ services:
       MCP_TRANSPORT: streamable-http
       MCP_HOST: 0.0.0.0
       MCP_PORT: 8000
+      STACKARR_AUDIT_DB_PATH: /data/operation-history.sqlite3
+      STACKARR_DOCKER_ENABLED: ${STACKARR_DOCKER_ENABLED:-false}
+      STACKARR_DOCKER_PERMISSION_LEVEL: ${STACKARR_DOCKER_PERMISSION_LEVEL:-read}
+      STACKARR_DOCKER_GATEWAY_URL: http://stackarr-docker-gateway:2375
+      STACKARR_DOCKER_GATEWAY_TOKEN: ${STACKARR_DOCKER_GATEWAY_TOKEN:-}
     ports:
       - "${STACKARR_BIND_ADDRESS:-127.0.0.1}:${STACKARR_PORT:-8765}:8000"
     # StackARR uses its own Compose network by default.
@@ -22,6 +27,11 @@ services:
     security_opt:
       - no-new-privileges:true
     pids_limit: 100
+    volumes:
+      - stackarr_state:/data
+    networks:
+      - default
+      - docker_control
     healthcheck:
       test:
         - CMD
@@ -31,3 +41,31 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
+  stackarr-docker-gateway:
+    profiles: [docker]
+    build:
+      context: .
+      dockerfile: Dockerfile.docker-gateway
+    restart: unless-stopped
+    environment:
+      STACKARR_DOCKER_GATEWAY_TOKEN: ${STACKARR_DOCKER_GATEWAY_TOKEN:-}
+      STACKARR_DOCKER_ALLOWED_CONTAINERS: ${STACKARR_DOCKER_ALLOWED_CONTAINERS:-}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    read_only: true
+    tmpfs:
+      - /tmp:size=8m,noexec,nosuid
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 50
+    networks:
+      - docker_control
+
+volumes:
+  stackarr_state:
+
+networks:
+  docker_control:
+    internal: true

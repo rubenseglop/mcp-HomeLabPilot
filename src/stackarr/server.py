@@ -8,20 +8,25 @@ becoming a general-purpose HTTP proxy.
 from __future__ import annotations
 
 import asyncio
+from contextvars import ContextVar
+import hashlib
 import hmac
+import json
 import os
 import re
 from typing import Any
-from urllib.parse import urljoin
+from urllib.parse import quote, urljoin
 
 import httpx
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
 import uvicorn
 
+from stackarr.audit import list_events as list_audit_events, record_event
 from stackarr.web import StackARRWebMiddleware
 
 TIMEOUT = float(os.getenv("HTTP_TIMEOUT", "15"))
+_AUDIT_SOURCE: ContextVar[str] = ContextVar("stackarr_audit_source", default="mcp")
 
 
 def _mcp_allowed_hosts() -> list[str]:
@@ -63,12 +68,29 @@ def _require_permission(required: str) -> None:
         )
 
 
+def _audit(operation: str, service: str = "stackarr", target: str = "", outcome: str = "succeeded") -> None:
+    record_event(operation, service=service, target=target, outcome=outcome, source=_AUDIT_SOURCE.get())
+
+
+def _preview_token(snapshot: Any) -> str:
+    """Bind a destructive confirmation to a current snapshot without exposing its contents."""
+    secret = (os.getenv("STACKARR_PREVIEW_SECRET") or os.getenv("MCP_AUTH_TOKEN") or "").strip()
+    if len(secret) < 32:
+        raise ValueError("Set STACKARR_PREVIEW_SECRET or a 32-character MCP_AUTH_TOKEN for delete previews")
+    canonical = json.dumps(snapshot, sort_keys=True, separators=(",", ":"), default=str).encode()
+    return hmac.new(secret.encode(), canonical, hashlib.sha256).hexdigest()
+
+
 def _arr_api_required_permission(method: str, path: str) -> str:
     """Classify generic ARR API writes without allowing destructive bypasses."""
     method = method.upper()
     if method == "GET":
         return "read"
+    if method == "DELETE":
+        raise PermissionError("Direct ARR DELETE requests are disabled; use a preview and typed confirmation")
     normalized = path.lower()
+    if "/command" in normalized:
+        raise PermissionError("Generic ARR command requests are disabled; use a dedicated StackARR workflow")
     admin_fragments = (
         "/qualityprofile", "/qualitydefinition", "/delayprofile", "/metadataprofile",
         "/customformat", "/importlist", "/metadata", "/tag",
@@ -128,6 +150,7 @@ async def _arr_request(
     path: str,
     params: dict[str, Any] | None = None,
     body: Any = None,
+    form_data: dict[str, Any] | None = None,
 ) -> Any:
     if service not in ARR_SERVICES:
         raise ValueError(f"Unsupported service '{service}'. Choose: {', '.join(ARR_SERVICES)}")
@@ -140,16 +163,25 @@ async def _arr_request(
     if method not in {"GET", "POST", "PUT", "PATCH", "DELETE"}:
         raise ValueError("method must be GET, POST, PUT, PATCH or DELETE")
     endpoint = urljoin(base + "/", _safe_path(path).lstrip("/"))
-    async with httpx.AsyncClient(timeout=TIMEOUT, follow_redirects=False) as client:
-        response = await client.request(
-            method,
-            endpoint,
-            params=params,
-            json=body,
-            headers={"X-Api-Key": api_key, "Accept": "application/json"},
-        )
-        response.raise_for_status()
-        return _decode_response(response)
+    try:
+        async with httpx.AsyncClient(timeout=TIMEOUT, follow_redirects=False) as client:
+            response = await client.request(
+                method,
+                endpoint,
+                params=params,
+                json=body if form_data is None else None,
+                data=form_data,
+                headers={"X-Api-Key": api_key, "Accept": "application/json"},
+            )
+            response.raise_for_status()
+            result = _decode_response(response)
+    except Exception:
+        if method != "GET":
+            _audit(method, service, path, "failed")
+        raise
+    if method != "GET":
+        _audit(method, service, path)
+    return result
 
 
 @mcp.tool()
@@ -169,21 +201,23 @@ async def arr_api_request(
     return await _arr_request(service, method, path, params, body)
 
 
-@mcp.tool()
-async def scryer_graphql(
+async def _scryer_request(
     query: str,
     variables: dict[str, Any] | None = None,
     operation_name: str | None = None,
+    *,
+    allow_destructive: bool = False,
 ) -> Any:
-    """Execute a Scryer GraphQL query or mutation using its API key.
-
-    Supports the full Scryer GraphQL API, including title/library management,
-    acquisition searches, release grabs, requests, subtitles, indexers,
-    download clients, settings and job controls. Use documented GraphQL
-    operations and inputs for the installed Scryer version.
-    """
-    if re.search(r"\bmutation\b", query, re.IGNORECASE):
+    is_mutation = bool(re.search(r"\bmutation\b", query, re.IGNORECASE))
+    destructive = is_mutation and bool(
+        re.search(r"\b(?:delete[A-Z]\w*|emptyRecycleBin)\s*\(", query)
+    )
+    if is_mutation:
         _require_permission("admin")
+    if destructive and not allow_destructive:
+        raise PermissionError(
+            "Destructive Scryer mutations require a dedicated preview and confirmation workflow"
+        )
     base = _base_url("SCRYER_URL")
     token = os.getenv("SCRYER_API_KEY", "").strip()
     if not token:
@@ -191,14 +225,38 @@ async def scryer_graphql(
     payload: dict[str, Any] = {"query": query, "variables": variables or {}}
     if operation_name:
         payload["operationName"] = operation_name
-    async with httpx.AsyncClient(timeout=TIMEOUT, follow_redirects=False) as client:
-        response = await client.post(
-            urljoin(base + "/", "graphql"),
-            json=payload,
-            headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
+    try:
+        async with httpx.AsyncClient(timeout=TIMEOUT, follow_redirects=False) as client:
+            response = await client.post(
+                urljoin(base + "/", "graphql"),
+                json=payload,
+                headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
+            )
+            response.raise_for_status()
+            result = _decode_response(response)
+    except Exception:
+        if is_mutation:
+            _audit(operation_name or "GraphQL mutation", "scryer", outcome="failed")
+        raise
+    if is_mutation:
+        operation = operation_name or re.search(
+            r"\b(?:delete[A-Z]\w*|emptyRecycleBin|[A-Za-z_]\w*)\s*\(", query
         )
-        response.raise_for_status()
-        return _decode_response(response)
+        if isinstance(operation, re.Match):
+            operation = operation.group(0).split("(", 1)[0].strip()
+        failed = isinstance(result, dict) and bool(result.get("errors"))
+        _audit(str(operation or "GraphQL mutation"), "scryer", outcome="failed" if failed else "succeeded")
+    return result
+
+
+@mcp.tool()
+async def scryer_graphql(
+    query: str,
+    variables: dict[str, Any] | None = None,
+    operation_name: str | None = None,
+) -> Any:
+    """Run Scryer GraphQL queries/mutations; destructive fields require dedicated preview tools."""
+    return await _scryer_request(query, variables, operation_name)
 
 
 def _check_qbittorrent_login(response: httpx.Response) -> None:
@@ -236,17 +294,25 @@ async def qbittorrent_api_request(
     path = _safe_path(path)
     if not path.startswith("/api/v2/"):
         raise ValueError("qBittorrent path must be under /api/v2/")
-    async with httpx.AsyncClient(timeout=TIMEOUT, follow_redirects=False) as client:
-        login = await client.post(
-            f"{base}/api/v2/auth/login",
-            data={"username": username, "password": password},
-        )
-        _check_qbittorrent_login(login)
-        response = await client.request(
-            method, f"{base}{path}", params=params, data=data
-        )
-        response.raise_for_status()
-        return _decode_response(response)
+    try:
+        async with httpx.AsyncClient(timeout=TIMEOUT, follow_redirects=False) as client:
+            login = await client.post(
+                f"{base}/api/v2/auth/login",
+                data={"username": username, "password": password},
+            )
+            _check_qbittorrent_login(login)
+            response = await client.request(
+                method, f"{base}{path}", params=params, data=data
+            )
+            response.raise_for_status()
+            result = _decode_response(response)
+    except Exception:
+        if method != "GET":
+            _audit(method, "qbittorrent", path, "failed")
+        raise
+    if method != "GET":
+        _audit(method, "qbittorrent", path)
+    return result
 
 
 @mcp.tool()
@@ -321,6 +387,87 @@ ARR_EDITABLE_RESOURCES_BY_SERVICE = {
         "remotepathmapping": "/api/v1/remotepathmapping",
     },
 }
+
+BAZARR_SETTINGS_FIELDS: dict[str, tuple[str, type]] = {
+    "general-use_sonarr": ("Connect to Sonarr", bool),
+    "general-use_radarr": ("Connect to Radarr", bool),
+    "general-serie_default_enabled": ("Enable defaults for new series", bool),
+    "general-serie_default_profile": ("Default series language profile", str),
+    "general-movie_default_enabled": ("Enable defaults for new movies", bool),
+    "general-movie_default_profile": ("Default movie language profile", str),
+    "general-minimum_score": ("Minimum subtitle score for series", int),
+    "general-minimum_score_movie": ("Minimum subtitle score for movies", int),
+    "general-upgrade_subs": ("Upgrade existing subtitles", bool),
+    "general-upgrade_manual": ("Allow manual subtitle upgrades", bool),
+    "general-upgrade_frequency": ("Subtitle upgrade interval (hours)", int),
+    "general-wanted_search_frequency": ("Series subtitle search interval (hours)", int),
+    "general-wanted_search_frequency_movie": ("Movie subtitle search interval (hours)", int),
+    "general-use_embedded_subs": ("Use embedded subtitles", bool),
+    "general-debug": ("Debug logging", bool),
+    "general-concurrent_jobs": ("Maximum concurrent jobs", int),
+    "general-page_size": ("Rows per page", int),
+    "embeddedsubtitles-fallback_lang": ("Fallback language for embedded subtitles", str),
+    "embeddedsubtitles-unknown_as_fallback": ("Use fallback for unknown embedded language", bool),
+    "embeddedsubtitles-hi_fallback": ("Use hearing-impaired fallback", bool),
+    "embeddedsubtitles-timeout": ("Embedded subtitle probe timeout", int),
+    "analytics-enabled": ("Enable anonymous analytics", bool),
+}
+
+
+def _bazarr_settings_values(settings: Any) -> dict[str, Any]:
+    if not isinstance(settings, dict):
+        raise RuntimeError("Bazarr returned an unexpected settings response")
+    return {
+        key: settings.get(key.split("-", 1)[0], {}).get(key.split("-", 1)[1])
+        for key in BAZARR_SETTINGS_FIELDS
+        if isinstance(settings.get(key.split("-", 1)[0]), dict)
+        and key.split("-", 1)[1] in settings[key.split("-", 1)[0]]
+    }
+
+
+@mcp.tool()
+async def bazarr_get_settings() -> dict[str, Any]:
+    """Read safe, editable Bazarr settings for the native dashboard form."""
+    current = await _arr_request("bazarr", "GET", "/api/system/settings")
+    values = _bazarr_settings_values(current)
+    return {"fields": [
+        {"key": key, "label": BAZARR_SETTINGS_FIELDS[key][0], "value": value}
+        for key, value in values.items()
+    ]}
+
+
+@mcp.tool()
+async def bazarr_update_settings(settings: dict[str, Any]) -> Any:
+    """Update only allowlisted Bazarr system settings (admin permission required)."""
+    _require_permission("admin")
+    if not isinstance(settings, dict) or not settings:
+        raise ValueError("settings must be a non-empty object")
+    unknown = set(settings) - set(BAZARR_SETTINGS_FIELDS)
+    if unknown:
+        raise ValueError(f"Unsupported Bazarr settings: {', '.join(sorted(unknown))}")
+    form: dict[str, str] = {}
+    for key, value in settings.items():
+        _label, expected_type = BAZARR_SETTINGS_FIELDS[key]
+        if expected_type is bool:
+            if not isinstance(value, bool):
+                raise ValueError(f"{key} must be a boolean")
+            form[key] = "true" if value else "false"
+        elif expected_type is int:
+            if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+                raise ValueError(f"{key} must be a non-negative integer")
+            form[key] = str(value)
+        elif isinstance(value, str):
+            form[key] = value[:500]
+        else:
+            raise ValueError(f"{key} must be a string")
+    await _arr_request("bazarr", "POST", "/api/system/settings", form_data=form)
+    return {"updated_fields": sorted(settings)}
+
+
+@mcp.tool()
+async def stackarr_get_operation_history(limit: int = 100, offset: int = 0) -> Any:
+    """Read recent StackARR writes; stored records contain operation metadata, never request bodies or secrets."""
+    return list_audit_events(limit, offset)
 SENSITIVE_CONFIG_KEY = re.compile(
     r'(?:password|passwd|api.?key|token|secret|credential|auth.?key|private.?key)',
     re.IGNORECASE,
@@ -412,8 +559,31 @@ async def arr_create_configuration(service: str, resource: str, item: dict[str, 
 
 
 @mcp.tool()
-async def arr_delete_configuration(service: str, resource: str, item_id: int) -> Any:
-    """Delete a configuration record in a supported *arr service (admin only)."""
+async def arr_preview_delete_configuration(service: str, resource: str, item_id: int) -> Any:
+    """Preview an ARR configuration deletion and return its snapshot-bound confirmation token."""
+    resources = ARR_EDITABLE_RESOURCES_BY_SERVICE.get(service)
+    if resources is None or resource not in resources or item_id < 1:
+        raise ValueError("service, resource or item_id is invalid")
+    current = await _arr_request(service, "GET", f"{resources[resource]}/{item_id}")
+    if not isinstance(current, dict) or int(current.get("id", 0)) != item_id:
+        raise RuntimeError(f"{service} returned an unexpected configuration record")
+    label = str(current.get("name") or current.get("host") or current.get("path") or f"{resource} #{item_id}")
+    return {
+        "service": service,
+        "resource": resource,
+        "id": item_id,
+        "label": label,
+        "confirmation_text": f"DELETE {service}/{resource}/{item_id}: {label}",
+        "preview_token": _preview_token({"service": service, "resource": resource, "id": item_id, "record": current}),
+        "summary": _redact_sensitive_config({k: current[k] for k in ("name", "host", "path", "implementation", "enable", "protocol") if k in current}),
+    }
+
+
+@mcp.tool()
+async def arr_delete_configuration(
+    service: str, resource: str, item_id: int, preview_token: str, typed_confirmation: str
+) -> Any:
+    """Delete an ARR configuration only after the snapshot and exact preview text are confirmed (admin)."""
     _require_permission("admin")
     resources = ARR_EDITABLE_RESOURCES_BY_SERVICE.get(service)
     if resources is None:
@@ -422,6 +592,18 @@ async def arr_delete_configuration(service: str, resource: str, item_id: int) ->
         raise ValueError(f"resource for {service} must be one of: {', '.join(resources)}")
     if item_id < 1:
         raise ValueError("item_id must be positive")
+    if not preview_token.strip() or not typed_confirmation.strip():
+        raise ValueError("preview_token and typed_confirmation are required")
+    current = await _arr_request(service, "GET", f"{resources[resource]}/{item_id}")
+    if not isinstance(current, dict) or int(current.get("id", 0)) != item_id:
+        raise RuntimeError(f"{service} returned an unexpected configuration record")
+    expected_token = _preview_token({"service": service, "resource": resource, "id": item_id, "record": current})
+    if not hmac.compare_digest(expected_token, preview_token):
+        raise ValueError("The deletion preview is stale; request a new preview")
+    label = str(current.get("name") or current.get("host") or current.get("path") or f"{resource} #{item_id}")
+    expected_text = f"DELETE {service}/{resource}/{item_id}: {label}"
+    if typed_confirmation != expected_text:
+        raise ValueError("typed_confirmation does not exactly match the preview")
     return await _arr_request(service, "DELETE", f"{resources[resource]}/{item_id}")
 
 
@@ -724,6 +906,115 @@ async def scryer_list_recycled_items(limit: int = 100, offset: int = 0) -> Any:
 
 
 @mcp.tool()
+async def scryer_list_titles(
+    search: str = "", facet: str | None = None, library_id: str | None = None,
+    limit: int = 50, offset: int = 0,
+) -> Any:
+    """Search Scryer's permission-filtered title catalog with bounded pagination."""
+    if not 1 <= limit <= 100 or offset < 0:
+        raise ValueError("limit must be 1..100 and offset must be non-negative")
+    query = """
+    query StackARRTitles($query: String, $facet: MediaFacetValue, $libraryIds: [ID!], $limit: Int, $offset: Int) {
+      titles(query: $query, facet: $facet, libraryIds: $libraryIds, limit: $limit, offset: $offset) {
+        totalCount hasMore managedBytes
+        items {
+          id libraryId libraryName name facet monitored year contentStatus language
+          runtimeMinutes qualityProfileId rootFolderPath sizeBytes mediaResolution mediaHdr
+          episodesOwned episodesMonitored episodesTotal
+        }
+      }
+    }
+    """
+    variables: dict[str, Any] = {"query": search.strip() or None, "facet": facet, "limit": limit, "offset": offset}
+    variables["libraryIds"] = [library_id] if library_id else None
+    return await _scryer_request(query, variables)
+
+
+@mcp.tool()
+async def scryer_list_media_requests(facet: str | None = None, status: str | None = None) -> Any:
+    """List Scryer media requests visible to the configured Scryer account."""
+    query = """
+    query StackARRRequests($facet: MediaFacetValue, $status: MediaRequestStatusValue) {
+      mediaRequests(facet: $facet, status: $status) {
+        id title year facet status createdAt updatedAt createdTitleId
+        requestedQualityProfileName approvedQualityProfileName requestedLeaseDays approvedLeaseDays
+      }
+    }
+    """
+    return await _scryer_request(query, {"facet": facet, "status": status})
+
+
+@mcp.tool()
+async def scryer_list_audit_events(
+    limit: int = 100, title_id: str | None = None, facet: str | None = None,
+    after_sequence: int | None = None, before_sequence: int | None = None,
+) -> Any:
+    """Read Scryer's audit trail without returning event payloads that may contain extra metadata."""
+    if not 1 <= limit <= 200:
+        raise ValueError("limit must be between 1 and 200")
+    query = """
+    query StackARRScryerAudit($limit: Int!, $titleId: ID, $facet: MediaFacetValue, $afterSequence: Long, $beforeSequence: Long) {
+      auditLog(limit: $limit, titleId: $titleId, facet: $facet, afterSequence: $afterSequence, beforeSequence: $beforeSequence) {
+        sequence eventId occurredAt actorKind actorUserId actorDisplayName titleId facet eventType streamKind streamId
+      }
+    }
+    """
+    return await _scryer_request(query, {
+        "limit": limit, "titleId": title_id, "facet": facet,
+        "afterSequence": after_sequence, "beforeSequence": before_sequence,
+    })
+
+
+@mcp.tool()
+async def scryer_preview_delete_title(title_id: str) -> Any:
+    """Preview all file, subtitle, image and directory effects of deleting one Scryer title."""
+    if not title_id.strip():
+        raise ValueError("title_id is required")
+    query = """
+    query StackARRDeleteTitlePreview($titleId: ID!) {
+      deleteTitlePreview(titleId: $titleId) {
+        fingerprint totalFileCount mediaCount subtitleCount imageCount otherCount directoryCount
+        requiresTypedConfirmation typedConfirmationPrompt targetLabel samplePaths
+      }
+    }
+    """
+    return await _scryer_request(query, {"titleId": title_id})
+
+
+@mcp.tool()
+async def scryer_delete_title(
+    title_id: str, preview_fingerprint: str, typed_confirmation: str,
+    delete_files_on_disk: bool = False,
+) -> Any:
+    """Delete a Scryer title only when its preview fingerprint and typed title confirmation still match."""
+    _require_permission("admin")
+    if not title_id.strip() or not preview_fingerprint.strip() or not typed_confirmation.strip():
+        raise ValueError("title_id, preview_fingerprint and typed_confirmation are required")
+    preview = await scryer_preview_delete_title(title_id)
+    if not isinstance(preview, dict) or preview.get("errors"):
+        raise RuntimeError("Scryer could not produce a valid deletion preview")
+    details = (preview.get("data") or {}).get("deleteTitlePreview") or {}
+    if details.get("fingerprint") != preview_fingerprint:
+        raise ValueError("The deletion preview is stale; request a new preview before confirming")
+    expected = details.get("typedConfirmationPrompt") or details.get("targetLabel")
+    if not expected or typed_confirmation != expected:
+        raise ValueError("typed_confirmation must exactly match the preview's confirmation prompt or title")
+    query = """
+    mutation StackARRDeleteTitle($input: DeleteTitleInput!) {
+      deleteTitle(input: $input) {
+        id recyclePurged recyclePreserved recycleBusy recycleFailed
+      }
+    }
+    """
+    return await _scryer_request(query, {"input": {
+        "titleId": title_id,
+        "deleteFilesOnDisk": delete_files_on_disk,
+        "previewFingerprint": preview_fingerprint,
+        "typedConfirmation": typed_confirmation,
+    }}, allow_destructive=True)
+
+
+@mcp.tool()
 async def qbittorrent_list_torrents(
     filter: str = "all",
     category: str | None = None,
@@ -761,14 +1052,52 @@ async def qbittorrent_control_torrents(action: str, hashes: str) -> Any:
 
 
 @mcp.tool()
-async def qbittorrent_delete_torrents(hashes: str, delete_files: bool = False) -> Any:
-    """Remove torrents. Set delete_files=true only when the user explicitly wants data files deleted too."""
+async def qbittorrent_preview_delete_torrents(hashes: str, delete_files: bool = False) -> Any:
+    """Preview exactly which torrents will be removed and whether their data files will be deleted."""
+    selected = [item.strip().lower() for item in re.split(r"[|,]", hashes) if item.strip()]
+    if not selected or any(not re.fullmatch(r"[a-f0-9]{40}|[a-f0-9]{64}", item) for item in selected):
+        raise ValueError("hashes must contain one or more valid torrent hashes")
+    torrents = await qbittorrent_api_request(
+        "GET", "/api/v2/torrents/info", params={"hashes": "|".join(selected)}
+    )
+    if not isinstance(torrents, list):
+        raise RuntimeError("qBittorrent returned an unexpected torrent list")
+    by_hash = {str(item.get("hash", "")).lower(): item for item in torrents if isinstance(item, dict)}
+    if set(by_hash) != set(selected):
+        raise ValueError("One or more selected torrent hashes are missing from qBittorrent")
+    items = [{
+        "hash": key, "name": str(by_hash[key].get("name", "")),
+        "size": int(by_hash[key].get("size", 0)),
+        "category": str(by_hash[key].get("category", "")),
+        "state": str(by_hash[key].get("state", "")),
+        "save_path": str(by_hash[key].get("save_path", "")),
+    } for key in selected]
+    summary = f"TORRENT: {items[0]['name']}" if len(items) == 1 else f"{len(items)} TORRENTS"
+    confirmation = f"DELETE FILES: {summary}" if delete_files else f"DELETE {summary}"
+    snapshot = {"items": items, "delete_files": delete_files}
+    return {
+        "items": [{key: value for key, value in item.items() if key != "hash"} for item in items],
+        "delete_files": delete_files,
+        "confirmation_text": confirmation,
+        "preview_token": _preview_token(snapshot),
+    }
+
+
+@mcp.tool()
+async def qbittorrent_delete_torrents(
+    hashes: str, preview_token: str, typed_confirmation: str, delete_files: bool = False
+) -> Any:
+    """Remove torrents only after a fresh snapshot preview and exact typed confirmation (admin)."""
     _require_permission("admin")
-    if not hashes.strip():
-        raise ValueError("hashes cannot be empty")
+    preview = await qbittorrent_preview_delete_torrents(hashes, delete_files)
+    if not preview_token.strip() or not hmac.compare_digest(preview["preview_token"], preview_token):
+        raise ValueError("The deletion preview is stale; request a new preview")
+    if typed_confirmation != preview["confirmation_text"]:
+        raise ValueError("typed_confirmation does not exactly match the preview")
+    selected = [item.strip().lower() for item in re.split(r"[|,]", hashes) if item.strip()]
     return await qbittorrent_api_request(
         "POST", "/api/v2/torrents/delete",
-        data={"hashes": hashes, "deleteFiles": str(delete_files).lower()},
+        data={"hashes": "|".join(selected), "deleteFiles": str(delete_files).lower()},
     )
 
 
@@ -782,6 +1111,57 @@ async def qbittorrent_set_category(hashes: str, category: str) -> Any:
         "POST", "/api/v2/torrents/setCategory",
         data={"hashes": hashes, "category": category},
     )
+
+
+def _require_docker_permission(required: str = "read") -> None:
+    if os.getenv("STACKARR_DOCKER_ENABLED", "false").strip().lower() not in {"1", "true", "yes", "on"}:
+        raise RuntimeError("Optional Docker management is disabled")
+    levels = {"read": 0, "operations": 1}
+    configured = os.getenv("STACKARR_DOCKER_PERMISSION_LEVEL", "read").strip().lower()
+    if configured not in levels:
+        raise RuntimeError("STACKARR_DOCKER_PERMISSION_LEVEL must be read or operations")
+    if levels[configured] < levels[required]:
+        raise PermissionError(f"Docker action requires separate '{required}' Docker permission")
+
+
+async def _docker_gateway_request(method: str, path: str) -> Any:
+    token = os.getenv("STACKARR_DOCKER_GATEWAY_TOKEN", "").strip()
+    if len(token) < 32:
+        raise ValueError("STACKARR_DOCKER_GATEWAY_TOKEN must contain at least 32 characters")
+    base = _base_url("STACKARR_DOCKER_GATEWAY_URL")
+    async with httpx.AsyncClient(timeout=TIMEOUT, follow_redirects=False) as client:
+        response = await client.request(
+            method, urljoin(base + "/", path.lstrip("/")),
+            headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
+        )
+        response.raise_for_status()
+        return _decode_response(response)
+
+
+@mcp.tool()
+async def docker_list_allowlisted_containers() -> Any:
+    """List only containers explicitly allowlisted in the optional restricted Docker gateway."""
+    _require_docker_permission("read")
+    return await _docker_gateway_request("GET", "/v1/containers")
+
+
+@mcp.tool()
+async def docker_control_allowlisted_container(container: str, action: str) -> Any:
+    """Start, stop or restart an allowlisted container using the separate Docker permission level."""
+    _require_docker_permission("operations")
+    if not container.strip() or "/" in container or ".." in container:
+        raise ValueError("container must be an allowlisted name or ID")
+    if action not in {"start", "stop", "restart"}:
+        raise ValueError("action must be start, stop or restart")
+    try:
+        result = await _docker_gateway_request(
+            "POST", f"/v1/containers/{quote(container, safe='')}/{action}"
+        )
+    except Exception:
+        _audit(action, "docker", container, outcome="failed")
+        raise
+    _audit(action, "docker", container)
+    return result
 
 
 class _BearerAuthMiddleware:
@@ -810,7 +1190,7 @@ class _BearerAuthMiddleware:
         await self.app(scope, receive, send)
 
 
-async def _web_api_request(
+async def _web_api_request_inner(
     path: str, method: str, query: dict[str, list[str]], payload: dict[str, Any]
 ) -> Any:
     """Shared browser API actions; all service calls reuse the same configured API layer."""
@@ -823,10 +1203,59 @@ async def _web_api_request(
             raise ValueError("GraphQL variables must be a JSON object")
         return await scryer_graphql(query_text, variables)
 
+    if method == "GET" and path == "/web-api/audit":
+        limit = int((query.get("limit") or ["100"])[0])
+        offset = int((query.get("offset") or ["0"])[0])
+        return list_audit_events(limit, offset)
+
+    if method == "GET" and path == "/web-api/bazarr/settings":
+        return await bazarr_get_settings()
+    if method == "POST" and path == "/web-api/bazarr/settings":
+        settings = payload.get("settings", {})
+        return await bazarr_update_settings(settings)
+
+    if method == "GET" and path == "/web-api/docker/containers":
+        return await docker_list_allowlisted_containers()
+    if method == "POST" and path == "/web-api/docker/control":
+        return await docker_control_allowlisted_container(
+            str(payload.get("container", "")), str(payload.get("action", ""))
+        )
+
     if method == "GET" and path == "/web-api/scryer/recycle-bin":
         limit = int((query.get("limit") or ["100"])[0])
         offset = int((query.get("offset") or ["0"])[0])
         return await scryer_list_recycled_items(limit, offset)
+
+    if method == "GET" and path == "/web-api/scryer/titles":
+        return await scryer_list_titles(
+            search=(query.get("search") or [""])[0],
+            facet=(query.get("facet") or [""])[0] or None,
+            library_id=(query.get("library_id") or [""])[0] or None,
+            limit=int((query.get("limit") or ["50"])[0]),
+            offset=int((query.get("offset") or ["0"])[0]),
+        )
+    if method == "GET" and path == "/web-api/scryer/requests":
+        return await scryer_list_media_requests(
+            facet=(query.get("facet") or [""])[0] or None,
+            status=(query.get("status") or [""])[0] or None,
+        )
+    if method == "GET" and path == "/web-api/scryer/audit":
+        return await scryer_list_audit_events(
+            limit=int((query.get("limit") or ["100"])[0]),
+            title_id=(query.get("title_id") or [""])[0] or None,
+            facet=(query.get("facet") or [""])[0] or None,
+            after_sequence=int((query.get("after_sequence") or [""])[0]) if (query.get("after_sequence") or [""])[0] else None,
+            before_sequence=int((query.get("before_sequence") or [""])[0]) if (query.get("before_sequence") or [""])[0] else None,
+        )
+    if method == "POST" and path == "/web-api/scryer/delete-title/preview":
+        return await scryer_preview_delete_title(str(payload.get("title_id", "")))
+    if method == "POST" and path == "/web-api/scryer/delete-title":
+        return await scryer_delete_title(
+            str(payload.get("title_id", "")),
+            str(payload.get("preview_fingerprint", "")),
+            str(payload.get("typed_confirmation", "")),
+            bool(payload.get("delete_files_on_disk", False)),
+        )
 
     if method == "GET" and path == "/web-api/catalog":
         service = (query.get("service") or [""])[0]
@@ -883,11 +1312,18 @@ async def _web_api_request(
             str(payload.get("resource", "")),
             payload.get("item", {}),
         )
+    if method == "POST" and path == "/web-api/settings/preview-delete":
+        return await arr_preview_delete_configuration(
+            str(payload.get("service", "")), str(payload.get("resource", "")),
+            int(payload.get("id", 0)),
+        )
     if method == "POST" and path == "/web-api/settings/delete":
         return await arr_delete_configuration(
             str(payload.get("service", "")),
             str(payload.get("resource", "")),
             int(payload.get("id", 0)),
+            str(payload.get("preview_token", "")),
+            str(payload.get("typed_confirmation", "")),
         )
     if method == "POST" and path == "/web-api/settings/update":
         service = str(payload.get("service", ""))
@@ -950,13 +1386,32 @@ async def _web_api_request(
         hashes = str(payload.get("hashes", ""))
         category = str(payload.get("category", ""))
         return await qbittorrent_set_category(hashes, category)
+    if method == "POST" and path == "/web-api/torrents/delete-preview":
+        hashes = str(payload.get("hashes", ""))
+        delete_files = payload.get("delete_files", False)
+        if not isinstance(delete_files, bool):
+            raise ValueError("delete_files must be a boolean")
+        return await qbittorrent_preview_delete_torrents(hashes, delete_files)
     if method == "POST" and path == "/web-api/torrents/delete":
         hashes = str(payload.get("hashes", ""))
         delete_files = payload.get("delete_files", False)
         if not isinstance(delete_files, bool):
             raise ValueError("delete_files must be a boolean")
-        return await qbittorrent_delete_torrents(hashes, delete_files)
+        return await qbittorrent_delete_torrents(
+            hashes, str(payload.get("preview_token", "")),
+            str(payload.get("typed_confirmation", "")), delete_files,
+        )
     raise ValueError("Unknown StackARR web API operation")
+
+
+async def _web_api_request(
+    path: str, method: str, query: dict[str, list[str]], payload: dict[str, Any]
+) -> Any:
+    source_token = _AUDIT_SOURCE.set("web")
+    try:
+        return await _web_api_request_inner(path, method, query, payload)
+    finally:
+        _AUDIT_SOURCE.reset(source_token)
 
 
 def main() -> None:
