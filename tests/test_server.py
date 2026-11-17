@@ -461,17 +461,18 @@ def test_web_torrent_delete_route_dispatches_to_shared_tool(monkeypatch):
 
     calls = []
 
-    async def fake_delete(hashes, delete_files=False):
-        calls.append((hashes, delete_files))
+    async def fake_delete(hashes, preview_token, typed_confirmation, delete_files=False):
+        calls.append((hashes, preview_token, typed_confirmation, delete_files))
         return {"ok": True}
 
     monkeypatch.setattr(server, "qbittorrent_delete_torrents", fake_delete)
     result = asyncio.run(server._web_api_request(
         "/web-api/torrents/delete", "POST", {},
-        {"hashes": "abc123", "delete_files": False},
+        {"hashes": "abc123", "delete_files": False,
+         "preview_token": "preview", "typed_confirmation": "DELETE TORRENT"},
     ))
     assert result == {"ok": True}
-    assert calls == [("abc123", False)]
+    assert calls == [("abc123", "preview", "DELETE TORRENT", False)]
 
 
 def test_web_torrent_delete_rejects_non_boolean_delete_files():
@@ -515,16 +516,26 @@ def test_arr_configuration_delete_requires_admin_and_uses_allowlisted_resource(m
     import asyncio
     import stackarr.server as server
     monkeypatch.setenv("STACKARR_MCP_PERMISSION_LEVEL", "admin")
+    monkeypatch.setenv("STACKARR_PREVIEW_SECRET", "test-preview-secret-with-at-least-32-characters")
     calls = []
+
+    current = {"id": 7, "name": "Indexer", "enable": True}
 
     async def fake_request(service, method, path, params=None, body=None):
         calls.append((service, method, path))
-        return {"http_status": 200}
+        return current if method == "GET" else {"http_status": 200}
 
     monkeypatch.setattr(server, "_arr_request", fake_request)
-    result = asyncio.run(server.arr_delete_configuration("sonarr", "notification", 7))
+    preview = asyncio.run(server.arr_preview_delete_configuration("sonarr", "notification", 7))
+    result = asyncio.run(server.arr_delete_configuration(
+        "sonarr", "notification", 7, preview["preview_token"], preview["confirmation_text"]
+    ))
     assert result == {"http_status": 200}
-    assert calls == [("sonarr", "DELETE", "/api/v3/notification/7")]
+    assert calls == [
+        ("sonarr", "GET", "/api/v3/notification/7"),
+        ("sonarr", "GET", "/api/v3/notification/7"),
+        ("sonarr", "DELETE", "/api/v3/notification/7"),
+    ]
 
 
 def test_web_configuration_create_and_delete_routes_dispatch(monkeypatch):
@@ -536,8 +547,8 @@ def test_web_configuration_create_and_delete_routes_dispatch(monkeypatch):
         calls.append(("create", service, resource, item))
         return {"id": 5}
 
-    async def fake_delete(service, resource, item_id):
-        calls.append(("delete", service, resource, item_id))
+    async def fake_delete(service, resource, item_id, preview_token, typed_confirmation):
+        calls.append(("delete", service, resource, item_id, preview_token, typed_confirmation))
         return {"ok": True}
 
     monkeypatch.setattr(server, "arr_create_configuration", fake_create)
@@ -548,13 +559,14 @@ def test_web_configuration_create_and_delete_routes_dispatch(monkeypatch):
     ))
     deleted = asyncio.run(server._web_api_request(
         "/web-api/settings/delete", "POST", {},
-        {"service": "radarr", "resource": "indexer", "id": 5},
+        {"service": "radarr", "resource": "indexer", "id": 5,
+         "preview_token": "preview", "typed_confirmation": "DELETE radarr/indexer/5: Test"},
     ))
     assert created == {"id": 5}
     assert deleted == {"ok": True}
     assert calls == [
         ("create", "radarr", "indexer", {"id": 0}),
-        ("delete", "radarr", "indexer", 5),
+        ("delete", "radarr", "indexer", 5, "preview", "DELETE radarr/indexer/5: Test"),
     ]
 
 

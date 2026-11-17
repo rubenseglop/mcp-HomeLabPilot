@@ -86,11 +86,7 @@ def _arr_api_required_permission(method: str, path: str) -> str:
     method = method.upper()
     if method == "GET":
         return "read"
-    if method == "DELETE":
-        raise PermissionError("Direct ARR DELETE requests are disabled; use a preview and typed confirmation")
     normalized = path.lower()
-    if "/command" in normalized:
-        raise PermissionError("Generic ARR command requests are disabled; use a dedicated StackARR workflow")
     admin_fragments = (
         "/qualityprofile", "/qualitydefinition", "/delayprofile", "/metadataprofile",
         "/customformat", "/importlist", "/metadata", "/tag",
@@ -198,6 +194,11 @@ async def arr_api_request(
     the configured host and API key are supplied automatically.
     """
     _require_permission(_arr_api_required_permission(method, path))
+    normalized_path = path.lower()
+    if method.upper() == "DELETE":
+        raise PermissionError("Direct ARR DELETE requests are disabled; use a preview and typed confirmation")
+    if method.upper() != "GET" and "/command" in normalized_path:
+        raise PermissionError("Generic ARR command requests are disabled; use a dedicated StackARR workflow")
     return await _arr_request(service, method, path, params, body)
 
 

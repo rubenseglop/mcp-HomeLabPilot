@@ -336,7 +336,8 @@ def test_settings_dashboard_has_configuration_create_edit_delete_controls():
     assert b"/web-api/settings/create" in body
     assert b"/web-api/settings/delete" in body
     assert b"Create configuration record" in body
-    assert b"Delete record" in body
+    assert b"Preview delete" in body
+    assert b"/web-api/settings/preview-delete" in body
 
 
 def test_dashboard_exposes_complete_lidarr_music_workflows():
