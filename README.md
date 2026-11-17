@@ -19,6 +19,7 @@ By default, Compose publishes the port on loopback only. To open the dashboard f
 - `qbittorrent_api_request`: qBittorrent Web API bridge, including queue/download controls.
 - `stack_status`: connectivity and version checks.
 - `scryer_introspect`: discover the live Scryer GraphQL query/mutation schema.
+- `scryer_list_recycled_items`: read Scryer's recycle-bin settings and paged recycled-file details, including scheduled purge dates.
 - `qbittorrent_list_torrents`: list and filter torrents.
 - `qbittorrent_control_torrents`: pause, resume, recheck or reannounce.
 - `qbittorrent_delete_torrents`: remove torrents, optionally including their data files.
@@ -48,7 +49,7 @@ The level is enforced server-side for shared write operations from both MCP tool
 
 The dashboard exposes an Advanced API explorer for the native REST APIs of Radarr, Sonarr, Prowlarr, Bazarr and Lidarr. It supports GET, POST, PUT, PATCH and DELETE with JSON query parameters and request bodies; API keys remain server-side and the same server-side permission checks used by MCP are applied to every request. This provides access to endpoints that do not yet have dedicated forms. The dashboard also exposes native Radarr and Sonarr configuration records through their APIs: quality and delay profiles, indexers, download clients, notifications, quality definitions, custom formats, import lists, metadata records and tags. Sonarr additionally exposes language and release profiles. Availability varies by application version and API schema; unsupported endpoints are reported by the application rather than silently emulated. Singleton application settings (for example host, UI and media-management settings) and options that require a service restart are not yet exposed as editable forms.
 
-The Scryer dashboard includes a schema-driven control center: it reads the installed GraphQL schema, separates query and mutation fields, shows descriptions, argument types and return types, and supports filtering. A GraphQL console with JSON variables is included for operations not yet represented by dedicated workflows. The schema view is generated from the live Scryer instance rather than assuming a fixed API version. Read-only queries are available at every permission level; GraphQL mutations require admin. The same scryer_graphql MCP tool exposes the native API.
+The Scryer dashboard includes a schema-driven control center: it reads the installed GraphQL schema, separates query and mutation fields, shows descriptions, argument types and return types, and supports filtering. A dedicated, read-only recycle-bin view shows the configured retention, effective paths, recycled files, reasons and scheduled purge dates. A GraphQL console with JSON variables is included for operations not yet represented by dedicated workflows. The schema view is generated from the live Scryer instance rather than assuming a fixed API version. Read-only queries are available at every permission level; GraphQL mutations require admin. The same scryer_graphql MCP tool exposes the native API.
 
 ## Security model
 
@@ -138,6 +139,7 @@ The container runs as a non-root user, drops Linux capabilities, and uses a read
 
 ## Next development steps
 
-1. Add dedicated Scryer workflows on top of the live schema browser and native Bazarr configuration forms.
+1. Add more dedicated Scryer workflows and native Bazarr configuration forms.
 2. Add operation history/auditing and safer previews for destructive operations.
 3. Add optional Docker management behind a separate restricted permission boundary.
+

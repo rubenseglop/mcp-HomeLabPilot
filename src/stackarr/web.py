@@ -71,7 +71,7 @@ input{width:100%;padding:12px;border:1px solid #34435d;border-radius:10px;backgr
       <button data-view="radarr-queue">Radarr queue</button><button data-view="sonarr-queue">Sonarr queue</button>
       <button data-view="downloads">Downloads · qBittorrent</button>
       <button data-view="artists">Music · Lidarr</button><button data-view="lidarr-queue">Lidarr queue</button><button data-view="lidarr-history">Lidarr history</button><button data-view="lidarr-missing">Missing albums</button>
-      <button data-view="search-movies">Search movies</button><button data-view="search-series">Search series</button><button data-view="search-artists">Search artists</button><button data-view="scryer">Scryer</button><button data-view="settings">Settings</button><button data-view="api-explorer">Advanced API</button>
+      <button data-view="search-movies">Search movies</button><button data-view="search-series">Search series</button><button data-view="search-artists">Search artists</button><button data-view="scryer">Scryer</button><button data-view="scryer-recycle-bin">Scryer recycle bin</button><button data-view="settings">Settings</button><button data-view="api-explorer">Advanced API</button>
     </div>
     <div class="info" id="workspace"><strong>Select a section</strong><br>Browse your library, inspect import queues and manage active downloads.</div>
   </section>
@@ -113,6 +113,26 @@ function setConfigPath(object,path,value){let target=object;for(let i=0;i<path.l
 function table(headers,rows){return '<div style="overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr>'+headers.map(h=>'<th style="text-align:left;padding:10px;border-bottom:1px solid #34435d;color:#91a0b8">'+esc(h)+'</th>').join('')+'</tr></thead><tbody>'+rows.join('')+'</tbody></table></div>';}
 async function openView(view){const target=$('workspace');target.textContent='Loading…';try{
  let data,html='';
+
+ if(view==='scryer-recycle-bin'){
+  html='<h3>Scryer · Recycle bin</h3><p class="muted">Read-only view of recycled files and their scheduled purge dates. Restore and permanent-delete controls remain in Scryer.</p><div id="scryer-recycle-settings" class="grid" style="margin:12px 0"></div><div id="scryer-recycle-items" class="info">Loading recycled items…</div>';
+  target.innerHTML=html;
+  try{
+   const result=await request('/web-api/scryer/recycle-bin?limit=500&offset=0');
+   if(result.errors?.length)throw new Error(result.errors.map(x=>x.message).join('; '));
+   const settings=result.data?.recycleBinSettings||{},page=result.data?.recycledItems||{},items=page.items||[];
+   const settingCard=(label,value)=>'<article class="card"><div class="muted">'+esc(label)+'</div><div class="name" style="margin-top:8px">'+esc(value)+'</div></article>';
+   $('scryer-recycle-settings').innerHTML=settingCard('Recycle bin',settings.enabled?'Enabled':'Disabled')+settingCard('Retention',settings.retentionDays+' days')+settingCard('Items in bin',page.totalCount||0);
+   let warning=settings.validationError?'<div class="error">'+esc(settings.validationError)+'</div>':'';
+   const paths=settings.effectivePaths||[];
+   if(paths.length)warning+='<p class="muted">Storage: '+esc(paths.join(' · '))+'</p>';
+   const date=value=>value?esc(new Date(value).toLocaleString()):'—';
+   const size=value=>{const n=Number(value||0);if(!n)return '0 B';const units=['B','KB','MB','GB','TB'];const i=Math.min(Math.floor(Math.log(n)/Math.log(1024)),units.length-1);return (n/Math.pow(1024,i)).toFixed(i?1:0)+' '+units[i];};
+   const rows=items.map(x=>'<tr><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(x.titleName||x.fileName)+'</td><td style="padding:10px;border-bottom:1px solid #25344d;max-width:320px;overflow-wrap:anywhere">'+cell(x.originalPath)+'</td><td style="padding:10px;border-bottom:1px solid #25344d">'+esc(size(x.sizeBytes))+'</td><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(x.reason)+'</td><td style="padding:10px;border-bottom:1px solid #25344d">'+date(x.recycledAt)+'</td><td style="padding:10px;border-bottom:1px solid #25344d">'+date(x.scheduledDeletionAt)+'</td></tr>');
+   $('scryer-recycle-items').innerHTML=warning+'<h4>Recycled files <span class="muted">('+items.length+' shown of '+(page.totalCount||0)+')</span></h4>'+table(['Title / file','Original path','Size','Reason','Recycled','Scheduled purge'],rows);
+  }catch(err){$('scryer-recycle-items').innerHTML='<div class="error">'+esc(err.message)+'</div>';}
+  return;
+ }
 
  if(view==='scryer'){
    html='<h3>Scryer · Control center</h3><p class="muted">Live status and a schema-driven view of the GraphQL API. The available fields are read from your installed Scryer version; no operation names are assumed.</p><div class="grid" id="scryer-summary" style="margin:12px 0"><article class="card"><div class="muted">Connection</div><div class="name" id="scryer-connection">Checking…</div></article><article class="card"><div class="muted">GraphQL queries</div><div class="name" id="scryer-query-count">—</div></article><article class="card"><div class="muted">GraphQL mutations</div><div class="name" id="scryer-mutation-count">—</div></article></div><div class="actions" style="flex-wrap:wrap;margin:12px 0"><button id="scryer-refresh">Refresh schema</button><input id="scryer-filter" placeholder="Filter operations…" style="max-width:280px;margin:0"></div><div id="scryer-schema" class="info">Loading Scryer schema…</div><details class="card" open style="margin-top:14px"><summary style="cursor:pointer;font-weight:650">GraphQL console</summary><div style="margin-top:12px"><label class="muted">GraphQL operation</label><textarea id="scryer-query" rows="7" spellcheck="false" placeholder="Write a query using an operation shown in the schema above." style="width:100%;background:#0b1322;color:#dce7f8;border:1px solid #34435d;border-radius:9px;padding:12px;font:13px ui-monospace,monospace"></textarea><label class="muted">Variables · JSON object (optional)</label><textarea id="scryer-variables" rows="3" spellcheck="false" style="width:100%;background:#0b1322;color:#dce7f8;border:1px solid #34435d;border-radius:9px;padding:12px;font:12px ui-monospace,monospace">{}</textarea><div class="actions" style="margin-top:10px"><button id="scryer-run">Execute query</button></div><pre id="scryer-result" class="info" style="white-space:pre-wrap;overflow-wrap:anywhere;margin-top:12px">Ready.</pre></div></details>';
@@ -567,3 +587,4 @@ class StackARRWebMiddleware:
             return
 
         await self.app(scope, receive, send)
+

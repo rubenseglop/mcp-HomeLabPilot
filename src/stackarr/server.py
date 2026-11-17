@@ -678,6 +678,30 @@ async def scryer_introspect() -> Any:
 
 
 @mcp.tool()
+async def scryer_list_recycled_items(limit: int = 100, offset: int = 0) -> Any:
+    """Read Scryer's recycle-bin settings and a page of recycled media files."""
+    if limit < 1 or limit > 500:
+        raise ValueError("limit must be between 1 and 500")
+    if offset < 0:
+        raise ValueError("offset must be >= 0")
+    query = """
+    query StackARRRecycleBin($limit: Int!, $offset: Int!) {
+      recycleBinSettings {
+        enabled path retentionDays effectivePaths validationError
+      }
+      recycledItems(limit: $limit, offset: $offset) {
+        totalCount
+        items {
+          id originalPath fileName sizeBytes titleId titleName titleFacet episodeId
+          reason recycledAt scheduledDeletionAt mediaRoot libraryId libraryName
+        }
+      }
+    }
+    """
+    return await scryer_graphql(query, {"limit": limit, "offset": offset})
+
+
+@mcp.tool()
 async def qbittorrent_list_torrents(
     filter: str = "all",
     category: str | None = None,
@@ -776,6 +800,11 @@ async def _web_api_request(
         if not isinstance(variables, dict):
             raise ValueError("GraphQL variables must be a JSON object")
         return await scryer_graphql(query_text, variables)
+
+    if method == "GET" and path == "/web-api/scryer/recycle-bin":
+        limit = int((query.get("limit") or ["100"])[0])
+        offset = int((query.get("offset") or ["0"])[0])
+        return await scryer_list_recycled_items(limit, offset)
 
     if method == "GET" and path == "/web-api/catalog":
         service = (query.get("service") or [""])[0]
@@ -933,3 +962,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
