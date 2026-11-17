@@ -347,6 +347,9 @@ def test_dashboard_has_persistent_english_spanish_language_switch():
     assert b'data-language="es"' in body and "🇪🇸".encode() in body
     assert b"stackarr-language" in body
     assert "Películas".encode() in body
+    assert b"'Save changes':'Guardar cambios'" in body
+    assert b"'Preview delete':'Vista previa del borrado'" in body
+    assert b"closest('[data-config-form]')" in body
 
 
 def test_dashboard_exposes_complete_lidarr_music_workflows():
