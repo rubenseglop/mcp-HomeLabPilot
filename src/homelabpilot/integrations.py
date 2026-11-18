@@ -301,6 +301,49 @@ def register_integration_tools(
         )
 
     @mcp.tool()
+    async def transmission_get_session() -> Any:
+        """Read Transmission session configuration and daemon information."""
+        return await request(
+            "transmission", "POST", "/transmission/rpc",
+            body={"method": "session-get", "arguments": {}},
+        )
+
+    @mcp.tool()
+    async def transmission_get_statistics() -> Any:
+        """Read Transmission transfer totals and current speeds."""
+        return await request(
+            "transmission", "POST", "/transmission/rpc",
+            body={"method": "session-stats", "arguments": {}},
+        )
+
+    @mcp.tool()
+    async def transmission_list_torrents(
+        fields: list[str] | None = None, ids: list[int] | None = None
+    ) -> Any:
+        """List Transmission torrents with selected fields; defaults to a useful status summary."""
+        selected = fields or [
+            "id", "name", "status", "percentDone", "rateDownload", "rateUpload",
+            "eta", "totalSize", "downloadDir", "error", "errorString",
+        ]
+        allowed = {
+            "id", "name", "status", "percentDone", "rateDownload", "rateUpload",
+            "eta", "totalSize", "downloadDir", "error", "errorString", "addedDate",
+            "doneDate", "uploadedEver", "downloadedEver", "ratio", "peersConnected",
+            "peersGettingFromUs", "peersSendingToUs", "files", "fileStats", "trackers",
+        }
+        if not selected or len(selected) > 40 or set(selected) - allowed:
+            raise ValueError(f"fields must be selected from: {', '.join(sorted(allowed))}")
+        if ids is not None and (not ids or len(ids) > 200 or any(i < 1 for i in ids)):
+            raise ValueError("ids must contain 1..200 positive torrent IDs")
+        args: dict[str, Any] = {"fields": selected}
+        if ids is not None:
+            args["ids"] = ids
+        return await request(
+            "transmission", "POST", "/transmission/rpc",
+            body={"method": "torrent-get", "arguments": args},
+        )
+
+    @mcp.tool()
     async def plex_get_active_sessions() -> Any:
         """Show current Plex playback sessions, including client and stream details."""
         return await request("plex", "GET", "/status/sessions")
