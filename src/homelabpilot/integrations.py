@@ -1129,7 +1129,7 @@ def register_integration_tools(
     }
     TMM_SCOPES = {
         "new", "path", "dataSource", "tmdbId", "imdbId", "tvdbId",
-        "unscraped", "all", "single",
+        "unscraped", "all", "single", "name",
     }
 
     def _tmm_tasks(section: str, tasks: Any) -> list[dict[str, Any]]:
