@@ -17,7 +17,11 @@ By default, Compose publishes the port on loopback only. To open the dashboard f
 - `arr_api_request`: full REST API bridge for Radarr, Sonarr, Prowlarr, Bazarr and Lidarr.
 - `scryer_graphql`: GraphQL query/mutation bridge for Scryer.
 - `qbittorrent_api_request`: qBittorrent Web API bridge, including queue/download controls.
-- `stack_status`: connectivity and version checks.
+- `stack_status`: connectivity and version checks for the existing ARR services plus configured integrations.
+- `integration_catalog`: list additional integrations and configuration state without returning credentials.
+- `integration_api_request`: read native APIs for configured HTTP apps using fixed server-side URLs and credentials.
+- `integration_preview_api_write` / `integration_confirm_api_write`: admin-only API write preview and exact typed confirmation.
+- Postgres and Redis status use TCP reachability only; Recyclarr is listed as container/CLI integration.
 - `scryer_introspect`: discover the live Scryer GraphQL query/mutation schema.
 - `scryer_list_recycled_items`: read Scryer's recycle-bin settings and paged recycled-file details, including scheduled purge dates.
 - `scryer_list_titles`, `scryer_list_media_requests`, `scryer_list_audit_events`: dedicated read-only Scryer catalog, request and audit workflows.
@@ -43,7 +47,7 @@ By default, Compose publishes the port on loopback only. To open the dashboard f
 - `arr_add_movie` / `arr_add_series`: add titles by TMDB/TVDB ID.
 - `arr_search_releases` / `arr_grab_release`: search and send a selected release to the download client. The browser library screen exposes this workflow per movie or series.
 
-The API bridge supports the native operations exposed by each application, rather than hard-coding a small set of workflows. This lets us add higher-level, easy-to-use tools without losing access to less common features.
+The wider integration catalog adds native HTTP API access for Plex, Jellyfin, Seerr, Transmission, Pulsarr, Cleanuparr, Maintainerr, Agregarr, Tracearr, Immich, RomM, BookOrbit, TinyMediaManager, Tidarr, FlareSolverr and Cloudflare. Postgres and Redis receive TCP reachability checks; Recyclarr is identified as a container/CLI integration. Native API reads are direct; writes require admin permission, a signed request preview and exact typed confirmation.
 
 ## MCP permission levels
 
@@ -53,7 +57,7 @@ Set `STACKARR_MCP_PERMISSION_LEVEL` in the private `.env` file to control what a
 - `operations`: the default. Includes ordinary media operations such as adding titles, grabbing releases, changing monitoring, categorizing torrents and pausing/resuming/rechecking downloads.
 - `admin`: also permits sensitive configuration changes and qBittorrent preference changes. Deletions require their preview/confirmation workflows.
 
-The generic ARR REST bridge applies the same checks: GET is read-only, ordinary writes require operations, and configuration/system endpoints require admin. Direct ARR DELETE requests are refused; configuration deletion uses a preview token and exact typed confirmation. Scryer mutations require admin, and destructive mutations are available only through dedicated preview/confirmation tools.
+The generic ARR REST bridge applies the same checks: GET is read-only, ordinary writes require operations, and configuration/system endpoints require admin. Additional integration API writes require admin and an exact typed confirmation bound to the request snapshot. Direct ARR DELETE requests are refused; configuration deletion uses a preview token and exact typed confirmation. Scryer mutations require admin, and destructive mutations are available only through dedicated preview/confirmation tools.
 
 The level is enforced server-side for shared write operations from both MCP tools and the browser dashboard; the dashboard still has its own separate login. Changing the level requires recreating the HomeLabPilot container. Invalid values fail closed. Use `read` when connecting an unfamiliar MCP client; raise it to `operations` or `admin` only when those capabilities are needed. Permission is not a per-action approval prompt: an MCP client should still obtain the user's explicit confirmation before invoking sensitive admin operations.
 
@@ -164,3 +168,11 @@ The container runs as a non-root user, drops Linux capabilities, and uses a read
 - Added a persistent operation audit log and snapshot-bound, typed confirmations for destructive deletion flows.
 - Added an opt-in Docker gateway with its own permission level, container allowlist and restricted start/stop/restart API.
 
+
+## Additional app integrations
+
+Configure only the services you run. The API bridge accepts a service name and native API path; it never accepts a caller-provided host. Plex uses `PLEX_TOKEN`, Jellyfin uses `JELLYFIN_API_KEY`, Seerr uses `SEERR_API_KEY`, Immich uses `IMMICH_API_KEY`, RomM uses its bearer API token, and Cloudflare uses a scoped API token. Transmission uses its configured RPC URL and optional basic-auth credentials. Other HTTP apps use the configured API key header.
+
+`integration_catalog` reports configuration without showing credentials. `stack_status` checks configured API endpoints and Postgres/Redis TCP reachability. Postgres and Redis are currently connectivity checks only; Recyclarr is listed as a container/CLI integration. App-specific SQL and CLI workflows are not exposed by the generic HTTP API tool.
+
+`integration_api_request` is read-only, except Transmission's read RPC methods. For a native API write, call `integration_preview_api_write` and then `integration_confirm_api_write` with the same request, returned token and exact phrase. Writes require server permission level `admin`. Maintainerr and FlareSolverr have no API authentication in this integration configuration; keep their URLs on a trusted private network.

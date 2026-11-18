@@ -25,6 +25,7 @@ import uvicorn
 
 from stackarr.audit import list_events as list_audit_events, record_event
 from stackarr.web import HomeLabPilotWebMiddleware
+from stackarr.integrations import register_integration_tools
 
 TIMEOUT = float(os.getenv("HTTP_TIMEOUT", "15"))
 _AUDIT_SOURCE: ContextVar[str] = ContextVar("stackarr_audit_source", default="mcp")
@@ -317,6 +318,17 @@ async def qbittorrent_api_request(
     return result
 
 
+integration_status = register_integration_tools(
+    mcp=mcp,
+    require_permission=_require_permission,
+    make_preview_token=_preview_token,
+    safe_path=_safe_path,
+    base_url=_base_url,
+    decode_response=_decode_response,
+    audit=_audit,
+    timeout=TIMEOUT,
+)
+
 @mcp.tool()
 async def stack_status() -> dict[str, Any]:
     """Check configured services and report their API status/version."""
@@ -341,6 +353,7 @@ async def stack_status() -> dict[str, Any]:
         checks["qbittorrent"] = {"ok": True, "version": version}
     except Exception as exc:
         checks["qbittorrent"] = {"ok": False, "error": str(exc)}
+    checks.update(await integration_status())
     return {"services": checks}
 
 
