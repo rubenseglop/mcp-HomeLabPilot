@@ -1205,6 +1205,38 @@ def register_integration_tools(
         body: Any = normalized[0] if len(normalized) == 1 else normalized
         return await request("tinymediamanager", "POST", f"/api/{section}", body=body)
 
+    @mcp.tool()
+    async def maintainerr_get_app_status() -> Any:
+        """Read Maintainerr version and update availability."""
+        return await request("maintainerr", "GET", "/api/app/status")
+
+    @mcp.tool()
+    async def maintainerr_get_timezone() -> Any:
+        """Read the timezone configured inside the Maintainerr process."""
+        return await request("maintainerr", "GET", "/api/app/timezone")
+
+    @mcp.tool()
+    async def maintainerr_get_health() -> Any:
+        """Read Maintainerr readiness, including its database health."""
+        return await request("maintainerr", "GET", "/api/health/ready")
+
+    @mcp.tool()
+    async def maintainerr_get_live_health() -> Any:
+        """Read the Maintainerr liveness probe without checking the database."""
+        return await request("maintainerr", "GET", "/api/health/live")
+
+    @mcp.tool()
+    async def maintainerr_get_task_status(task_name: str) -> Any:
+        """Read whether a named scheduled Maintainerr task is currently running."""
+        allowed = {
+            "Collection Handler", "Collection Log Cleaner", "Rule Maintenance",
+            "Overlay Handler", "Notification Timer", "Version Notification", "Telemetry Ping",
+        }
+        if task_name not in allowed:
+            raise ValueError(f"task_name must be one of: {', '.join(sorted(allowed))}")
+        from urllib.parse import quote
+        return await request("maintainerr", "GET", f"/api/tasks/{quote(task_name, safe='')}")
+
     TIDARR_DOWNLOAD_TYPES = {"album", "track", "video", "playlist", "mix", "artist", "artist_videos"}
 
     def _tidarr_download_item(item: Any) -> dict[str, Any]:
