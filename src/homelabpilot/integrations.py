@@ -482,12 +482,41 @@ def register_integration_tools(
         return await request("romm", "GET", "/api/platforms")
 
     @mcp.tool()
-    async def romm_search_roms(search_term: str, limit: int = 25) -> Any:
-        """Search the RomM game library."""
+    async def romm_search_roms(search_term: str, limit: int = 25, offset: int = 0) -> Any:
+        """Search the RomM game library with bounded pagination."""
         term = search_term.strip()
-        if not term or len(term) > 200 or not 1 <= limit <= 100:
-            raise ValueError("search_term is required (max 200 chars) and limit must be 1..100")
-        return await request("romm", "GET", "/api/roms", params={"search": term, "limit": limit})
+        if len(term) < 2 or len(term) > 200 or not 1 <= limit <= 100 or offset < 0:
+            raise ValueError("search_term must be 2..200 chars, limit 1..100 and offset non-negative")
+        return await request(
+            "romm", "GET", "/api/roms",
+            params={"search_term": term, "limit": limit, "offset": offset},
+        )
+
+    @mcp.tool()
+    async def romm_list_roms(limit: int = 50, offset: int = 0, platform_ids: list[int] | None = None) -> Any:
+        """List RomM library entries, optionally restricted to platform IDs."""
+        if not 1 <= limit <= 100 or offset < 0:
+            raise ValueError("limit must be 1..100 and offset must be non-negative")
+        if platform_ids is not None and (
+            not platform_ids or len(platform_ids) > 50 or any(value < 1 for value in platform_ids)
+        ):
+            raise ValueError("platform_ids must contain 1..50 positive IDs")
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        if platform_ids:
+            params["platform_ids"] = platform_ids
+        return await request("romm", "GET", "/api/roms", params=params)
+
+    @mcp.tool()
+    async def romm_get_rom(rom_id: int) -> Any:
+        """Read the metadata and availability details for one RomM game."""
+        if rom_id < 1:
+            raise ValueError("rom_id must be positive")
+        return await request("romm", "GET", f"/api/roms/{rom_id}")
+
+    @mcp.tool()
+    async def romm_list_collections() -> Any:
+        """List RomM game collections."""
+        return await request("romm", "GET", "/api/collections")
 
     async def status_checks() -> dict[str, Any]:
         checks: dict[str, Any] = {}
