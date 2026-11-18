@@ -214,7 +214,12 @@ def save_app_config(
         raise ValueError("clear_secrets may contain only secret fields belonging to this application")
 
     store = _read_store()
-    current = dict(store.get(app_id, {}))
+    current = {
+        key: os.getenv(key, "")
+        for key in APP_CONFIG_FIELDS[app_id]
+        if os.getenv(key, "")
+    }
+    current.update(store.get(app_id, {}))
     for key, raw in values.items():
         value = _validate_value(key, raw)
         if not value:
