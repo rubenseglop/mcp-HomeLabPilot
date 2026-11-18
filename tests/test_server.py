@@ -850,3 +850,60 @@ def test_app_config_can_explicitly_clear_a_secret(monkeypatch, tmp_path):
     )
     assert secret["secret_set"] is False
 
+
+
+
+@pytest.mark.parametrize(
+    ("service", "expected_path", "expected_params"),
+    [
+        ("radarr", "/api/v3/history", {"page": 2, "pageSize": 25, "includeMovie": "true"}),
+        ("sonarr", "/api/v3/history", {"page": 2, "pageSize": 25, "includeSeries": "true", "includeEpisode": "true"}),
+        ("lidarr", "/api/v1/history", {"page": 2, "pageSize": 25, "includeArtist": "true", "includeAlbum": "true", "includeTrack": "true"}),
+    ],
+)
+def test_arr_get_history_uses_service_specific_read_endpoint(monkeypatch, service, expected_path, expected_params):
+    import asyncio
+    import homelabpilot.server as server
+
+    calls = []
+
+    async def fake_request(target, method, path, params=None, body=None, form_data=None):
+        calls.append((target, method, path, params))
+        return {"records": []}
+
+    monkeypatch.setattr(server, "_arr_request", fake_request)
+    assert asyncio.run(server.arr_get_history(service, page=2, page_size=25)) == {"records": []}
+    assert calls == [(service, "GET", expected_path, expected_params)]
+
+
+@pytest.mark.parametrize(
+    ("service", "expected_path", "expected_params"),
+    [
+        ("radarr", "/api/v3/wanted/missing", {"page": 1, "pageSize": 40, "monitored": "true"}),
+        ("sonarr", "/api/v3/wanted/missing", {"page": 1, "pageSize": 40, "monitored": "true", "includeSeries": "true"}),
+        ("lidarr", "/api/v1/wanted/missing", {"page": 1, "pageSize": 40, "monitored": "true", "includeArtist": "true"}),
+    ],
+)
+def test_arr_get_missing_items_uses_service_specific_read_endpoint(monkeypatch, service, expected_path, expected_params):
+    import asyncio
+    import homelabpilot.server as server
+
+    calls = []
+
+    async def fake_request(target, method, path, params=None, body=None, form_data=None):
+        calls.append((target, method, path, params))
+        return {"records": []}
+
+    monkeypatch.setattr(server, "_arr_request", fake_request)
+    assert asyncio.run(server.arr_get_missing_items(service, page_size=40)) == {"records": []}
+    assert calls == [(service, "GET", expected_path, expected_params)]
+
+
+def test_arr_read_tools_reject_invalid_pagination():
+    import asyncio
+    import homelabpilot.server as server
+
+    with pytest.raises(ValueError, match="page must be"):
+        asyncio.run(server.arr_get_history("radarr", page=0))
+    with pytest.raises(ValueError, match="page_size"):
+        asyncio.run(server.arr_get_missing_items("sonarr", page_size=201))
