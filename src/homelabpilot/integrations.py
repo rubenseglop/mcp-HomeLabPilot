@@ -1148,6 +1148,84 @@ def register_integration_tools(
         """List Home Assistant service domains and available service names without invoking them."""
         return await request("homeassistant", "GET", "/api/services")
 
+    async def _validate_homeassistant_service(domain: str, service: str) -> None:
+        import re
+        if not re.fullmatch(r"[a-z_][a-z0-9_]*", domain) or not re.fullmatch(r"[a-z_][a-z0-9_]*", service):
+            raise ValueError("domain and service must be valid Home Assistant identifiers")
+        catalog = await request("homeassistant", "GET", "/api/services")
+        if not isinstance(catalog, list):
+            raise RuntimeError("Home Assistant returned an unexpected service catalogue")
+        if not any(
+            isinstance(item, dict)
+            and item.get("domain") == domain
+            and isinstance(item.get("services"), dict)
+            and service in item["services"]
+            for item in catalog
+        ):
+            raise ValueError(f"Home Assistant service {domain}.{service} is not currently registered")
+
+    async def _homeassistant_action_snapshot(
+        domain: str, service: str, entity_ids: list[str], service_data: dict[str, Any]
+    ) -> dict[str, Any]:
+        import re
+        if not 1 <= len(entity_ids) <= 50:
+            raise ValueError("entity_ids must contain 1..50 entities")
+        if any(not isinstance(x, str) or not re.fullmatch(r"[a-z_][a-z0-9_]*\\.[a-z0-9_]+", x) for x in entity_ids):
+            raise ValueError("Every entity_id must use the domain.entity_id format")
+        if len(set(entity_ids)) != len(entity_ids):
+            raise ValueError("entity_ids must be unique")
+        if not isinstance(service_data, dict) or len(service_data) > 50:
+            raise ValueError("service_data must be an object with at most 50 fields")
+        if "entity_id" in service_data or "target" in service_data:
+            raise ValueError("Pass target entities only through entity_ids")
+        if len(str(service_data)) > 10000:
+            raise ValueError("service_data is too large")
+        await _validate_homeassistant_service(domain, service)
+        return {
+            "service": "homeassistant",
+            "domain": domain,
+            "action": service,
+            "entity_ids": sorted(entity_ids),
+            "service_data": service_data,
+        }
+
+    @mcp.tool()
+    async def homeassistant_preview_service(
+        domain: str, service: str, entity_ids: list[str], service_data: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        """Preview a Home Assistant service call; no device or automation is changed until confirmed."""
+        require_permission("admin")
+        payload = await _homeassistant_action_snapshot(domain, service, entity_ids, service_data or {})
+        phrase = f"CONFIRM HOME ASSISTANT {domain}.{service} " + ", ".join(payload["entity_ids"])
+        return {
+            "preview_token": make_preview_token(payload),
+            "typed_confirmation": phrase,
+            "domain": domain,
+            "service": service,
+            "entity_ids": payload["entity_ids"],
+            "service_data": payload["service_data"],
+            "warning": "This invokes the selected Home Assistant service and may operate devices, locks, covers, scripts or automations.",
+        }
+
+    @mcp.tool()
+    async def homeassistant_confirm_service(
+        domain: str, service: str, entity_ids: list[str], preview_token: str,
+        typed_confirmation: str, service_data: dict[str, Any] | None = None,
+    ) -> Any:
+        """Execute only the exact Home Assistant service call shown in a matching preview."""
+        require_permission("admin")
+        payload = await _homeassistant_action_snapshot(domain, service, entity_ids, service_data or {})
+        expected_token = make_preview_token(payload)
+        phrase = f"CONFIRM HOME ASSISTANT {domain}.{service} " + ", ".join(payload["entity_ids"])
+        if not hmac.compare_digest(preview_token, expected_token):
+            raise PermissionError("The Home Assistant preview is stale or does not match this action")
+        if not hmac.compare_digest(typed_confirmation, phrase):
+            raise PermissionError(f"Type exactly: {phrase}")
+        return await request(
+            "homeassistant", "POST", f"/api/services/{domain}/{service}",
+            body={"entity_id": payload["entity_ids"], **payload["service_data"]},
+        )
+
     @mcp.tool()
     async def cloudflare_list_zones(page: int = 1, per_page: int = 50, name: str = "") -> Any:
         """List Cloudflare zones visible to the configured API token."""
