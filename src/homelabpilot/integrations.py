@@ -29,7 +29,7 @@ HTTP_INTEGRATIONS = {
     "homeassistant": ("HOMEASSISTANT_URL", "HOMEASSISTANT_TOKEN", "bearer", "/api/"),
     "romm": ("ROMM_URL", "ROMM_API_TOKEN", "bearer", "/api/platforms"),
     "bookorbit": ("BOOKORBIT_URL", "BOOKORBIT_API_KEY", "x-api-key", "/api/v1/health"),
-    "tinymediamanager": ("TINYMEDIAMANAGER_URL", "TINYMEDIAMANAGER_API_KEY", "api-key", "/"),
+    "tinymediamanager": ("TINYMEDIAMANAGER_URL", "TINYMEDIAMANAGER_API_KEY", "api-key", "/api/system"),
     "tidarr": ("TIDARR_URL", "TIDARR_API_KEY", "x-api-key", "/"),
     "flaresolverr": ("FLARESOLVERR_URL", "", "none", "/"),
     "cloudflare": ("CLOUDFLARE_API_URL", "CLOUDFLARE_API_TOKEN", "bearer", "/user/tokens/verify"),
@@ -1116,6 +1116,94 @@ def register_integration_tools(
     async def romm_list_collections() -> Any:
         """List RomM game collections."""
         return await request("romm", "GET", "/api/collections")
+
+
+    # tinyMediaManager HTTP API: read-only inspection plus explicitly previewed
+    # metadata tasks. The service executes tasks asynchronously after POST.
+    TMM_SECTIONS = {"movie", "tvshow", "movieset"}
+    TMM_ACTIONS = {
+        "update", "scrape", "writeNfo", "downloadMissingArtwork",
+        "fetchRatings", "reloadMediaInfo", "rename", "downloadTrailer",
+        "downloadSubtitle", "calculateChecksum", "detectAspectRatio",
+        "setWatched", "postProcess", "updateKodi", "syncTrakt", "syncSimkl",
+    }
+    TMM_SCOPES = {
+        "new", "path", "dataSource", "tmdbId", "imdbId", "tvdbId",
+        "unscraped", "all", "single",
+    }
+
+    def _tmm_tasks(section: str, tasks: Any) -> list[dict[str, Any]]:
+        if section not in TMM_SECTIONS:
+            raise ValueError("section must be movie, tvshow or movieset")
+        batch = tasks if isinstance(tasks, list) else [tasks]
+        if not batch or len(batch) > 20:
+            raise ValueError("Provide between 1 and 20 tinyMediaManager tasks")
+        normalized: list[dict[str, Any]] = []
+        for index, task in enumerate(batch):
+            if not isinstance(task, dict):
+                raise ValueError(f"Task {index + 1} must be an object")
+            if set(task) - {"action", "scope", "args"}:
+                raise ValueError(f"Task {index + 1} contains unsupported fields")
+            action = task.get("action")
+            if action not in TMM_ACTIONS:
+                raise ValueError(f"Task {index + 1}: unsupported action; allowed: {', '.join(sorted(TMM_ACTIONS))}")
+            scope = task.get("scope", {"name": "all"})
+            if not isinstance(scope, dict) or set(scope) - {"name", "args"}:
+                raise ValueError(f"Task {index + 1} scope must contain only name and args")
+            scope_name = scope.get("name", "all")
+            if scope_name not in TMM_SCOPES:
+                raise ValueError(f"Task {index + 1}: unsupported scope")
+            scope_args = scope.get("args", [])
+            if not isinstance(scope_args, (list, str, int)):
+                raise ValueError(f"Task {index + 1} scope.args must be a list, string or integer")
+            args = task.get("args", {})
+            if not isinstance(args, dict):
+                raise ValueError(f"Task {index + 1} args must be an object")
+            normalized.append({"action": action, "scope": scope, **({"args": args} if args else {})})
+        return normalized
+
+    @mcp.tool()
+    async def tinymediamanager_get_status() -> Any:
+        """Read tinyMediaManager version, running/busy state and queued/running tasks."""
+        return await request("tinymediamanager", "GET", "/api/system")
+
+    @mcp.tool()
+    async def tinymediamanager_get_api_docs() -> Any:
+        """Read tinyMediaManager's live OpenAPI description, including supported actions and scopes."""
+        return await request("tinymediamanager", "GET", "/api/docs")
+
+    @mcp.tool()
+    async def tinymediamanager_preview_tasks(section: str, tasks: Any) -> dict[str, Any]:
+        """Preview 1-20 metadata tasks; no work is queued until the matching confirmation."""
+        require_permission("admin")
+        normalized = _tmm_tasks(section, tasks)
+        snapshot = {"service": "tinymediamanager", "section": section, "tasks": normalized}
+        phrase = f"CONFIRM TINYMEDIAMANAGER {section.upper()} {len(normalized)} TASKS"
+        return {
+            "preview_token": make_preview_token(snapshot),
+            "typed_confirmation": phrase,
+            "section": section,
+            "task_count": len(normalized),
+            "tasks": normalized,
+            "warning": "Tasks may modify metadata, NFO files, artwork, subtitles or media filenames depending on the selected actions.",
+        }
+
+    @mcp.tool()
+    async def tinymediamanager_run_tasks(
+        section: str, tasks: Any, preview_token: str, typed_confirmation: str
+    ) -> Any:
+        """Queue only the exact tinyMediaManager task batch previously previewed and confirmed."""
+        require_permission("admin")
+        normalized = _tmm_tasks(section, tasks)
+        snapshot = {"service": "tinymediamanager", "section": section, "tasks": normalized}
+        expected_token = make_preview_token(snapshot)
+        expected_phrase = f"CONFIRM TINYMEDIAMANAGER {section.upper()} {len(normalized)} TASKS"
+        if not hmac.compare_digest(preview_token, expected_token):
+            raise PermissionError("The tinyMediaManager task preview is stale or does not match this batch")
+        if not hmac.compare_digest(typed_confirmation, expected_phrase):
+            raise PermissionError(f"Type exactly: {expected_phrase}")
+        body: Any = normalized[0] if len(normalized) == 1 else normalized
+        return await request("tinymediamanager", "POST", f"/api/{section}", body=body)
 
     async def status_checks() -> dict[str, Any]:
         checks: dict[str, Any] = {}
