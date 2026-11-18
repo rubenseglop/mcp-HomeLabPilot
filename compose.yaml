@@ -1,5 +1,6 @@
 services:
-  stackarr:
+  homelabpilot:
+    image: homelabpilot:latest
     build:
       context: .
     container_name: homelabpilot
@@ -10,13 +11,13 @@ services:
       MCP_TRANSPORT: streamable-http
       MCP_HOST: 0.0.0.0
       MCP_PORT: 8000
-      STACKARR_AUDIT_DB_PATH: /data/operation-history.sqlite3
-      STACKARR_DOCKER_ENABLED: ${STACKARR_DOCKER_ENABLED:-false}
-      STACKARR_DOCKER_PERMISSION_LEVEL: ${STACKARR_DOCKER_PERMISSION_LEVEL:-read}
-      STACKARR_DOCKER_GATEWAY_URL: http://stackarr-docker-gateway:2375
-      STACKARR_DOCKER_GATEWAY_TOKEN: ${STACKARR_DOCKER_GATEWAY_TOKEN:-}
+      HOMELABPILOT_AUDIT_DB_PATH: ${HOMELABPILOT_AUDIT_DB_PATH:-${STACKARR_AUDIT_DB_PATH:-/data/operation-history.sqlite3}}
+      HOMELABPILOT_DOCKER_ENABLED: ${HOMELABPILOT_DOCKER_ENABLED:-${STACKARR_DOCKER_ENABLED:-false}}
+      HOMELABPILOT_DOCKER_PERMISSION_LEVEL: ${HOMELABPILOT_DOCKER_PERMISSION_LEVEL:-${STACKARR_DOCKER_PERMISSION_LEVEL:-read}}
+      HOMELABPILOT_DOCKER_GATEWAY_URL: http://homelabpilot-docker-gateway:2375
+      HOMELABPILOT_DOCKER_GATEWAY_TOKEN: ${HOMELABPILOT_DOCKER_GATEWAY_TOKEN:-${STACKARR_DOCKER_GATEWAY_TOKEN:-}}
     ports:
-      - "${STACKARR_BIND_ADDRESS:-127.0.0.1}:${STACKARR_PORT:-8765}:8000"
+      - "${HOMELABPILOT_BIND_ADDRESS:-${STACKARR_BIND_ADDRESS:-127.0.0.1}}:${HOMELABPILOT_PORT:-${STACKARR_PORT:-8765}}:8000"
     # HomeLabPilot uses its own Compose network by default.
     # Attach it to your media apps' networks if you want to use Docker DNS.
     read_only: true
@@ -28,7 +29,7 @@ services:
       - no-new-privileges:true
     pids_limit: 100
     volumes:
-      - stackarr_state:/data
+      - homelabpilot_state:/data
     networks:
       - default
       - docker_control
@@ -41,15 +42,17 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
-  stackarr-docker-gateway:
+  homelabpilot-docker-gateway:
+    container_name: homelabpilot-docker-gateway
+    image: homelabpilot-docker-gateway:latest
     profiles: [docker]
     build:
       context: .
       dockerfile: Dockerfile.docker-gateway
     restart: unless-stopped
     environment:
-      STACKARR_DOCKER_GATEWAY_TOKEN: ${STACKARR_DOCKER_GATEWAY_TOKEN:-}
-      STACKARR_DOCKER_ALLOWED_CONTAINERS: ${STACKARR_DOCKER_ALLOWED_CONTAINERS:-}
+      HOMELABPILOT_DOCKER_GATEWAY_TOKEN: ${HOMELABPILOT_DOCKER_GATEWAY_TOKEN:-}
+      HOMELABPILOT_DOCKER_ALLOWED_CONTAINERS: ${HOMELABPILOT_DOCKER_ALLOWED_CONTAINERS:-${STACKARR_DOCKER_ALLOWED_CONTAINERS:-}}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     read_only: true
@@ -64,7 +67,8 @@ services:
       - docker_control
 
 volumes:
-  stackarr_state:
+  homelabpilot_state:
+    name: homelabpilot_stackarr_state
 
 networks:
   docker_control:
