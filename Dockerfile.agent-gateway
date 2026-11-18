@@ -11,9 +11,9 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates \
     && update-ca-certificates \
     && rm -rf /var/lib/apt/lists/* \
-    && npm install --global @openai/codex @anthropic-ai/claude-code \
-    && mkdir -p /app /state /workspace /home/node/.codex /home/node/.claude \
-    && chown -R node:node /app /state /workspace /home/node/.codex /home/node/.claude
+    && npm install --global @openai/codex @anthropic-ai/claude-code @google/gemini-cli \
+    && mkdir -p /app /state /workspace /home/node/.codex /home/node/.claude /home/node/.gemini \
+    && chown -R node:node /app /state /workspace /home/node/.codex /home/node/.claude /home/node/.gemini
 
 RUN printf "\nprecedence ::ffff:0:0/96 100\n" >> /etc/gai.conf
 
