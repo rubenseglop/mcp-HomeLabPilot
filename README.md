@@ -43,6 +43,14 @@ By default, Compose publishes the port on loopback only. To open the dashboard f
 - `arr_add_artist`, `lidarr_list_albums`, `lidarr_update_album`, `lidarr_get_history` and `lidarr_get_missing_albums`: dedicated Lidarr music-library workflows.
 - `arr_search_catalog`: find movies/series by title.
 - `arr_get_queue`: inspect download/import queues.
+- `arr_get_history` / `arr_get_missing_items`: consult recent activity and missing monitored items across Radarr, Sonarr and Lidarr.
+- `plex_get_library_sections`, `plex_get_recently_added`, `plex_get_recently_added_all`, `plex_get_on_deck`, `plex_get_active_sessions`: inspect Plex libraries, recent additions, continue-watching and active playback.
+- `jellyfin_get_libraries`, `jellyfin_search_items`, `jellyfin_get_active_sessions`, `jellyfin_get_server_info`: inspect Jellyfin libraries, search titles, playback sessions and server details.
+- `seerr_get_status`, `seerr_get_application_data_status`, `seerr_get_requests`, `seerr_search_media`: inspect Seerr health, request queues by media type/status and media search.
+- `immich_get_albums`, `immich_get_server_statistics`, `immich_search_assets`: inspect photo albums, server statistics and metadata search.
+- `romm_get_platforms`, `romm_list_roms`, `romm_search_roms`, `romm_get_rom`, `romm_list_collections`: inspect platforms, game library, search results, game details and collections.
+- `transmission_get_session`, `transmission_get_statistics`, `transmission_list_torrents`: inspect daemon settings, transfer totals/speeds and torrent status.
+- `cloudflare_list_zones`, `cloudflare_list_dns_records`: inspect zones and DNS records using a scoped Cloudflare API token.
 - `arr_get_setup_options`: retrieve valid root folders and quality profiles.
 - `arr_add_movie` / `arr_add_series`: add titles by TMDB/TVDB ID.
 - `arr_search_releases` / `arr_grab_release`: search and send a selected release to the download client. The browser library screen exposes this workflow per movie or series.
