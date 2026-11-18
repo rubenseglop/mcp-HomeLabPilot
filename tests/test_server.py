@@ -754,3 +754,99 @@ def test_lidarr_album_update_preserves_other_fields(monkeypatch):
     assert updated["monitored"] is False
     assert updated["artistId"] == 3
     assert updated["profileId"] == 4
+
+def test_stack_status_marks_missing_services_as_unconfigured(monkeypatch):
+    import asyncio
+    import stackarr.server as server
+
+    for url_env, key_env, _ in server.ARR_SERVICES.values():
+        monkeypatch.delenv(url_env, raising=False)
+        monkeypatch.delenv(key_env, raising=False)
+    for name in (
+        "SCRYER_URL", "SCRYER_API_KEY", "QBITTORRENT_URL",
+        "QBITTORRENT_USERNAME", "QBITTORRENT_PASSWORD",
+    ):
+        monkeypatch.delenv(name, raising=False)
+
+    async def unexpected_call(*args, **kwargs):
+        raise AssertionError("An unconfigured service must not be contacted")
+
+    async def no_integrations():
+        return {}
+
+    monkeypatch.setattr(server, "_arr_request", unexpected_call)
+    monkeypatch.setattr(server, "scryer_graphql", unexpected_call)
+    monkeypatch.setattr(server, "qbittorrent_api_request", unexpected_call)
+    monkeypatch.setattr(server, "integration_status", no_integrations)
+
+    result = asyncio.run(server.stack_status())
+    for service in (*server.ARR_SERVICES, "scryer", "qbittorrent"):
+        assert result["services"][service] == {"configured": False, "ok": False}
+
+def test_app_config_is_encrypted_and_never_returns_secret(monkeypatch, tmp_path):
+    import os
+    import stackarr.config_store as config_store
+
+    monkeypatch.setattr(config_store, "CONFIG_PATH", tmp_path / "app-config.enc")
+    monkeypatch.setenv("MCP_AUTH_TOKEN", "test-mcp-token-that-is-long-enough-123456")
+    monkeypatch.setenv("RADARR_URL", "http://radarr:7878")
+    monkeypatch.setenv("RADARR_API_KEY", "do-not-return-this-secret")
+    monkeypatch.setenv("QBITTORRENT_USERNAME", "private-user")
+
+    config = config_store.get_app_config()["radarr"]["fields"]
+    url = next(field for field in config if field["key"] == "RADARR_URL")
+    secret = next(field for field in config if field["key"] == "RADARR_API_KEY")
+    assert url["value"] == "http://radarr:7878"
+    assert secret["value"] == ""
+    assert secret["secret_set"] is True
+    qbit_user = next(
+        field for field in config_store.get_app_config()["qbittorrent"]["fields"]
+        if field["key"] == "QBITTORRENT_USERNAME"
+    )
+    assert qbit_user["value"] == ""
+    assert qbit_user["secret_set"] is True
+
+    config_store.save_app_config("radarr", {
+        "RADARR_URL": "http://radarr:7879",
+        "RADARR_API_KEY": "",
+    })
+    encrypted = config_store.CONFIG_PATH.read_bytes()
+    assert b"do-not-return-this-secret" not in encrypted
+    assert os.stat(config_store.CONFIG_PATH).st_mode & 0o777 == 0o600
+    assert os.environ["RADARR_URL"] == "http://radarr:7879"
+    assert os.environ["RADARR_API_KEY"] == "do-not-return-this-secret"
+
+    monkeypatch.delenv("RADARR_URL")
+    monkeypatch.delenv("RADARR_API_KEY")
+    config_store.load_saved_config()
+    assert os.environ["RADARR_URL"] == "http://radarr:7879"
+    assert os.environ["RADARR_API_KEY"] == "do-not-return-this-secret"
+
+
+def test_app_config_rejects_unknown_fields_and_unsafe_urls(monkeypatch, tmp_path):
+    import pytest
+    import stackarr.config_store as config_store
+
+    monkeypatch.setattr(config_store, "CONFIG_PATH", tmp_path / "app-config.enc")
+    monkeypatch.setenv("MCP_AUTH_TOKEN", "test-mcp-token-that-is-long-enough-123456")
+    with pytest.raises(ValueError, match="Unsupported configuration field"):
+        config_store.save_app_config("radarr", {"UNRELATED_SECRET": "value"})
+    with pytest.raises(ValueError, match="http"):
+        config_store.save_app_config("radarr", {"RADARR_URL": "http://user:pass@radarr:7878"})
+
+
+def test_app_config_can_explicitly_clear_a_secret(monkeypatch, tmp_path):
+    import os
+    import stackarr.config_store as config_store
+
+    monkeypatch.setattr(config_store, "CONFIG_PATH", tmp_path / "app-config.enc")
+    monkeypatch.setenv("MCP_AUTH_TOKEN", "test-mcp-token-that-is-long-enough-123456")
+    monkeypatch.setenv("RADARR_API_KEY", "old-secret")
+    config_store.save_app_config("radarr", {}, clear_secrets=["RADARR_API_KEY"])
+    assert os.environ["RADARR_API_KEY"] == ""
+    secret = next(
+        field for field in config_store.get_app_config()["radarr"]["fields"]
+        if field["key"] == "RADARR_API_KEY"
+    )
+    assert secret["secret_set"] is False
+

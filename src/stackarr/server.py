@@ -26,6 +26,9 @@ import uvicorn
 from stackarr.audit import list_events as list_audit_events, record_event
 from stackarr.web import HomeLabPilotWebMiddleware
 from stackarr.integrations import register_integration_tools
+from stackarr.config_store import get_app_config, load_saved_config, save_app_config
+
+load_saved_config()
 
 TIMEOUT = float(os.getenv("HTTP_TIMEOUT", "15"))
 _AUDIT_SOURCE: ContextVar[str] = ContextVar("stackarr_audit_source", default="mcp")
@@ -333,26 +336,53 @@ integration_status = register_integration_tools(
 async def stack_status() -> dict[str, Any]:
     """Check configured services and report their API status/version."""
     checks: dict[str, Any] = {}
-    for service, (url_env, _, api_prefix) in ARR_SERVICES.items():
+    for service, (url_env, key_env, api_prefix) in ARR_SERVICES.items():
+        configured = bool(os.getenv(url_env, "").strip() and os.getenv(key_env, "").strip())
+        if not configured:
+            checks[service] = {"configured": False, "ok": False}
+            continue
         try:
             payload = await _arr_request(service, "GET", f"{api_prefix}/system/status")
             checks[service] = {
+                "configured": True,
                 "ok": True,
                 "version": payload.get("version") if isinstance(payload, dict) else None,
                 "app_name": payload.get("appName") if isinstance(payload, dict) else None,
             }
-        except Exception as exc:
-            checks[service] = {"ok": False, "error": str(exc)}
-    try:
-        result = await scryer_graphql("query StackStatus { scryerVersion }")
-        checks["scryer"] = {"ok": "errors" not in result, "result": result}
-    except Exception as exc:
-        checks["scryer"] = {"ok": False, "error": str(exc)}
-    try:
-        version = await qbittorrent_api_request("GET", "/api/v2/app/version")
-        checks["qbittorrent"] = {"ok": True, "version": version}
-    except Exception as exc:
-        checks["qbittorrent"] = {"ok": False, "error": str(exc)}
+        except Exception:
+            checks[service] = {
+                "configured": True,
+                "ok": False,
+                "error": f"{service} is configured but its status check failed; verify its URL and API key",
+            }
+    scryer_configured = bool(
+        os.getenv("SCRYER_URL", "").strip() and os.getenv("SCRYER_API_KEY", "").strip()
+    )
+    if not scryer_configured:
+        checks["scryer"] = {"configured": False, "ok": False}
+    else:
+        try:
+            result = await scryer_graphql("query StackStatus { scryerVersion }")
+            checks["scryer"] = {
+                "configured": True, "ok": "errors" not in result, "result": result
+            }
+        except Exception:
+            checks["scryer"] = {
+                "configured": True, "ok": False,
+                "error": "Scryer is configured but its status check failed; verify its URL and API key",
+            }
+    qbit_configured = bool(os.getenv("QBITTORRENT_URL", "").strip())
+    if not qbit_configured:
+        checks["qbittorrent"] = {"configured": False, "ok": False}
+    else:
+        try:
+            version = await qbittorrent_api_request("GET", "/api/v2/app/version")
+            checks["qbittorrent"] = {"configured": True, "ok": True, "version": version}
+        except Exception:
+            checks["qbittorrent"] = {
+                "configured": True, "ok": False,
+                "error": "qBittorrent is configured but its status check failed; verify its URL and credentials",
+            }
     checks.update(await integration_status())
     return {"services": checks}
 
@@ -1371,6 +1401,16 @@ async def _web_api_request_inner(
     path: str, method: str, query: dict[str, list[str]], payload: dict[str, Any]
 ) -> Any:
     """Shared browser API actions; all service calls reuse the same configured API layer."""
+    if method == "GET" and path == "/web-api/apps/config":
+        return get_app_config()
+    if method == "POST" and path == "/web-api/apps/config":
+        app_id = str(payload.get("app_id", ""))
+        values = payload.get("values", {})
+        clear_secrets = payload.get("clear_secrets", [])
+        result = save_app_config(app_id, values, clear_secrets)
+        _audit("CONFIG_UPDATE", app_id, ",".join(sorted(values)))
+        return result
+
     if method == "POST" and path == "/web-api/scryer/graphql":
         query_text = str(payload.get("query", ""))
         if not query_text.strip():
