@@ -1259,6 +1259,105 @@ def register_integration_tools(
             "cloudflare", "GET", f"/zones/{zone_id}/dns_records", params=params
         )
 
+    async def _cloudflare_dns_change_snapshot(
+        action: str, zone_id: str, record_type: str, name: str,
+        content: str = "", ttl: int = 1, proxied: bool = False, record_id: str = "",
+    ) -> dict[str, Any]:
+        import ipaddress
+        import re
+        if action not in {"create", "update", "delete"}:
+            raise ValueError("action must be create, update or delete")
+        if not re.fullmatch(r"[A-Fa-f0-9]{32}", zone_id):
+            raise ValueError("zone_id must be a 32-character Cloudflare zone ID")
+        if action in {"update", "delete"} and not re.fullmatch(r"[A-Fa-f0-9]{32}", record_id):
+            raise ValueError("update/delete require a 32-character record_id")
+        existing = None
+        if action in {"update", "delete"}:
+            response = await request("cloudflare", "GET", f"/zones/{zone_id}/dns_records/{record_id}")
+            existing = response.get("result") if isinstance(response, dict) else None
+            if not isinstance(existing, dict) or existing.get("id") != record_id:
+                raise ValueError("Cloudflare DNS record was not found in the selected zone")
+        if action != "delete":
+            allowed = {"A", "AAAA", "CNAME", "TXT", "MX", "NS", "SRV", "CAA", "PTR"}
+            if record_type.upper() not in allowed:
+                raise ValueError(f"record_type must be one of: {', '.join(sorted(allowed))}")
+            if not name or len(name) > 253 or any(ch.isspace() for ch in name):
+                raise ValueError("name must be a DNS name of 1..253 characters")
+            if not content or len(content) > 4096:
+                raise ValueError("content must contain 1..4096 characters")
+            if ttl != 1 and not 60 <= ttl <= 86400:
+                raise ValueError("ttl must be 1 (automatic) or 60..86400 seconds")
+            if record_type.upper() == "A":
+                ipaddress.IPv4Address(content)
+            elif record_type.upper() == "AAAA":
+                ipaddress.IPv6Address(content)
+            elif record_type.upper() == "CNAME" and ("/" in content or " " in content):
+                raise ValueError("CNAME content must be a hostname, not a URL")
+        return {
+            "service": "cloudflare",
+            "action": action,
+            "zone_id": zone_id,
+            "record_id": record_id if action != "create" else "",
+            "record_type": record_type.upper() if action != "delete" else (existing or {}).get("type", ""),
+            "name": name if action != "delete" else (existing or {}).get("name", ""),
+            "content": content if action != "delete" else (existing or {}).get("content", ""),
+            "ttl": ttl if action != "delete" else (existing or {}).get("ttl", 1),
+            "proxied": proxied if action != "delete" else (existing or {}).get("proxied", False),
+            "existing": existing,
+        }
+
+    @mcp.tool()
+    async def cloudflare_preview_dns_change(
+        action: str, zone_id: str, record_type: str = "", name: str = "",
+        content: str = "", ttl: int = 1, proxied: bool = False, record_id: str = "",
+    ) -> dict[str, Any]:
+        """Preview creating, updating or deleting one Cloudflare DNS record; no change is made."""
+        require_permission("admin")
+        payload = await _cloudflare_dns_change_snapshot(
+            action, zone_id, record_type, name, content, ttl, proxied, record_id
+        )
+        phrase = f"CONFIRM CLOUDFLARE DNS {action.upper()} {payload['record_type']} {payload['name']} {zone_id}"
+        if record_id:
+            phrase += f" {record_id}"
+        return {
+            "preview_token": make_preview_token(payload),
+            "typed_confirmation": phrase,
+            "record": {k: payload[k] for k in ("record_type", "name", "content", "ttl", "proxied")},
+            "existing_record": payload["existing"],
+            "warning": "DNS changes can interrupt access to services or mail for this domain.",
+        }
+
+    @mcp.tool()
+    async def cloudflare_confirm_dns_change(
+        action: str, zone_id: str, preview_token: str, typed_confirmation: str,
+        record_type: str = "", name: str = "", content: str = "",
+        ttl: int = 1, proxied: bool = False, record_id: str = "",
+    ) -> Any:
+        """Execute only the exact Cloudflare DNS change shown in a matching preview."""
+        require_permission("admin")
+        payload = await _cloudflare_dns_change_snapshot(
+            action, zone_id, record_type, name, content, ttl, proxied, record_id
+        )
+        expected_token = make_preview_token(payload)
+        phrase = f"CONFIRM CLOUDFLARE DNS {action.upper()} {payload['record_type']} {payload['name']} {zone_id}"
+        if record_id:
+            phrase += f" {record_id}"
+        if not hmac.compare_digest(preview_token, expected_token):
+            raise PermissionError("The Cloudflare DNS preview is stale or does not match this action")
+        if not hmac.compare_digest(typed_confirmation, phrase):
+            raise PermissionError(f"Type exactly: {phrase}")
+        path = f"/zones/{zone_id}/dns_records"
+        if action == "delete":
+            return await request("cloudflare", "DELETE", f"{path}/{record_id}")
+        body = {
+            "type": payload["record_type"], "name": payload["name"],
+            "content": payload["content"], "ttl": payload["ttl"],
+            "proxied": payload["proxied"],
+        }
+        if action == "create":
+            return await request("cloudflare", "POST", path, body=body)
+        return await request("cloudflare", "PUT", f"{path}/{record_id}", body=body)
+
     @mcp.tool()
     async def immich_get_albums() -> Any:
         """List Immich albums."""
