@@ -8,6 +8,8 @@ const PORT = Number(process.env.AGENT_GATEWAY_PORT || 8766);
 
 const STATE = process.env.AGENT_STATE_DIR || "/state";
 const CODEX_HOME = process.env.CODEX_HOME || "/home/node/.codex";
+const CLAUDE_CONFIG_DIR = process.env.CLAUDE_CONFIG_DIR || "/home/node/.claude";
+const CLAUDE_MCP_CONFIG = path.join(CLAUDE_CONFIG_DIR, "mcp.json");
 const STORE = path.join(STATE, "conversations.json");
 const jobs = new Map();
 let store = { conversations: [] };
@@ -38,7 +40,7 @@ async function readBody(req) {
   return JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}");
 }
 function conversationView(c) {
-  return { id: c.id, title: c.title, created_at: c.created_at, updated_at: c.updated_at, messages: c.messages || [] };
+  return { id: c.id, agent: c.agent || "codex", title: c.title, created_at: c.created_at, updated_at: c.updated_at, messages: c.messages || [] };
 }
 function runCodex(conversation, prompt, job) {
   const args = conversation.thread_id
@@ -107,7 +109,74 @@ function runCodex(conversation, prompt, job) {
   child.stdin.end(guardedPrompt);
 }
 
+
+function runClaude(conversation, prompt, job) {
+  const args = ["-p", "--output-format", "stream-json", "--verbose", "--permission-mode", "plan",
+    "--strict-mcp-config", "--mcp-config", CLAUDE_MCP_CONFIG,
+    "--disallowedTools", "Bash", "Write", "Edit", "NotebookEdit"];
+  if (conversation.session_id) args.push("--resume", conversation.session_id);
+  const child = spawn("claude", args, {
+    cwd: "/workspace",
+    env: { ...process.env, CLAUDE_CONFIG_DIR, HOME: "/home/node", NO_COLOR: "1" },
+    stdio: ["pipe", "pipe", "pipe"]
+  });
+  job.pid = child.pid;
+  let pending = "", stderrTail = "";
+  child.stdout.setEncoding("utf8");
+  child.stdout.on("data", chunk => {
+    pending += chunk;
+    const lines = pending.split("\n"); pending = lines.pop() || "";
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      let event; try { event = JSON.parse(line); } catch { continue; }
+      if (event.session_id) conversation.session_id = event.session_id;
+      if (event.type === "assistant") {
+        const blocks = event.message?.content || [];
+        const text = blocks.filter(x => x.type === "text").map(x => x.text || "").join("\n");
+        if (text) job.answer = text;
+        for (const block of blocks) if (block.type === "tool_use") job.activities.push({ type:"tool", name:block.name || "Claude tool", status:"running" });
+      }
+      if (event.type === "result") {
+        if (event.session_id) conversation.session_id = event.session_id;
+        if (typeof event.result === "string") job.answer = event.result;
+        if (event.is_error) job.error = event.result || "Claude Code ha devuelto un error";
+      }
+      job.events.push({ type:event.type, subtype:event.subtype || null, text:typeof event.result === "string" ? event.result.slice(0,12000) : undefined });
+      if (job.events.length > 250) job.events.shift();
+      job.updated_at = now();
+    }
+  });
+  child.stderr.setEncoding("utf8");
+  child.stderr.on("data", chunk => { stderrTail = (stderrTail + chunk).slice(-4000); });
+  child.on("error", err => { job.status="failed"; job.error="No se pudo iniciar Claude Code: "+err.message; job.updated_at=now(); });
+  child.on("close", async code => {
+    if (pending.trim()) {
+      try {
+        const event=JSON.parse(pending);
+        if(event.session_id) conversation.session_id=event.session_id;
+        if(event.type==="result" && typeof event.result==="string") job.answer=event.result;
+      } catch {}
+    }
+    job.status = code===0 && !job.error ? "completed" : "failed";
+    if(job.status==="failed" && !job.error) job.error=stderrTail.trim().slice(-1200) || "Claude Code terminó con código "+code;
+    conversation.updated_at=now();
+    conversation.messages.push({role:"assistant",content:job.answer || job.error || "Claude Code no ha devuelto texto.",created_at:now()});
+    job.updated_at=now(); await saveStore();
+  });
+  const guardedPrompt = [
+    "Eres Claude Code integrado en HomeLabPilot. Responde en el idioma del usuario.",
+    "Puedes consultar servicios mediante las herramientas MCP de HomeLabPilot.",
+    "MODO DE SEGURIDAD: SOLO LECTURA. No realices cambios ni invoques herramientas de modificación.",
+    "No intentes crear, editar, borrar, descargar, importar, mover, pausar, reanudar, reiniciar ni modificar recursos o configuración.",
+    "No afirmes haber realizado cambios. Nunca reveles tokens, contraseñas ni datos de autenticación.",
+    "", "SOLICITUD DEL USUARIO:", prompt
+  ].join("\n");
+  child.stdin.end(guardedPrompt);
+}
+
 await fs.mkdir(CODEX_HOME, { recursive: true });
+await fs.mkdir(CLAUDE_CONFIG_DIR, { recursive: true });
+await fs.writeFile(CLAUDE_MCP_CONFIG, JSON.stringify({ mcpServers: { homelabpilot: { type: "http", url: "http://homelabpilot-mcp-proxy:8001/mcp" } } }, null, 2), { mode: 0o600 });
 await fs.writeFile(path.join(CODEX_HOME, "config.toml"),
   '[mcp_servers.homelabpilot]\nurl = "http://homelabpilot-mcp-proxy:8001/mcp"\nenabled = true\nrequired = true\n',
   { mode: 0o600 });
@@ -117,12 +186,15 @@ const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, "http://localhost");
   try {
     if (req.method === "GET" && url.pathname === "/health") {
-      let authenticated = false;
-      try { await fs.access(path.join(CODEX_HOME, "auth.json")); authenticated = true; } catch {}
-      send(res, 200, { ok: true, agent: "codex", authenticated, mcp_configured: true }); return;
+      let codexAuthenticated = false, claudeAuthenticated = false;
+      try { await fs.access(path.join(CODEX_HOME, "auth.json")); codexAuthenticated = true; } catch {}
+      try { await fs.access(path.join(CLAUDE_CONFIG_DIR, ".credentials.json")); claudeAuthenticated = true; } catch {}
+      send(res, 200, { ok:true, agent:"codex", authenticated:codexAuthenticated, mcp_configured:true,
+        agents:{codex:{authenticated:codexAuthenticated},claude:{authenticated:claudeAuthenticated,mcp_configured:true}} }); return;
     }
     if (req.method === "GET" && url.pathname === "/conversations") {
-      send(res, 200, store.conversations.slice().sort((a,b) => b.updated_at.localeCompare(a.updated_at)).map(c => ({ id:c.id, title:c.title, created_at:c.created_at, updated_at:c.updated_at }))); return;
+      const agent = url.searchParams.get("agent") || "codex";
+      send(res, 200, store.conversations.filter(c => (c.agent || "codex") === agent).slice().sort((a,b) => b.updated_at.localeCompare(a.updated_at)).map(c => ({ id:c.id, agent:c.agent || "codex", title:c.title, created_at:c.created_at, updated_at:c.updated_at }))); return;
     }
     if (req.method === "GET" && url.pathname.startsWith("/conversations/")) {
       const id = url.pathname.split("/")[2];
@@ -137,19 +209,22 @@ const server = http.createServer(async (req, res) => {
     }
     if (req.method === "POST" && url.pathname === "/chat") {
       const body = await readBody(req);
+      const agent = String(body.agent || "codex");
+      if (!["codex","claude"].includes(agent)) { send(res,400,{error:"Unknown agent"}); return; }
       const prompt = String(body.prompt || "").trim();
       if (!prompt || prompt.length > 20000) { send(res, 400, { error:"El mensaje debe tener entre 1 y 20.000 caracteres." }); return; }
       if (jobs.size >= 3 && [...jobs.values()].some(j => j.status === "running")) { send(res, 429, { error:"Ya hay tres tareas de Codex en ejecución." }); return; }
-      let conversation = store.conversations.find(x => x.id === body.conversation_id);
+      let conversation = store.conversations.find(x => x.id === body.conversation_id && (x.agent || "codex") === agent);
       if (body.conversation_id && !conversation) { send(res, 404, { error:"Conversation not found" }); return; }
       if (!conversation) {
-        conversation = { id:randomUUID(), title:prompt.slice(0,80), created_at:now(), updated_at:now(), thread_id:null, messages:[] };
+        conversation = { id:randomUUID(), agent, title:prompt.slice(0,80), created_at:now(), updated_at:now(), thread_id:null, session_id:null, messages:[] };
         store.conversations.push(conversation);
       }
       conversation.messages.push({ role:"user", content:prompt, created_at:now() });
       const id = randomUUID();
       const job = { id, conversation_id:conversation.id, status:"running", answer:"", error:null, events:[], activities:[], created_at:now(), updated_at:now() };
-      jobs.set(id, job); await saveStore(); runCodex(conversation, prompt, job);
+      jobs.set(id, job); await saveStore();
+      if (agent === "claude") runClaude(conversation, prompt, job); else runCodex(conversation, prompt, job);
       send(res, 202, { job_id:id, conversation_id:conversation.id }); return;
     }
     if (req.method === "GET" && url.pathname.startsWith("/jobs/")) {
