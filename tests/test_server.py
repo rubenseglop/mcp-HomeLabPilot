@@ -920,3 +920,18 @@ def test_homeassistant_integration_uses_bearer_token_and_rest_healthcheck():
     assert APP_CONFIG_FIELDS["homeassistant"] == (
         "HOMEASSISTANT_URL", "HOMEASSISTANT_TOKEN"
     )
+
+
+
+def test_pulsarr_authentication_and_api_endpoints_are_configured():
+    from homelabpilot.integrations import HTTP_INTEGRATIONS
+
+    assert HTTP_INTEGRATIONS["pulsarr"] == (
+        "PULSARR_URL", "PULSARR_API_KEY", "x-api-key", "/health"
+    )
+    assert HTTP_INTEGRATIONS["cleanuparr"] == (
+        "CLEANUPARR_URL", "", "none", "/health"
+    )
+    assert HTTP_INTEGRATIONS["maintainerr"] == (
+        "MAINTAINERR_URL", "", "none", "/api/health/ready"
+    )
