@@ -2,7 +2,7 @@ services:
   stackarr:
     build:
       context: .
-    container_name: stackarr
+    container_name: homelabpilot
     restart: unless-stopped
     env_file:
       - .env
