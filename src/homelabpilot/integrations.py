@@ -33,6 +33,7 @@ HTTP_INTEGRATIONS = {
     "tinymediamanager": ("TINYMEDIAMANAGER_URL", "TINYMEDIAMANAGER_API_KEY", "api-key", "/api/system"),
     "tidarr": ("TIDARR_URL", "TIDARR_API_KEY", "x-api-key", "/api/is-auth-active"),
     "flaresolverr": ("FLARESOLVERR_URL", "", "none", "/"),
+    "youtarr": ("YOUTARR_URL", "YOUTARR_API_KEY", "x-api-key", "/external-api/v1/capabilities"),
     "cloudflare": ("CLOUDFLARE_API_URL", "CLOUDFLARE_API_TOKEN", "bearer", "/user/tokens/verify"),
 }
 NON_HTTP_INTEGRATIONS = {
@@ -579,6 +580,153 @@ def register_integration_tools(
     async def pulsarr_list_content_router_rules() -> Any:
         """List Pulsarr content-router rules and their routing conditions."""
         return await request("pulsarr", "GET", "/v1/content-router/rules")
+
+    @mcp.tool()
+    async def youtarr_get_capabilities() -> Any:
+        """Read Youtarr external API version, enabled features, key scopes and quota limits."""
+        return await request("youtarr", "GET", "/external-api/v1/capabilities")
+
+    @mcp.tool()
+    async def youtarr_list_channels(
+        page_size: int = 50, cursor: str = "", search: str = "",
+        subfolder: str = "", sort_by: str = "title", sort_order: str = "asc",
+    ) -> Any:
+        """List channels granted to the configured Youtarr external API key."""
+        if not 1 <= page_size <= 100 or sort_by not in {"title", "videoCount", "downloadedCount", "id"} or sort_order not in {"asc", "desc"}:
+            raise ValueError("page_size must be 1..100; sort_by/sort_order must use documented values")
+        params: dict[str, Any] = {"pageSize": page_size, "sortBy": sort_by, "sortOrder": sort_order}
+        for key, value, max_len in (("cursor", cursor, 2000), ("search", search, 200), ("subfolder", subfolder, 255)):
+            if value:
+                if len(value) > max_len:
+                    raise ValueError(f"{key} is too long")
+                params[key] = value
+        return await request("youtarr", "GET", "/external-api/v1/channels", params=params)
+
+    @mcp.tool()
+    async def youtarr_list_videos(
+        page_size: int = 50, cursor: str = "", search: str = "",
+        status: str = "all", tab_type: str = "videos",
+        sort_by: str = "date", sort_order: str = "desc",
+    ) -> Any:
+        """List policy-filtered YouTube video catalog entries available to the configured key."""
+        if not 1 <= page_size <= 100 or status not in {"all", "requestable", "available", "downloaded", "requested"}:
+            raise ValueError("page_size must be 1..100 and status must be a documented value")
+        if tab_type not in {"videos", "shorts", "streams"} or sort_by not in {"date", "title", "duration"} or sort_order not in {"asc", "desc"}:
+            raise ValueError("tab_type, sort_by or sort_order is invalid")
+        params: dict[str, Any] = {"pageSize": page_size, "status": status, "tabType": tab_type, "sortBy": sort_by, "sortOrder": sort_order}
+        if cursor:
+            if len(cursor) > 2000:
+                raise ValueError("cursor is too long")
+            params["cursor"] = cursor
+        if search:
+            if len(search) > 200:
+                raise ValueError("search is too long")
+            params["search"] = search
+        return await request("youtarr", "GET", "/external-api/v1/videos", params=params)
+
+    @mcp.tool()
+    async def youtarr_get_video(youtube_id: str) -> Any:
+        """Read cached metadata and request/download status for one policy-visible YouTube video."""
+        import re
+        if not re.fullmatch(r"[A-Za-z0-9_-]{11}", youtube_id):
+            raise ValueError("youtube_id must be an 11-character YouTube video ID")
+        return await request("youtarr", "GET", f"/external-api/v1/videos/{youtube_id}")
+
+    @mcp.tool()
+    async def youtarr_list_requests(page_size: int = 50, cursor: str = "", status: str = "") -> Any:
+        """List requests owned by the configured Youtarr API key."""
+        if not 1 <= page_size <= 100:
+            raise ValueError("page_size must be 1..100")
+        if status and status not in {"pending", "approved", "processing", "completed", "rejected", "failed", "cancelled"}:
+            raise ValueError("status is not a documented request status")
+        params: dict[str, Any] = {"pageSize": page_size}
+        if cursor:
+            if len(cursor) > 2000:
+                raise ValueError("cursor is too long")
+            params["cursor"] = cursor
+        if status:
+            params["status"] = status
+        return await request("youtarr", "GET", "/external-api/v1/requests", params=params)
+
+    @mcp.tool()
+    async def youtarr_get_request(request_id: int) -> Any:
+        """Read one request owned by the configured Youtarr API key."""
+        if request_id < 1:
+            raise ValueError("request_id must be positive")
+        return await request("youtarr", "GET", f"/external-api/v1/requests/{request_id}")
+
+    def _youtarr_request_payload(
+        request_type: str, youtube_id: str = "", channel_id: int = 0, channel_url: str = ""
+    ) -> dict[str, Any]:
+        import re
+        if request_type in {"video", "delete_video"}:
+            if not re.fullmatch(r"[A-Za-z0-9_-]{11}", youtube_id):
+                raise ValueError("youtube_id must be an 11-character YouTube video ID")
+            if channel_id < 1:
+                raise ValueError("channel_id must be positive")
+            return {
+                "type": request_type, "youtubeId": youtube_id, "channelId": channel_id,
+                "idempotencyKey": secrets.token_urlsafe(24),
+            }
+        if request_type == "channel":
+            from urllib.parse import urlparse
+            parsed = urlparse(channel_url)
+            if (
+                parsed.scheme != "https"
+                or parsed.hostname not in {"youtube.com", "www.youtube.com", "m.youtube.com"}
+                or parsed.query or parsed.fragment or parsed.username or parsed.password
+                or not re.fullmatch(r"/(?:@[A-Za-z0-9._-]{3,30}|channel/[A-Za-z0-9_-]{20,}|c/[A-Za-z0-9._-]{1,100}|user/[A-Za-z0-9._-]{1,100})", parsed.path)
+            ):
+                raise ValueError("channel_url must be a canonical HTTPS YouTube handle/channel URL")
+            return {"type": request_type, "channelUrl": channel_url, "idempotencyKey": secrets.token_urlsafe(24)}
+        raise ValueError("request_type must be video, channel or delete_video")
+
+    @mcp.tool()
+    async def youtarr_preview_request(
+        request_type: str, youtube_id: str = "", channel_id: int = 0, channel_url: str = ""
+    ) -> dict[str, Any]:
+        """Preview a Youtarr video/channel/downloaded-video deletion request; nothing is submitted yet."""
+        require_permission("operations")
+        payload = _youtarr_request_payload(request_type, youtube_id, channel_id, channel_url)
+        snapshot = {"service": "youtarr", "payload": payload}
+        phrase = f"CONFIRM YOUTARR {request_type.upper()} " + (
+            payload.get("youtubeId") or payload.get("channelUrl", "")
+        )
+        return {
+            "preview_token": make_preview_token(snapshot),
+            "typed_confirmation": phrase,
+            "request": payload,
+            "warning": "Youtarr applies the API key's channel grants, content-rating policy, quotas and auto-approval settings. A submitted request may start downloads or delete a downloaded video after approval.",
+        }
+
+    @mcp.tool()
+    async def youtarr_confirm_request(
+        request_type: str, preview_token: str, typed_confirmation: str,
+        youtube_id: str = "", channel_id: int = 0, channel_url: str = "",
+        idempotency_key: str = "",
+    ) -> Any:
+        """Submit only the exact Youtarr request shown in a matching preview."""
+        require_permission("operations")
+        payload = _youtarr_request_payload(request_type, youtube_id, channel_id, channel_url)
+        if idempotency_key:
+            if len(idempotency_key) > 200:
+                raise ValueError("idempotency_key is too long")
+            payload["idempotencyKey"] = idempotency_key
+        snapshot = {"service": "youtarr", "payload": payload}
+        expected_token = make_preview_token(snapshot)
+        phrase = f"CONFIRM YOUTARR {request_type.upper()} " + (
+            payload.get("youtubeId") or payload.get("channelUrl", "")
+        )
+        if not hmac.compare_digest(preview_token, expected_token):
+            raise PermissionError("The Youtarr preview is stale or does not match this request")
+        if not hmac.compare_digest(typed_confirmation, phrase):
+            raise PermissionError(f"Type exactly: {phrase}")
+        endpoints = {
+            "video": "/external-api/v1/requests/videos",
+            "channel": "/external-api/v1/requests/channels",
+            "delete_video": "/external-api/v1/requests/delete-videos",
+        }
+        return await request("youtarr", "POST", endpoints[request_type], body=payload)
 
     @mcp.tool()
     async def flaresolverr_list_sessions() -> Any:
