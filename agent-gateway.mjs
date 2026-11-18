@@ -98,7 +98,18 @@ function runCodex(conversation, prompt, job) {
     job.updated_at = now();
     await saveStore();
   });
-  child.stdin.end(prompt);
+  const guardedPrompt = [
+    "Eres el agente Codex integrado en HomeLabPilot. Responde en el idioma del usuario.",
+    "Puedes consultar los servicios usando las herramientas MCP de HomeLabPilot.",
+    "MODO DE SEGURIDAD DE ESTA VERSION: SOLO LECTURA. Utiliza únicamente herramientas de consulta.",
+    "No invoques herramientas que creen, cambien, descarguen, importen, graben, borren, muevan, pausen, reanuden, reinicien o modifiquen recursos o configuración.",
+    "No invoques herramientas de confirmación, aunque el usuario pida realizar una acción. Explica qué operación sería necesaria y deja claro que esta versión del chat todavía no permite ejecutarla.",
+    "No afirmes haber realizado cambios. Nunca reveles tokens, contraseñas ni datos de autenticación.",
+    "",
+    "SOLICITUD DEL USUARIO:",
+    prompt
+  ].join("\\n");
+  child.stdin.end(guardedPrompt);
 }
 
 await fs.mkdir(CODEX_HOME, { recursive: true });
