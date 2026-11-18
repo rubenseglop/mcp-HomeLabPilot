@@ -22,7 +22,7 @@ HTTP_INTEGRATIONS = {
     "pulsarr": ("PULSARR_URL", "PULSARR_API_KEY", "x-api-key", "/health"),
     "cleanuparr": ("CLEANUPARR_URL", "", "none", "/health"),
     "maintainerr": ("MAINTAINERR_URL", "", "none", "/api/health/ready"),
-    "agregarr": ("AGREGARR_URL", "AGREGARR_API_KEY", "x-api-key", "/"),
+    "agregarr": ("AGREGARR_URL", "AGREGARR_API_KEY", "x-api-key", "/api/v1/status"),
     "tracearr": ("TRACEARR_URL", "TRACEARR_API_KEY", "bearer", "/api/v1/public/health"),
     "tdarr": ("TDARR_URL", "", "x-api-key", "/api/v2/status"),
     "immich": ("IMMICH_URL", "IMMICH_API_KEY", "x-api-key", "/api/server/ping"),
@@ -588,6 +588,99 @@ def register_integration_tools(
     async def maintainerr_get_health() -> Any:
         """Read Maintainerr readiness and database connectivity status."""
         return await request("maintainerr", "GET", "/api/health/ready")
+
+    # Agregarr workflows (official /api/v1 API).
+    @mcp.tool()
+    async def agregarr_get_status() -> Any:
+        """Read Agregarr version and update status."""
+        return await request("agregarr", "GET", "/api/v1/status")
+
+    @mcp.tool()
+    async def agregarr_list_collections() -> Any:
+        """List Agregarr collection configurations and their sync/download settings."""
+        return await request("agregarr", "GET", "/api/v1/collections")
+
+    @mcp.tool()
+    async def agregarr_list_default_hubs() -> Any:
+        """List managed default Plex hubs and their visibility/order settings."""
+        return await request("agregarr", "GET", "/api/v1/defaulthubs")
+
+    @mcp.tool()
+    async def agregarr_list_existing_collections() -> Any:
+        """List pre-existing Plex collections managed by Agregarr."""
+        return await request("agregarr", "GET", "/api/v1/preexisting")
+
+    @mcp.tool()
+    async def agregarr_get_scheduled_jobs() -> Any:
+        """List Agregarr scheduled jobs and their next execution times."""
+        return await request("agregarr", "GET", "/api/v1/settings/jobs")
+
+    @mcp.tool()
+    async def agregarr_get_logs(
+        limit: int = 50, offset: int = 0, level: str = "info", search_term: str = ""
+    ) -> Any:
+        """Read paginated Agregarr logs, optionally filtered by severity and text."""
+        if not 1 <= limit <= 200 or offset < 0:
+            raise ValueError("limit must be 1..200 and offset must be non-negative")
+        if level not in {"debug", "info", "warn", "error"}:
+            raise ValueError("level must be debug, info, warn or error")
+        if len(search_term) > 200:
+            raise ValueError("search_term must be at most 200 characters")
+        params: dict[str, Any] = {"take": limit, "skip": offset, "filter": level}
+        if search_term.strip():
+            params["search"] = search_term.strip()
+        return await request("agregarr", "GET", "/api/v1/settings/logs", params=params)
+
+    @mcp.tool()
+    async def agregarr_get_missing_items(
+        limit: int = 25, offset: int = 0, status: str = "", media_type: str = "",
+        collection_source: str = ""
+    ) -> Any:
+        """List Agregarr missing-item requests with bounded pagination and optional filters."""
+        if not 1 <= limit <= 100 or offset < 0:
+            raise ValueError("limit must be 1..100 and offset must be non-negative")
+        if status and status not in {
+            "pending", "approved", "declined", "available", "processing", "failed",
+            "partially_available",
+        }:
+            raise ValueError("unsupported missing-item status")
+        if media_type and media_type not in {"movie", "tv"}:
+            raise ValueError("media_type must be movie or tv")
+        allowed_sources = {
+            "trakt", "tmdb", "imdb", "letterboxd", "mdblist", "tautulli", "networks",
+            "originals", "overseerr", "anilist", "myanimelist", "radarrtag", "sonarrtag",
+            "comingsoon", "filtered_hub", "multi-source",
+        }
+        if collection_source and collection_source not in allowed_sources:
+            raise ValueError("unsupported collection_source")
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        if status:
+            params["status"] = status
+        if media_type:
+            params["mediaType"] = media_type
+        if collection_source:
+            params["collectionSource"] = collection_source
+        return await request("agregarr", "GET", "/api/v1/missing-items", params=params)
+
+    @mcp.tool()
+    async def agregarr_get_missing_item_stats() -> Any:
+        """Read Agregarr missing-item request totals and status/source breakdowns."""
+        return await request("agregarr", "GET", "/api/v1/missing-items/stats")
+
+    @mcp.tool()
+    async def agregarr_get_dashboard_stats() -> Any:
+        """Read Agregarr dashboard totals and collection activity statistics."""
+        return await request("agregarr", "GET", "/api/v1/dashboard/stats")
+
+    @mcp.tool()
+    async def agregarr_get_dashboard_activity(days: int = 7, limit: int = 10) -> Any:
+        """Read recent Agregarr activity and top media from Tautulli."""
+        if not 1 <= days <= 365 or not 1 <= limit <= 50:
+            raise ValueError("days must be 1..365 and limit must be 1..50")
+        return await request(
+            "agregarr", "GET", "/api/v1/dashboard/activity",
+            params={"days": days, "limit": limit},
+        )
 
     @mcp.tool()
     async def tracearr_get_health() -> Any:
