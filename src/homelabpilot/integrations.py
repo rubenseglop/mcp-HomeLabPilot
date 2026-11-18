@@ -21,7 +21,7 @@ HTTP_INTEGRATIONS = {
     "seerr": ("SEERR_URL", "SEERR_API_KEY", "x-api-key", "/api/v1/status"),
     "transmission": ("TRANSMISSION_URL", "", "basic", "/transmission/rpc"),
     "pulsarr": ("PULSARR_URL", "PULSARR_API_KEY", "x-api-key", "/health"),
-    "cleanuparr": ("CLEANUPARR_URL", "", "none", "/health"),
+    "cleanuparr": ("CLEANUPARR_URL", "CLEANUPARR_API_KEY", "x-api-key", "/health"),
     "maintainerr": ("MAINTAINERR_URL", "", "none", "/api/health/ready"),
     "agregarr": ("AGREGARR_URL", "AGREGARR_API_KEY", "x-api-key", "/api/v1/status"),
     "tracearr": ("TRACEARR_URL", "TRACEARR_API_KEY", "bearer", "/api/v1/public/health"),
@@ -628,6 +628,83 @@ def register_integration_tools(
                 solution["response"] = response_text[:20000] + "\\n...[truncated by HomeLabPilot]"
             result = {**result, "solution": solution}
         return result
+
+    @mcp.tool()
+    async def cleanuparr_get_system_status() -> Any:
+        """Read Cleanuparr version, uptime and configured *arr instances."""
+        return await request("cleanuparr", "GET", "/api/status")
+
+    @mcp.tool()
+    async def cleanuparr_get_download_client_status() -> Any:
+        """Read configured download-client connection status."""
+        return await request("cleanuparr", "GET", "/api/status/download-client")
+
+    @mcp.tool()
+    async def cleanuparr_get_arr_status() -> Any:
+        """Read connection status for configured *arr instances."""
+        return await request("cleanuparr", "GET", "/api/status/arrs")
+
+    @mcp.tool()
+    async def cleanuparr_get_events(
+        page: int = 1, page_size: int = 50, severity: str | None = None,
+        event_type: str | None = None, search: str | None = None,
+    ) -> Any:
+        """Read Cleanuparr events with pagination and optional severity/type/search filters."""
+        if page < 1 or page > 100000 or page_size < 1 or page_size > 100:
+            raise ValueError("page must be 1-100000 and page_size must be 1-100")
+        params: dict[str, Any] = {"page": page, "pageSize": page_size}
+        for key, value in (("severity", severity), ("eventType", event_type), ("search", search)):
+            if value:
+                params[key] = value[:200]
+        return await request("cleanuparr", "GET", "/api/events", params=params)
+
+    @mcp.tool()
+    async def cleanuparr_get_event_timeline(hours: int = 168) -> Any:
+        """Read Cleanuparr event counts over time, for a 1-hour to 1-year window."""
+        if hours < 1 or hours > 8760:
+            raise ValueError("hours must be between 1 and 8760")
+        return await request("cleanuparr", "GET", "/api/events/timeline", params={"hours": hours})
+
+    @mcp.tool()
+    async def cleanuparr_get_statistics(hours: int = 168, include_dry_run: bool = False) -> Any:
+        """Read aggregated Cleanuparr statistics for a bounded time window."""
+        if hours < 1 or hours > 8760:
+            raise ValueError("hours must be between 1 and 8760")
+        return await request(
+            "cleanuparr", "GET", "/api/v2/stats",
+            params={"hours": hours, "includeDryRun": include_dry_run},
+        )
+
+    @mcp.tool()
+    async def cleanuparr_get_recent_strikes(count: int = 10) -> Any:
+        """Read recent strike records issued against downloads."""
+        if count < 1 or count > 50:
+            raise ValueError("count must be between 1 and 50")
+        return await request("cleanuparr", "GET", "/api/strikes/recent", params={"count": count})
+
+    @mcp.tool()
+    async def cleanuparr_get_strikes(
+        page: int = 1, page_size: int = 50, search: str | None = None, strike_type: str | None = None
+    ) -> Any:
+        """List download strike history with pagination and optional filters."""
+        if page < 1 or page > 100000 or page_size < 1 or page_size > 100:
+            raise ValueError("page must be 1-100000 and page_size must be 1-100")
+        params: dict[str, Any] = {"page": page, "pageSize": page_size}
+        if search:
+            params["search"] = search[:200]
+        if strike_type:
+            params["type"] = strike_type[:80]
+        return await request("cleanuparr", "GET", "/api/strikes", params=params)
+
+    @mcp.tool()
+    async def cleanuparr_get_jobs() -> Any:
+        """Read Cleanuparr scheduled job states and schedules."""
+        return await request("cleanuparr", "GET", "/api/jobs")
+
+    @mcp.tool()
+    async def cleanuparr_get_manual_event_stats() -> Any:
+        """Read counts of Cleanuparr manual events, including unresolved severity totals."""
+        return await request("cleanuparr", "GET", "/api/manualevents/stats")
 
     @mcp.tool()
     async def cleanuparr_get_health() -> Any:
