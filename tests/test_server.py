@@ -1,7 +1,7 @@
 """Small unit tests for HomeLabPilot path validation."""
 import pytest
 
-from stackarr.server import _safe_path
+from homelabpilot.server import _safe_path
 
 
 @pytest.mark.parametrize("path", ["/api/v3/movie", "/api/v2/torrents/info"])
@@ -21,7 +21,7 @@ def test_safe_path_rejects_non_api_paths(path):
 
 def test_web_catalog_search_dispatches_to_shared_arr_lookup(monkeypatch):
     import asyncio
-    import stackarr.server as server
+    import homelabpilot.server as server
 
     async def fake_search(service, term):
         return [{"service": service, "term": term}]
@@ -35,7 +35,7 @@ def test_web_catalog_search_dispatches_to_shared_arr_lookup(monkeypatch):
 
 def test_web_add_dispatches_to_movie_or_series(monkeypatch):
     import asyncio
-    import stackarr.server as server
+    import homelabpilot.server as server
 
     calls = []
 
@@ -65,7 +65,7 @@ def test_web_add_dispatches_to_movie_or_series(monkeypatch):
 
 def test_web_add_rejects_unknown_service():
     import asyncio
-    import stackarr.server as server
+    import homelabpilot.server as server
 
     with pytest.raises(ValueError, match="service must be radarr, sonarr or lidarr"):
         asyncio.run(server._web_api_request("/web-api/catalog/add", "POST", {}, {"service": "prowlarr"}))
@@ -78,7 +78,7 @@ def test_web_add_rejects_unknown_service():
 )
 def test_qbittorrent_login_accepts_success_responses(status_code, body):
     from types import SimpleNamespace
-    from stackarr.server import _check_qbittorrent_login
+    from homelabpilot.server import _check_qbittorrent_login
 
     response = SimpleNamespace(
         status_code=status_code,
@@ -90,7 +90,7 @@ def test_qbittorrent_login_accepts_success_responses(status_code, body):
 
 def test_qbittorrent_login_rejects_unexpected_response():
     from types import SimpleNamespace
-    from stackarr.server import _check_qbittorrent_login
+    from homelabpilot.server import _check_qbittorrent_login
 
     response = SimpleNamespace(
         status_code=200,
@@ -103,8 +103,8 @@ def test_qbittorrent_login_rejects_unexpected_response():
 
 def test_arr_configuration_update_rejects_unknown_resource(monkeypatch):
     import asyncio
-    import stackarr.server as server
-    monkeypatch.setenv("STACKARR_MCP_PERMISSION_LEVEL", "admin")
+    import homelabpilot.server as server
+    monkeypatch.setenv("HOMELABPILOT_MCP_PERMISSION_LEVEL", "admin")
 
     with pytest.raises(ValueError, match="resource for radarr must be one of"):
         asyncio.run(server.arr_update_configuration("radarr", "system", 1, {"id": 1}))
@@ -112,8 +112,8 @@ def test_arr_configuration_update_rejects_unknown_resource(monkeypatch):
 
 def test_qbittorrent_preferences_reject_sensitive_or_unknown_keys(monkeypatch):
     import asyncio
-    import stackarr.server as server
-    monkeypatch.setenv("STACKARR_MCP_PERMISSION_LEVEL", "admin")
+    import homelabpilot.server as server
+    monkeypatch.setenv("HOMELABPILOT_MCP_PERMISSION_LEVEL", "admin")
 
     async def fake_request(method, path, params=None, data=None):
         return {"ok": True}
@@ -125,7 +125,7 @@ def test_qbittorrent_preferences_reject_sensitive_or_unknown_keys(monkeypatch):
 
 
 def test_arr_configuration_redacts_secret_fields_recursively():
-    from stackarr.server import _redact_sensitive_config
+    from homelabpilot.server import _redact_sensitive_config
 
     original = {
         "id": 7,
@@ -149,8 +149,8 @@ def test_arr_configuration_redacts_secret_fields_recursively():
 
 def test_arr_update_configuration_restores_redacted_secrets(monkeypatch):
     import asyncio
-    import stackarr.server as server
-    monkeypatch.setenv("STACKARR_MCP_PERMISSION_LEVEL", "admin")
+    import homelabpilot.server as server
+    monkeypatch.setenv("HOMELABPILOT_MCP_PERMISSION_LEVEL", "admin")
 
     calls = []
     current = {
@@ -186,8 +186,8 @@ def test_arr_update_configuration_restores_redacted_secrets(monkeypatch):
 
 def test_prowlarr_configuration_uses_v1_endpoints(monkeypatch):
     import asyncio
-    import stackarr.server as server
-    monkeypatch.setenv("STACKARR_MCP_PERMISSION_LEVEL", "admin")
+    import homelabpilot.server as server
+    monkeypatch.setenv("HOMELABPILOT_MCP_PERMISSION_LEVEL", "admin")
 
     calls = []
 
@@ -214,7 +214,7 @@ def test_prowlarr_configuration_uses_v1_endpoints(monkeypatch):
 
 def test_prowlarr_configuration_rejects_unsupported_resource():
     import asyncio
-    import stackarr.server as server
+    import homelabpilot.server as server
 
     with pytest.raises(ValueError, match="resource for prowlarr"):
         asyncio.run(server.arr_get_configuration("prowlarr", "qualityprofile"))
@@ -222,7 +222,7 @@ def test_prowlarr_configuration_rejects_unsupported_resource():
 
 def test_arr_update_library_item_preserves_existing_fields_and_updates_requested_values(monkeypatch):
     import asyncio
-    import stackarr.server as server
+    import homelabpilot.server as server
 
     calls = []
     current = {
@@ -250,7 +250,7 @@ def test_arr_update_library_item_preserves_existing_fields_and_updates_requested
 
 def test_arr_update_library_item_rejects_empty_update():
     import asyncio
-    import stackarr.server as server
+    import homelabpilot.server as server
 
     with pytest.raises(ValueError, match="At least one"):
         asyncio.run(server.arr_update_library_item("sonarr", 1))
@@ -258,7 +258,7 @@ def test_arr_update_library_item_rejects_empty_update():
 
 def test_web_library_update_dispatches_only_requested_fields(monkeypatch):
     import asyncio
-    import stackarr.server as server
+    import homelabpilot.server as server
 
     calls = []
 
@@ -278,7 +278,7 @@ def test_web_library_update_dispatches_only_requested_fields(monkeypatch):
 
 def test_web_release_routes_dispatch_search_and_grab(monkeypatch):
     import asyncio
-    import stackarr.server as server
+    import homelabpilot.server as server
 
     calls = []
 
@@ -317,9 +317,9 @@ def test_web_release_routes_dispatch_search_and_grab(monkeypatch):
     ],
 )
 def test_permission_levels_enforce_hierarchy(monkeypatch, level, required, allowed):
-    from stackarr.server import _require_permission
+    from homelabpilot.server import _require_permission
 
-    monkeypatch.setenv("STACKARR_MCP_PERMISSION_LEVEL", level)
+    monkeypatch.setenv("HOMELABPILOT_MCP_PERMISSION_LEVEL", level)
     if allowed:
         _require_permission(required)
     else:
@@ -328,9 +328,9 @@ def test_permission_levels_enforce_hierarchy(monkeypatch, level, required, allow
 
 
 def test_invalid_permission_level_fails_closed(monkeypatch):
-    from stackarr.server import _require_permission
+    from homelabpilot.server import _require_permission
 
-    monkeypatch.setenv("STACKARR_MCP_PERMISSION_LEVEL", "superuser")
+    monkeypatch.setenv("HOMELABPILOT_MCP_PERMISSION_LEVEL", "superuser")
     with pytest.raises(RuntimeError, match="must be read, operations or admin"):
         _require_permission("read")
 
@@ -353,48 +353,48 @@ def test_invalid_permission_level_fails_closed(monkeypatch):
     ],
 )
 def test_generic_arr_api_permission_classification(method, path, expected):
-    from stackarr.server import _arr_api_required_permission
+    from homelabpilot.server import _arr_api_required_permission
 
     assert _arr_api_required_permission(method, path) == expected
 
 
 def test_read_permission_blocks_generic_arr_write_before_api_call(monkeypatch):
     import asyncio
-    import stackarr.server as server
+    import homelabpilot.server as server
 
     async def unexpected_request(*args, **kwargs):
         raise AssertionError("API must not be called when permission is denied")
 
     monkeypatch.setattr(server, "_arr_request", unexpected_request)
-    monkeypatch.setenv("STACKARR_MCP_PERMISSION_LEVEL", "read")
+    monkeypatch.setenv("HOMELABPILOT_MCP_PERMISSION_LEVEL", "read")
     with pytest.raises(PermissionError, match="requires 'operations'"):
         asyncio.run(server.arr_api_request("radarr", "POST", "/api/v3/movie", body={"tmdbId": 1}))
 
 
 def test_operations_permission_blocks_destructive_arr_api_write(monkeypatch):
     import asyncio
-    import stackarr.server as server
+    import homelabpilot.server as server
 
     async def unexpected_request(*args, **kwargs):
         raise AssertionError("API must not be called when permission is denied")
 
     monkeypatch.setattr(server, "_arr_request", unexpected_request)
-    monkeypatch.setenv("STACKARR_MCP_PERMISSION_LEVEL", "operations")
+    monkeypatch.setenv("HOMELABPILOT_MCP_PERMISSION_LEVEL", "operations")
     with pytest.raises(PermissionError, match="requires 'admin'"):
         asyncio.run(server.arr_api_request("radarr", "DELETE", "/api/v3/movie/12"))
 
 
 def test_scryer_mutation_requires_admin(monkeypatch):
     import asyncio
-    import stackarr.server as server
+    import homelabpilot.server as server
 
-    monkeypatch.setenv("STACKARR_MCP_PERMISSION_LEVEL", "operations")
+    monkeypatch.setenv("HOMELABPILOT_MCP_PERMISSION_LEVEL", "operations")
     with pytest.raises(PermissionError, match="requires 'admin'"):
         asyncio.run(server.scryer_graphql("mutation { deleteMovie(id: 1) { id } }"))
 
 
 def test_expanded_arr_configuration_resources_are_registered():
-    from stackarr.server import ARR_EDITABLE_RESOURCES_BY_SERVICE
+    from homelabpilot.server import ARR_EDITABLE_RESOURCES_BY_SERVICE
 
     expected = {
         "qualitydefinition", "customformat", "importlist", "metadata", "tag",
@@ -408,7 +408,7 @@ def test_expanded_arr_configuration_resources_are_registered():
 
 def test_web_scryer_graphql_dispatches_query_and_variables(monkeypatch):
     import asyncio
-    import stackarr.server as server
+    import homelabpilot.server as server
 
     calls = []
 
@@ -427,7 +427,7 @@ def test_web_scryer_graphql_dispatches_query_and_variables(monkeypatch):
 
 def test_web_scryer_graphql_rejects_invalid_variables():
     import asyncio
-    import stackarr.server as server
+    import homelabpilot.server as server
 
     with pytest.raises(ValueError, match="variables must be a JSON object"):
         asyncio.run(server._web_api_request(
@@ -438,7 +438,7 @@ def test_web_scryer_graphql_rejects_invalid_variables():
 
 def test_web_torrent_category_route_dispatches_to_shared_tool(monkeypatch):
     import asyncio
-    import stackarr.server as server
+    import homelabpilot.server as server
 
     calls = []
 
@@ -457,7 +457,7 @@ def test_web_torrent_category_route_dispatches_to_shared_tool(monkeypatch):
 
 def test_web_torrent_delete_route_dispatches_to_shared_tool(monkeypatch):
     import asyncio
-    import stackarr.server as server
+    import homelabpilot.server as server
 
     calls = []
 
@@ -477,7 +477,7 @@ def test_web_torrent_delete_route_dispatches_to_shared_tool(monkeypatch):
 
 def test_web_torrent_delete_rejects_non_boolean_delete_files():
     import asyncio
-    import stackarr.server as server
+    import homelabpilot.server as server
 
     with pytest.raises(ValueError, match="delete_files must be a boolean"):
         asyncio.run(server._web_api_request(
@@ -488,8 +488,8 @@ def test_web_torrent_delete_rejects_non_boolean_delete_files():
 
 def test_arr_configuration_create_requires_admin_and_redacts_response(monkeypatch):
     import asyncio
-    import stackarr.server as server
-    monkeypatch.setenv("STACKARR_MCP_PERMISSION_LEVEL", "admin")
+    import homelabpilot.server as server
+    monkeypatch.setenv("HOMELABPILOT_MCP_PERMISSION_LEVEL", "admin")
     calls = []
 
     async def fake_request(service, method, path, params=None, body=None):
@@ -506,17 +506,17 @@ def test_arr_configuration_create_requires_admin_and_redacts_response(monkeypatc
 
 def test_arr_configuration_create_rejects_existing_id(monkeypatch):
     import asyncio
-    import stackarr.server as server
-    monkeypatch.setenv("STACKARR_MCP_PERMISSION_LEVEL", "admin")
+    import homelabpilot.server as server
+    monkeypatch.setenv("HOMELABPILOT_MCP_PERMISSION_LEVEL", "admin")
     with pytest.raises(ValueError, match="id omitted or set to 0"):
         asyncio.run(server.arr_create_configuration("radarr", "indexer", {"id": 9}))
 
 
 def test_arr_configuration_delete_requires_admin_and_uses_allowlisted_resource(monkeypatch):
     import asyncio
-    import stackarr.server as server
-    monkeypatch.setenv("STACKARR_MCP_PERMISSION_LEVEL", "admin")
-    monkeypatch.setenv("STACKARR_PREVIEW_SECRET", "test-preview-secret-with-at-least-32-characters")
+    import homelabpilot.server as server
+    monkeypatch.setenv("HOMELABPILOT_MCP_PERMISSION_LEVEL", "admin")
+    monkeypatch.setenv("HOMELABPILOT_PREVIEW_SECRET", "test-preview-secret-with-at-least-32-characters")
     calls = []
 
     current = {"id": 7, "name": "Indexer", "enable": True}
@@ -540,7 +540,7 @@ def test_arr_configuration_delete_requires_admin_and_uses_allowlisted_resource(m
 
 def test_web_configuration_create_and_delete_routes_dispatch(monkeypatch):
     import asyncio
-    import stackarr.server as server
+    import homelabpilot.server as server
     calls = []
 
     async def fake_create(service, resource, item):
@@ -571,7 +571,7 @@ def test_web_configuration_create_and_delete_routes_dispatch(monkeypatch):
 
 
 def test_lidarr_is_registered_with_native_api_v1():
-    from stackarr.server import ARR_SERVICES, ARR_EDITABLE_RESOURCES_BY_SERVICE
+    from homelabpilot.server import ARR_SERVICES, ARR_EDITABLE_RESOURCES_BY_SERVICE
 
     assert ARR_SERVICES["lidarr"] == ("LIDARR_URL", "LIDARR_API_KEY", "/api/v1")
     assert ARR_EDITABLE_RESOURCES_BY_SERVICE["lidarr"]["qualityprofile"] == "/api/v1/qualityprofile"
@@ -580,7 +580,7 @@ def test_lidarr_is_registered_with_native_api_v1():
 
 def test_lidarr_artist_library_and_update_preserve_existing_fields(monkeypatch):
     import asyncio
-    import stackarr.server as server
+    import homelabpilot.server as server
 
     calls = []
     current = {"id": 12, "artistName": "Example Artist", "monitored": True,
@@ -610,7 +610,7 @@ def test_lidarr_artist_library_and_update_preserve_existing_fields(monkeypatch):
 
 def test_lidarr_setup_options_include_metadata_profiles(monkeypatch):
     import asyncio
-    import stackarr.server as server
+    import homelabpilot.server as server
 
     async def fake_request(service, method, path, params=None, body=None):
         return [{"path": path}] if "rootfolder" in path else [{"name": path}]
@@ -624,9 +624,9 @@ def test_lidarr_setup_options_include_metadata_profiles(monkeypatch):
 
 def test_lidarr_add_artist_uses_musicbrainz_id_and_profiles(monkeypatch):
     import asyncio
-    import stackarr.server as server
+    import homelabpilot.server as server
 
-    monkeypatch.setenv("STACKARR_MCP_PERMISSION_LEVEL", "operations")
+    monkeypatch.setenv("HOMELABPILOT_MCP_PERMISSION_LEVEL", "operations")
     calls = []
 
     async def fake_request(service, method, path, params=None, body=None):
@@ -648,7 +648,7 @@ def test_lidarr_add_artist_uses_musicbrainz_id_and_profiles(monkeypatch):
 
 def test_lidarr_albums_queue_history_and_missing_use_v1_endpoints(monkeypatch):
     import asyncio
-    import stackarr.server as server
+    import homelabpilot.server as server
 
     calls = []
 
@@ -672,9 +672,9 @@ def test_lidarr_albums_queue_history_and_missing_use_v1_endpoints(monkeypatch):
 
 def test_lidarr_release_search_and_grab_use_api_v1(monkeypatch):
     import asyncio
-    import stackarr.server as server
+    import homelabpilot.server as server
 
-    monkeypatch.setenv("STACKARR_MCP_PERMISSION_LEVEL", "operations")
+    monkeypatch.setenv("HOMELABPILOT_MCP_PERMISSION_LEVEL", "operations")
     calls = []
 
     async def fake_request(service, method, path, params=None, body=None):
@@ -692,7 +692,7 @@ def test_lidarr_release_search_and_grab_use_api_v1(monkeypatch):
 
 def test_lidarr_web_routes_dispatch_artist_album_history_and_missing(monkeypatch):
     import asyncio
-    import stackarr.server as server
+    import homelabpilot.server as server
 
     calls = []
 
@@ -741,9 +741,9 @@ def test_lidarr_web_routes_dispatch_artist_album_history_and_missing(monkeypatch
 
 def test_lidarr_album_update_preserves_other_fields(monkeypatch):
     import asyncio
-    import stackarr.server as server
+    import homelabpilot.server as server
 
-    monkeypatch.setenv("STACKARR_MCP_PERMISSION_LEVEL", "operations")
+    monkeypatch.setenv("HOMELABPILOT_MCP_PERMISSION_LEVEL", "operations")
     current = {"id": 8, "title": "Album", "monitored": True, "artistId": 3, "profileId": 4}
 
     async def fake_request(service, method, path, params=None, body=None):
@@ -757,7 +757,7 @@ def test_lidarr_album_update_preserves_other_fields(monkeypatch):
 
 def test_stack_status_marks_missing_services_as_unconfigured(monkeypatch):
     import asyncio
-    import stackarr.server as server
+    import homelabpilot.server as server
 
     for url_env, key_env, _ in server.ARR_SERVICES.values():
         monkeypatch.delenv(url_env, raising=False)
@@ -785,7 +785,7 @@ def test_stack_status_marks_missing_services_as_unconfigured(monkeypatch):
 
 def test_app_config_is_encrypted_and_never_returns_secret(monkeypatch, tmp_path):
     import os
-    import stackarr.config_store as config_store
+    import homelabpilot.config_store as config_store
 
     monkeypatch.setattr(config_store, "CONFIG_PATH", tmp_path / "app-config.enc")
     monkeypatch.setenv("MCP_AUTH_TOKEN", "test-mcp-token-that-is-long-enough-123456")
@@ -825,7 +825,7 @@ def test_app_config_is_encrypted_and_never_returns_secret(monkeypatch, tmp_path)
 
 def test_app_config_rejects_unknown_fields_and_unsafe_urls(monkeypatch, tmp_path):
     import pytest
-    import stackarr.config_store as config_store
+    import homelabpilot.config_store as config_store
 
     monkeypatch.setattr(config_store, "CONFIG_PATH", tmp_path / "app-config.enc")
     monkeypatch.setenv("MCP_AUTH_TOKEN", "test-mcp-token-that-is-long-enough-123456")
@@ -837,7 +837,7 @@ def test_app_config_rejects_unknown_fields_and_unsafe_urls(monkeypatch, tmp_path
 
 def test_app_config_can_explicitly_clear_a_secret(monkeypatch, tmp_path):
     import os
-    import stackarr.config_store as config_store
+    import homelabpilot.config_store as config_store
 
     monkeypatch.setattr(config_store, "CONFIG_PATH", tmp_path / "app-config.enc")
     monkeypatch.setenv("MCP_AUTH_TOKEN", "test-mcp-token-that-is-long-enough-123456")
