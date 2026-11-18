@@ -190,15 +190,15 @@ function appCard(app,status){
 
 function renderAgentConversation(conversation){
  const out=$('agent-messages');
- out.innerHTML=(conversation.messages||[]).map(message=>'<div style="margin:9px 0;padding:10px;border-radius:10px;background:'+(message.role==='assistant'?'#18243a':'#101827')+'"><div class="muted" style="font-size:11px;margin-bottom:5px">'+(message.role==='assistant'?'Codex':'You')+'</div><div style="white-space:pre-wrap;overflow-wrap:anywhere">'+esc(message.content)+'</div></div>').join('')||'No messages yet.';
+ out.innerHTML=(conversation.messages||[]).map(message=>'<div style="margin:9px 0;padding:10px;border-radius:10px;background:'+(message.role==='assistant'?'#18243a':'#101827')+'"><div class="muted" style="font-size:11px;margin-bottom:5px">'+(message.role==='assistant'?(conversation.agent==='claude'?'Claude Code':'Codex'):'You')+'</div><div style="white-space:pre-wrap;overflow-wrap:anywhere">'+esc(message.content)+'</div></div>').join('')||'No messages yet.';
  out.scrollTop=out.scrollHeight;
 }
 async function runAgentChat(form){
- const prompt=$('agent-prompt').value.trim(),select=$('agent-conversation'),button=$('agent-send'),status=$('agent-chat-status');
+ const prompt=$('agent-prompt').value.trim(),select=$('agent-conversation'),provider=$('agent-provider').value,button=$('agent-send'),status=$('agent-chat-status');
  if(!prompt)return;
- button.disabled=true;status.textContent='Codex is running…';
+ button.disabled=true;status.textContent=provider==='claude'?'Claude Code is running…':'Codex is running…';
  try{
-  const started=await request('/web-api/agents/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,conversation_id:select.value||undefined})});
+  const started=await request('/web-api/agents/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,agent:provider,conversation_id:select.value||undefined})});
   select.value=started.conversation_id;
   if(!select.querySelector('option[value="'+started.conversation_id+'"]')){
    const option=document.createElement('option');option.value=started.conversation_id;option.textContent='New conversation · '+new Date().toLocaleString();select.insertBefore(option,select.options[1]||null);
@@ -208,12 +208,12 @@ async function runAgentChat(form){
   do{
    await new Promise(resolve=>setTimeout(resolve,1200));
    job=await request('/web-api/agents/job?id='+encodeURIComponent(started.job_id));
-   status.textContent=job.status==='running'?'Codex is running…'+(job.activities?.length?' · '+job.activities[job.activities.length-1].name:''):'';
-   if(Date.now()-startedAt>300000)throw new Error('Codex is taking longer than five minutes. The task may still be running.');
+   status.textContent=job.status==='running'?(provider==='claude'?'Claude Code is running…':'Codex is running…')+(job.activities?.length?' · '+job.activities[job.activities.length-1].name:''):'';
+   if(Date.now()-startedAt>300000)throw new Error('The agent is taking longer than five minutes. The task may still be running.');
   }while(job.status==='running');
   const conversation=await request('/web-api/agents/conversation?id='+encodeURIComponent(started.conversation_id));
   renderAgentConversation(conversation);
-  status.textContent=job.status==='completed'?'Completed':('Error: '+(job.error||'Codex failed'));
+  status.textContent=job.status==='completed'?'Completed':('Error: '+(job.error||'Agent failed'));
  }catch(err){status.textContent=err.message;}
  finally{button.disabled=false;}
 }
@@ -221,17 +221,26 @@ async function openView(view){const target=$('workspace');target.textContent='Lo
  let data,html='';
 
  if(view==='agent-chat'){
-  const [health,conversations]=await Promise.all([
-   request('/web-api/agents/status'),
-   request('/web-api/agents/conversations')
-  ]);
+  const health=await request('/web-api/agents/status');
+  const selectedAgent='codex';
+  const conversations=await request('/web-api/agents/conversations?agent='+selectedAgent);
   const options=(conversations||[]).map(x=>'<option value="'+esc(x.id)+'">'+esc(x.title||'Conversation')+' · '+esc(new Date(x.updated_at).toLocaleString())+'</option>').join('');
-  html='<h3>AI Chat · Codex</h3><p class="muted">Codex CLI runs in its own container and can use HomeLabPilot MCP tools.</p><div class="card" style="margin:10px 0"><div class="name">Codex · '+(health.authenticated?'Authenticated':'Not authenticated')+'</div><p class="muted">'+(health.authenticated?'Connected to the Codex account.':'Codex is not authenticated yet. Connect Codex inside the agent container before chatting.')+'</p><p class="muted">Read-only mode: Codex can inspect your services but cannot change them.</p></div><div class="actions" style="flex-wrap:wrap;margin:12px 0"><select id="agent-conversation" style="flex:1;min-width:180px;background:#0e1728;color:#e8edf5;padding:9px;border:1px solid #34435d;border-radius:8px"><option value="">New conversation</option>'+options+'</select><button id="agent-new-chat">New conversation</button></div><div id="agent-messages" class="info" style="min-height:180px;max-height:52vh;overflow:auto;margin-bottom:12px">Select a conversation or send a message to start.</div><form id="agent-chat-form"><textarea id="agent-prompt" rows="3" maxlength="20000" placeholder="Ask Codex about your homelab…" required style="width:100%;background:#0b1322;color:#e8edf5;border:1px solid #34435d;border-radius:9px;padding:12px;resize:vertical"></textarea><div class="actions" style="justify-content:flex-end;margin-top:9px"><button id="agent-send" '+(!health.authenticated?'disabled':'')+'>Send message</button></div><div id="agent-chat-status" class="muted" style="margin-top:8px"></div></form>';
+  const codexReady=!!health.agents?.codex?.authenticated,claudeReady=!!health.agents?.claude?.authenticated;
+  html='<h3>AI Chat · Agents</h3><p class="muted">Choose Codex or Claude Code. Both use the protected HomeLabPilot MCP read-only connection.</p><div class="card" style="margin:10px 0"><div class="actions" style="flex-wrap:wrap"><label for="agent-provider">Agent</label><select id="agent-provider" style="flex:1;min-width:160px;background:#0e1728;color:#e8edf5;padding:9px;border:1px solid #34435d;border-radius:8px"><option value="codex">Codex · '+(codexReady?'Authenticated':'Login required')+'</option><option value="claude">Claude Code · '+(claudeReady?'Authenticated':'Login required')+'</option></select></div><p id="agent-auth-status" class="muted" style="margin-top:8px"></p><p class="muted">Read-only mode: agents can inspect your services but cannot change them.</p></div><div class="actions" style="flex-wrap:wrap;margin:12px 0"><select id="agent-conversation" style="flex:1;min-width:180px;background:#0e1728;color:#e8edf5;padding:9px;border:1px solid #34435d;border-radius:8px"><option value="">New conversation</option>'+options+'</select><button id="agent-new-chat">New conversation</button></div><div id="agent-messages" class="info" style="min-height:180px;max-height:52vh;overflow:auto;margin-bottom:12px">Select a conversation or send a message to start.</div><form id="agent-chat-form"><textarea id="agent-prompt" rows="3" maxlength="20000" placeholder="Ask your homelab…" required style="width:100%;background:#0b1322;color:#e8edf5;border:1px solid #34435d;border-radius:9px;padding:12px;resize:vertical"></textarea><div class="actions" style="justify-content:flex-end;margin-top:9px"><button id="agent-send" '+(!codexReady?'disabled':'')+'>Send message</button></div><div id="agent-chat-status" class="muted" style="margin-top:8px"></div></form>';
   target.innerHTML=html;
-  const select=$('agent-conversation');
+  const select=$('agent-conversation'),provider=$('agent-provider');
+  const updateProvider=async()=>{
+   const agent=provider.value,ready=!!health.agents?.[agent]?.authenticated;
+   $('agent-auth-status').textContent=ready?agent+' is authenticated.':(agent==='claude'?'Authenticate Claude Code in the homelabpilot-agents container before chatting.':'Authenticate Codex in the homelabpilot-agents container before chatting.');
+   $('agent-send').disabled=!ready;select.innerHTML='<option value="">New conversation</option>';
+   $('agent-messages').textContent='Select a conversation or send a message to start.';
+   const list=await request('/web-api/agents/conversations?agent='+agent);
+   for(const item of list){const option=document.createElement('option');option.value=item.id;option.textContent=(item.title||'Conversation')+' · '+new Date(item.updated_at).toLocaleString();select.appendChild(option);}
+  };
+  provider.addEventListener('change',()=>{updateProvider().catch(err=>$('agent-chat-status').textContent=err.message);});
   select.addEventListener('change',async()=>{if(!select.value){$('agent-messages').textContent='New conversation';return;}try{const convo=await request('/web-api/agents/conversation?id='+encodeURIComponent(select.value));renderAgentConversation(convo);}catch(err){$('agent-messages').textContent=err.message;}});
   $('agent-new-chat').addEventListener('click',()=>{select.value='';$('agent-messages').textContent='New conversation';$('agent-prompt').focus();});
-  if(!health.authenticated)$('agent-chat-status').textContent='Authenticate Codex in the homelabpilot-agents container before using chat.';
+  await updateProvider();
   return;
  }
  if(view==='apps'){
