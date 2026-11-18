@@ -23,6 +23,14 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e ".[test]"
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Check agent gateway JavaScript
+        run: |
+          node --check agent-gateway.mjs
+          node --check mcp-readonly-proxy.mjs
       - name: Compile Python sources
         run: python -m compileall -q src tests
       - name: Run test suite
