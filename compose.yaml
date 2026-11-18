@@ -52,6 +52,8 @@ services:
       context: .
       dockerfile: Dockerfile.mcp-readonly-proxy
     restart: unless-stopped
+    depends_on:
+      - homelabpilot
     environment:
       MCP_AUTH_TOKEN: ${MCP_AUTH_TOKEN:-}
       HOMELABPILOT_MCP_URL: http://homelabpilot:8000/mcp
@@ -76,7 +78,6 @@ services:
     depends_on:
       - homelabpilot-mcp-proxy
     environment:
-      HOMELABPILOT_AGENT_GATEWAY_TOKEN: ${HOMELABPILOT_AGENT_GATEWAY_TOKEN:-}
       AGENT_GATEWAY_PORT: 8766
       AGENT_STATE_DIR: /state
       CODEX_HOME: /home/node/.codex
