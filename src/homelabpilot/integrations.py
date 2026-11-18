@@ -1206,6 +1206,16 @@ def register_integration_tools(
         return await request("tinymediamanager", "POST", f"/api/{section}", body=body)
 
     @mcp.tool()
+    async def cleanuparr_get_health() -> Any:
+        """Read Cleanuparr liveness without requiring authentication."""
+        return await request("cleanuparr", "GET", "/health")
+
+    @mcp.tool()
+    async def cleanuparr_get_readiness() -> Any:
+        """Read Cleanuparr readiness, including dependent service checks."""
+        return await request("cleanuparr", "GET", "/health/ready")
+
+    @mcp.tool()
     async def maintainerr_get_app_status() -> Any:
         """Read Maintainerr version and update availability."""
         return await request("maintainerr", "GET", "/api/app/status")
