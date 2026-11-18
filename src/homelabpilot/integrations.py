@@ -30,7 +30,7 @@ HTTP_INTEGRATIONS = {
     "romm": ("ROMM_URL", "ROMM_API_TOKEN", "bearer", "/api/platforms"),
     "bookorbit": ("BOOKORBIT_URL", "BOOKORBIT_API_KEY", "x-api-key", "/api/v1/health"),
     "tinymediamanager": ("TINYMEDIAMANAGER_URL", "TINYMEDIAMANAGER_API_KEY", "api-key", "/api/system"),
-    "tidarr": ("TIDARR_URL", "TIDARR_API_KEY", "x-api-key", "/"),
+    "tidarr": ("TIDARR_URL", "TIDARR_API_KEY", "x-api-key", "/api/is-auth-active"),
     "flaresolverr": ("FLARESOLVERR_URL", "", "none", "/"),
     "cloudflare": ("CLOUDFLARE_API_URL", "CLOUDFLARE_API_TOKEN", "bearer", "/user/tokens/verify"),
 }
