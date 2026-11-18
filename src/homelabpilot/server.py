@@ -1669,7 +1669,10 @@ async def _web_api_request_inner(
                 if method == "GET" and path == "/web-api/agents/status":
                     response = await client.get(f"{gateway_url}/health", headers=headers)
                 elif method == "GET" and path == "/web-api/agents/conversations":
-                    response = await client.get(f"{gateway_url}/conversations", headers=headers)
+                    agent = (query.get("agent") or ["codex"])[0]
+                    if agent not in {"codex", "claude"}:
+                        raise ValueError("Unknown agent")
+                    response = await client.get(f"{gateway_url}/conversations", headers=headers, params={"agent": agent})
                 elif method == "GET" and path == "/web-api/agents/conversation":
                     conversation_id = (query.get("id") or [""])[0]
                     if not re.fullmatch(r"[0-9a-f-]{36}", conversation_id):
@@ -1679,7 +1682,10 @@ async def _web_api_request_inner(
                     prompt = str(payload.get("prompt", "")).strip()
                     if not prompt or len(prompt) > 20000:
                         raise ValueError("The message must contain between 1 and 20,000 characters")
-                    body = {"prompt": prompt}
+                    agent = str(payload.get("agent", "codex"))
+                    if agent not in {"codex", "claude"}:
+                        raise ValueError("Unknown agent")
+                    body = {"prompt": prompt, "agent": agent}
                     if payload.get("conversation_id"):
                         body["conversation_id"] = str(payload["conversation_id"])
                     response = await client.post(f"{gateway_url}/chat", headers=headers, json=body)
@@ -1699,7 +1705,7 @@ async def _web_api_request_inner(
                 detail = "Agent gateway request failed"
             raise ValueError(detail) from exc
         except httpx.RequestError as exc:
-            raise ValueError("Codex gateway is unavailable; check the homelabpilot-agents container") from exc
+            raise ValueError("Agent gateway is unavailable; check the homelabpilot-agents container") from exc
 
     raise ValueError("Unknown HomeLabPilot web API operation")
 
