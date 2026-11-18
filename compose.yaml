@@ -11,6 +11,7 @@ services:
       MCP_TRANSPORT: streamable-http
       MCP_HOST: 0.0.0.0
       MCP_PORT: 8000
+      HOMELABPILOT_MCP_ALLOWED_HOSTS: "${HOMELABPILOT_MCP_ALLOWED_HOSTS:-localhost:*,127.0.0.1:*,[::1]:*},homelabpilot:8000"
       HOMELABPILOT_AUDIT_DB_PATH: ${HOMELABPILOT_AUDIT_DB_PATH:-${STACKARR_AUDIT_DB_PATH:-/data/operation-history.sqlite3}}
       HOMELABPILOT_DOCKER_ENABLED: ${HOMELABPILOT_DOCKER_ENABLED:-${STACKARR_DOCKER_ENABLED:-false}}
       HOMELABPILOT_DOCKER_PERMISSION_LEVEL: ${HOMELABPILOT_DOCKER_PERMISSION_LEVEL:-${STACKARR_DOCKER_PERMISSION_LEVEL:-read}}
@@ -44,6 +45,27 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
+  homelabpilot-mcp-proxy:
+    container_name: homelabpilot-mcp-proxy
+    image: homelabpilot-mcp-proxy:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.mcp-readonly-proxy
+    restart: unless-stopped
+    environment:
+      MCP_AUTH_TOKEN: ${MCP_AUTH_TOKEN:-}
+      HOMELABPILOT_MCP_URL: http://homelabpilot:8000/mcp
+      MCP_PROXY_PORT: 8001
+    read_only: true
+    tmpfs:
+      - /tmp:size=8m,noexec,nosuid
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 50
+    networks:
+      - default
   homelabpilot-agents:
     container_name: homelabpilot-agents
     image: homelabpilot-agents:latest
@@ -51,9 +73,10 @@ services:
       context: .
       dockerfile: Dockerfile.agent-gateway
     restart: unless-stopped
+    depends_on:
+      - homelabpilot-mcp-proxy
     environment:
       HOMELABPILOT_AGENT_GATEWAY_TOKEN: ${HOMELABPILOT_AGENT_GATEWAY_TOKEN:-}
-      MCP_AUTH_TOKEN: ${MCP_AUTH_TOKEN:-}
       AGENT_GATEWAY_PORT: 8766
       AGENT_STATE_DIR: /state
       CODEX_HOME: /home/node/.codex
