@@ -114,9 +114,6 @@ await fs.writeFile(path.join(CODEX_HOME, "config.toml"),
 await loadStore();
 
 const server = http.createServer(async (req, res) => {
-  if (!safeEqual((req.headers.authorization || "").replace(/^Bearer\s+/i, ""), TOKEN) || TOKEN.length < 32) {
-    send(res, 401, { error: "Unauthorized" }); return;
-  }
   const url = new URL(req.url, "http://localhost");
   try {
     if (req.method === "GET" && url.pathname === "/health") {
