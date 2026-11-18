@@ -899,6 +899,49 @@ async def arr_search_catalog(service: str, term: str) -> Any:
 
 
 @mcp.tool()
+async def arr_get_history(service: str, page: int = 1, page_size: int = 50) -> Any:
+    """Read recent download, import and upgrade history from Radarr, Sonarr or Lidarr."""
+    if service not in {"radarr", "sonarr", "lidarr"}:
+        raise ValueError("service must be radarr, sonarr or lidarr")
+    if page < 1 or not 1 <= page_size <= 200:
+        raise ValueError("page must be >= 1 and page_size between 1 and 200")
+    if service == "lidarr":
+        path = "/api/v1/history"
+        params = {
+            "page": page, "pageSize": page_size, "includeArtist": "true",
+            "includeAlbum": "true", "includeTrack": "true",
+        }
+    elif service == "sonarr":
+        path = "/api/v3/history"
+        params = {
+            "page": page, "pageSize": page_size, "includeSeries": "true",
+            "includeEpisode": "true",
+        }
+    else:
+        path = "/api/v3/history"
+        params = {
+            "page": page, "pageSize": page_size, "includeMovie": "true",
+        }
+    return await _arr_request(service, "GET", path, params=params)
+
+
+@mcp.tool()
+async def arr_get_missing_items(service: str, page: int = 1, page_size: int = 50) -> Any:
+    """List monitored missing movies, episodes or albums in Radarr, Sonarr or Lidarr."""
+    if service not in {"radarr", "sonarr", "lidarr"}:
+        raise ValueError("service must be radarr, sonarr or lidarr")
+    if page < 1 or not 1 <= page_size <= 200:
+        raise ValueError("page must be >= 1 and page_size between 1 and 200")
+    prefix = "/api/v1" if service == "lidarr" else "/api/v3"
+    params: dict[str, Any] = {"page": page, "pageSize": page_size, "monitored": "true"}
+    if service == "lidarr":
+        params["includeArtist"] = "true"
+    elif service == "sonarr":
+        params["includeSeries"] = "true"
+    return await _arr_request(service, "GET", f"{prefix}/wanted/missing", params=params)
+
+
+@mcp.tool()
 async def arr_get_queue(service: str, page: int = 1, page_size: int = 50) -> Any:
     """Inspect the current download/import queue in Radarr, Sonarr or Lidarr."""
     if service not in {"radarr", "sonarr", "lidarr"}:
