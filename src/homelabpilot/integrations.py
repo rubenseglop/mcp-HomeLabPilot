@@ -301,9 +301,34 @@ def register_integration_tools(
         )
 
     @mcp.tool()
+    async def plex_get_active_sessions() -> Any:
+        """Show current Plex playback sessions, including client and stream details."""
+        return await request("plex", "GET", "/status/sessions")
+
+    @mcp.tool()
+    async def plex_get_on_deck() -> Any:
+        """List in-progress and next-up Plex library items."""
+        return await request("plex", "GET", "/library/onDeck")
+
+    @mcp.tool()
+    async def plex_get_recently_added_all() -> Any:
+        """List recently added Plex items across all libraries."""
+        return await request("plex", "GET", "/library/recentlyAdded")
+
+    @mcp.tool()
     async def jellyfin_get_libraries() -> Any:
         """List Jellyfin virtual folders/libraries."""
         return await request("jellyfin", "GET", "/Library/VirtualFolders")
+
+    @mcp.tool()
+    async def jellyfin_get_active_sessions() -> Any:
+        """List current Jellyfin playback sessions and their transcoding/direct-play state."""
+        return await request("jellyfin", "GET", "/Sessions")
+
+    @mcp.tool()
+    async def jellyfin_get_server_info() -> Any:
+        """Read Jellyfin server name, version and operating-system details."""
+        return await request("jellyfin", "GET", "/System/Info")
 
     @mcp.tool()
     async def jellyfin_search_items(search_term: str, limit: int = 25) -> Any:
@@ -317,14 +342,34 @@ def register_integration_tools(
         )
 
     @mcp.tool()
-    async def seerr_get_requests(request_type: str = "all", take: int = 20) -> Any:
-        """List Seerr media requests; request_type is all, movie or tv."""
-        if request_type not in {"all", "movie", "tv"} or not 1 <= take <= 100:
-            raise ValueError("request_type must be all, movie or tv; take must be 1..100")
+    async def seerr_get_requests(
+        media_type: str = "all", status_filter: str = "all", take: int = 20, skip: int = 0
+    ) -> Any:
+        """List Seerr requests; media_type is all/movie/tv and status_filter is a request status."""
+        allowed_statuses = {
+            "all", "approved", "available", "pending", "processing",
+            "unavailable", "failed", "deleted", "completed",
+        }
+        if media_type not in {"all", "movie", "tv"}:
+            raise ValueError("media_type must be all, movie or tv")
+        if status_filter not in allowed_statuses:
+            raise ValueError(f"status_filter must be one of: {', '.join(sorted(allowed_statuses))}")
+        if not 1 <= take <= 100 or skip < 0:
+            raise ValueError("take must be 1..100 and skip must be non-negative")
         return await request(
             "seerr", "GET", "/api/v1/request",
-            params={"take": take, "filter": request_type},
+            params={"take": take, "skip": skip, "filter": status_filter, "mediaType": media_type},
         )
+
+    @mcp.tool()
+    async def seerr_get_status() -> Any:
+        """Read Seerr application status and version information."""
+        return await request("seerr", "GET", "/api/v1/status")
+
+    @mcp.tool()
+    async def seerr_get_application_data_status() -> Any:
+        """Read Seerr application-data volume status."""
+        return await request("seerr", "GET", "/api/v1/status/appdata")
 
     @mcp.tool()
     async def seerr_search_media(search_term: str) -> Any:
@@ -338,6 +383,17 @@ def register_integration_tools(
     async def immich_get_albums() -> Any:
         """List Immich albums."""
         return await request("immich", "GET", "/api/albums")
+
+    @mcp.tool()
+    async def immich_search_assets(search_term: str, page: int = 1, size: int = 25) -> Any:
+        """Search Immich photos and videos by metadata using its native metadata-search API."""
+        term = search_term.strip()
+        if not term or len(term) > 200 or page < 1 or not 1 <= size <= 100:
+            raise ValueError("search_term is required (max 200 chars), page >= 1 and size 1..100")
+        return await request(
+            "immich", "POST", "/api/search/metadata",
+            body={"query": term, "page": page, "size": size},
+        )
 
     @mcp.tool()
     async def immich_get_server_statistics() -> Any:
