@@ -18,7 +18,6 @@ services:
       HOMELABPILOT_DOCKER_GATEWAY_URL: http://homelabpilot-docker-gateway:2375
       HOMELABPILOT_DOCKER_GATEWAY_TOKEN: ${HOMELABPILOT_DOCKER_GATEWAY_TOKEN:-${STACKARR_DOCKER_GATEWAY_TOKEN:-}}
       HOMELABPILOT_AGENT_GATEWAY_URL: http://homelabpilot-agents:8766
-      HOMELABPILOT_AGENT_GATEWAY_TOKEN: ${HOMELABPILOT_AGENT_GATEWAY_TOKEN:-}
     ports:
       - "${HOMELABPILOT_BIND_ADDRESS:-${STACKARR_BIND_ADDRESS:-127.0.0.1}}:${HOMELABPILOT_PORT:-${STACKARR_PORT:-8765}}:8000"
     # HomeLabPilot uses its own Compose network by default.
@@ -36,6 +35,7 @@ services:
     networks:
       - default
       - docker_control
+      - agent_control
     healthcheck:
       test:
         - CMD
@@ -65,7 +65,7 @@ services:
       - no-new-privileges:true
     pids_limit: 50
     networks:
-      - default
+      - agent_control
   homelabpilot-agents:
     container_name: homelabpilot-agents
     image: homelabpilot-agents:latest
@@ -95,7 +95,7 @@ services:
     mem_limit: 2g
     cpus: 2
     networks:
-      - default
+      - agent_control
   homelabpilot-docker-gateway:
     container_name: homelabpilot-docker-gateway
     image: homelabpilot-docker-gateway:latest
@@ -129,5 +129,7 @@ volumes:
     name: homelabpilot_stackarr_state
 
 networks:
+  agent_control:
+    name: homelabpilot_agent_control
   docker_control:
     internal: true
