@@ -54,7 +54,7 @@ def register_integration_tools(
     *,
     mcp: Any,
     require_permission: Any,
-    make_make_preview_token: Any,
+    make_preview_token: Any,
     safe_path: Any,
     base_url: Any,
     decode_response: Any,
@@ -254,7 +254,7 @@ def register_integration_tools(
         service: str,
         method: str,
         path: str,
-        preview_token_value: str,
+        preview_token: str,
         typed_confirmation: str,
         body: Any = None,
         params: dict[str, Any] | None = None,
@@ -274,7 +274,7 @@ def register_integration_tools(
         }
         expected_token = make_preview_token(snapshot)
         expected_phrase = f"CONFIRM {service} {verb} {path}"
-        if not hmac.compare_digest(preview_token_value, expected_token):
+        if not hmac.compare_digest(preview_token, expected_token):
             raise PermissionError("The API write preview is stale or does not match this request")
         if not hmac.compare_digest(typed_confirmation, expected_phrase):
             raise PermissionError(f"Type exactly: {expected_phrase}")
