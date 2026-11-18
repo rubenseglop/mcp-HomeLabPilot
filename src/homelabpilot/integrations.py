@@ -604,6 +604,58 @@ def register_integration_tools(
         return await request("tracearr", "GET", "/api/v2/public/top-media", params=params)
 
     @mcp.tool()
+    async def tracearr_get_media(media_ref: str) -> Any:
+        """Resolve a movie/show/episode to its canonical identity and copies across servers."""
+        import re
+        if not re.fullmatch(r"(?:[0-9a-fA-F-]{36}|(?:movie|show|episode):(?:imdb|tmdb|tvdb):[A-Za-z0-9_-]{1,32})", media_ref):
+            raise ValueError("media_ref must be a UUID or type:provider:id reference")
+        return await request("tracearr", "GET", f"/api/v2/public/media/{quote(media_ref, safe='')}")
+
+    @mcp.tool()
+    async def tracearr_get_media_stats(media_ref: str) -> Any:
+        """Read all-time, 30-day and 7-day play counts and watch time for a title."""
+        import re
+        if not re.fullmatch(r"(?:[0-9a-fA-F-]{36}|(?:movie|show|episode):(?:imdb|tmdb|tvdb):[A-Za-z0-9_-]{1,32})", media_ref):
+            raise ValueError("media_ref must be a UUID or type:provider:id reference")
+        return await request("tracearr", "GET", f"/api/v2/public/media/{quote(media_ref, safe='')}/stats")
+
+    @mcp.tool()
+    async def tracearr_get_media_watchers(media_ref: str, window: str = "all_time") -> Any:
+        """List the users who watched a title, ranked by watch time."""
+        import re
+        if not re.fullmatch(r"(?:[0-9a-fA-F-]{36}|(?:movie|show|episode):(?:imdb|tmdb|tvdb):[A-Za-z0-9_-]{1,32})", media_ref):
+            raise ValueError("media_ref must be a UUID or type:provider:id reference")
+        if window not in {"all_time", "last_30", "last_7"}:
+            raise ValueError("window must be all_time, last_30 or last_7")
+        return await request(
+            "tracearr", "GET", f"/api/v2/public/media/{quote(media_ref, safe='')}/watchers",
+            params={"window": window},
+        )
+
+    @mcp.tool()
+    async def tracearr_get_media_children(media_ref: str) -> Any:
+        """List seasons of a show or episodes of a season."""
+        import re
+        if not re.fullmatch(r"(?:[0-9a-fA-F-]{36}|show:tvdb:[A-Za-z0-9_-]{1,32}|show:imdb:[A-Za-z0-9_-]{1,32}|show:tmdb:[A-Za-z0-9_-]{1,32})", media_ref):
+            raise ValueError("media_ref must be a UUID or show provider reference")
+        return await request("tracearr", "GET", f"/api/v2/public/media/{quote(media_ref, safe='')}/children")
+
+    @mcp.tool()
+    async def tracearr_get_user_history(user_id: str, page_size: int = 25, cursor: str = "") -> Any:
+        """Read cursor-paginated watch history across every media-server account linked to one identity."""
+        import re
+        if not re.fullmatch(r"[0-9a-fA-F-]{36}", user_id):
+            raise ValueError("user_id must be a UUID")
+        if not 1 <= page_size <= 100:
+            raise ValueError("page_size must be 1..100")
+        params: dict[str, Any] = {"pageSize": page_size}
+        if cursor:
+            if len(cursor) > 500:
+                raise ValueError("cursor is too long")
+            params["cursor"] = cursor
+        return await request("tracearr", "GET", f"/api/v2/public/users/{user_id}/history", params=params)
+
+    @mcp.tool()
     async def homeassistant_get_config() -> Any:
         """Read Home Assistant core configuration, version, timezone and loaded components."""
         return await request("homeassistant", "GET", "/api/config")
