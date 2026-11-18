@@ -24,6 +24,7 @@ HTTP_INTEGRATIONS = {
     "maintainerr": ("MAINTAINERR_URL", "", "none", "/api/health/ready"),
     "agregarr": ("AGREGARR_URL", "AGREGARR_API_KEY", "x-api-key", "/"),
     "tracearr": ("TRACEARR_URL", "TRACEARR_API_KEY", "bearer", "/api/v1/public/health"),
+    "tdarr": ("TDARR_URL", "TDARR_API_KEY", "x-api-key", "/api/v2/status"),
     "immich": ("IMMICH_URL", "IMMICH_API_KEY", "x-api-key", "/api/server/ping"),
     "homeassistant": ("HOMEASSISTANT_URL", "HOMEASSISTANT_TOKEN", "bearer", "/api/"),
     "romm": ("ROMM_URL", "ROMM_API_TOKEN", "bearer", "/api/platforms"),
@@ -105,6 +106,7 @@ def register_integration_tools(
         path: str,
         params: dict[str, Any] | None = None,
         body: Any = None,
+        read_only_post: bool = False,
     ) -> Any:
         _, credential, mode, _ = resolve(service)
         verb = method.upper()
@@ -140,7 +142,7 @@ def register_integration_tools(
                 response.raise_for_status()
                 output = decode_response(response)
         except Exception:
-            is_read_only = verb == "GET" or (
+            is_read_only = verb == "GET" or read_only_post or (
                 service == "transmission"
                 and isinstance(body, dict)
                 and body.get("method") in TRANSMISSION_READ_METHODS
@@ -283,6 +285,138 @@ def register_integration_tools(
             raise ValueError("Transmission RPC writes must use POST")
         return await request(service, verb, path, params, body)
 
+
+
+    # Tdarr workflows. POST query endpoints are explicitly marked read-only so
+    # they are not misclassified as mutations in the operation audit.
+    def _tdarr_id(value: str, label: str = "file_id") -> str:
+        item = value.strip()
+        if not item or len(item) > 2048 or any(ord(ch) < 32 for ch in item):
+            raise ValueError(f"{label} is required and must be a valid Tdarr identifier/path")
+        return item
+
+    @mcp.tool()
+    async def tdarr_get_status() -> Any:
+        """Read Tdarr server status/version. Requires TDARR_URL and optionally TDARR_API_KEY."""
+        return await request("tdarr", "GET", "/api/v2/status")
+
+    @mcp.tool()
+    async def tdarr_get_nodes() -> Any:
+        """List connected Tdarr nodes and their worker/resource information."""
+        return await request("tdarr", "GET", "/api/v2/get-nodes")
+
+    @mcp.tool()
+    async def tdarr_search_files(
+        search_term: str = "",
+        greater_than_gb: float = 0,
+        less_than_gb: float = 0,
+    ) -> Any:
+        """Search Tdarr's file database by filename/path substring and optional size bounds (GB)."""
+        term = search_term.strip()
+        if len(term) > 300:
+            raise ValueError("search_term must be at most 300 characters")
+        if greater_than_gb < 0 or less_than_gb < 0:
+            raise ValueError("File-size bounds cannot be negative")
+        if greater_than_gb and less_than_gb and greater_than_gb >= less_than_gb:
+            raise ValueError("greater_than_gb must be smaller than less_than_gb")
+        return await request(
+            "tdarr", "POST", "/api/v2/search-db",
+            body={"string": term, "greaterThanGB": greater_than_gb, "lessThanGB": less_than_gb},
+            read_only_post=True,
+        )
+
+    @mcp.tool()
+    async def tdarr_list_job_reports(
+        start: int = 0, page_size: int = 25, file_path_contains: str = ""
+    ) -> Any:
+        """List recent Tdarr job reports, optionally filtering by a media path substring."""
+        if start < 0 or not 1 <= page_size <= 100:
+            raise ValueError("start must be non-negative and page_size must be 1..100")
+        filters = [{"id": "file", "value": file_path_contains.strip()}] if file_path_contains.strip() else []
+        return await request(
+            "tdarr", "POST", "/api/v2/client/jobs",
+            body={
+                "start": start, "pageSize": page_size, "filters": filters,
+                "sorts": [{"id": "start", "desc": True}], "opts": {},
+            },
+            read_only_post=True,
+        )
+
+    @mcp.tool()
+    async def tdarr_get_job_report(job_id: str) -> Any:
+        """Read a Tdarr job report, including its FFmpeg/HandBrake log text."""
+        identifier = _tdarr_id(job_id, "job_id")
+        return await request("tdarr", "GET", f"/api/v2/job-reports/{quote(identifier, safe='')}")
+
+    @mcp.tool()
+    async def tdarr_preview_requeue_files(file_ids: list[str]) -> dict[str, Any]:
+        """Preview requeueing selected Tdarr files through their existing library flow; does not transcode yet."""
+        require_permission("operations")
+        ids = list(dict.fromkeys(_tdarr_id(value) for value in file_ids))
+        if not ids or len(ids) > 50:
+            raise ValueError("Select between 1 and 50 individual files; library-wide requeues are intentionally not exposed")
+        snapshot = {
+            "service": "tdarr", "operation": "requeue-files",
+            "file_ids": ids, "updates": {"TranscodeDecisionMaker": "Queued"},
+        }
+        phrase = f"CONFIRM TDARR REQUEUE {len(ids)} FILES"
+        return {
+            "preview_token": make_preview_token(snapshot),
+            "typed_confirmation": phrase,
+            "files_to_requeue": ids,
+            "effect": "Tdarr volverá a evaluar estos archivos con el flujo/stack configurado en su biblioteca. El worker podrá sustituir el original según la configuración de Tdarr.",
+        }
+
+    @mcp.tool()
+    async def tdarr_confirm_requeue_files(
+        file_ids: list[str], preview_token: str, typed_confirmation: str
+    ) -> Any:
+        """Requeue only the exact files in a valid preview after exact typed confirmation."""
+        require_permission("operations")
+        ids = list(dict.fromkeys(_tdarr_id(value) for value in file_ids))
+        if not ids or len(ids) > 50:
+            raise ValueError("Select between 1 and 50 individual files")
+        snapshot = {
+            "service": "tdarr", "operation": "requeue-files",
+            "file_ids": ids, "updates": {"TranscodeDecisionMaker": "Queued"},
+        }
+        expected_phrase = f"CONFIRM TDARR REQUEUE {len(ids)} FILES"
+        if not hmac.compare_digest(preview_token, make_preview_token(snapshot)):
+            raise PermissionError("The Tdarr preview is stale or does not match these file IDs")
+        if not hmac.compare_digest(typed_confirmation, expected_phrase):
+            raise PermissionError(f"Type exactly: {expected_phrase}")
+        return await request(
+            "tdarr", "POST", "/api/v2/bulk-update-files",
+            body={"fileIds": ids, "updatedObj": {"TranscodeDecisionMaker": "Queued"}},
+        )
+
+    @mcp.tool()
+    async def tdarr_preview_rescan_file(file_id: str, library_id: str) -> dict[str, str]:
+        """Preview a metadata/queue rescan for one file; this does not delete or transcode media."""
+        require_permission("operations")
+        identifier = _tdarr_id(file_id)
+        library = _tdarr_id(library_id, "library_id")
+        snapshot = {"service": "tdarr", "operation": "rescan-file", "file_id": identifier, "library_id": library}
+        phrase = "CONFIRM TDARR RESCAN FILE"
+        return {"preview_token": make_preview_token(snapshot), "typed_confirmation": phrase}
+
+    @mcp.tool()
+    async def tdarr_confirm_rescan_file(
+        file_id: str, library_id: str, preview_token: str, typed_confirmation: str
+    ) -> Any:
+        """Run the single-file Tdarr rescan after its preview is confirmed."""
+        require_permission("operations")
+        identifier = _tdarr_id(file_id)
+        library = _tdarr_id(library_id, "library_id")
+        snapshot = {"service": "tdarr", "operation": "rescan-file", "file_id": identifier, "library_id": library}
+        if not hmac.compare_digest(preview_token, make_preview_token(snapshot)):
+            raise PermissionError("The Tdarr rescan preview is stale or does not match this file")
+        if not hmac.compare_digest(typed_confirmation, "CONFIRM TDARR RESCAN FILE"):
+            raise PermissionError("Type exactly: CONFIRM TDARR RESCAN FILE")
+        return await request(
+            "tdarr", "POST", "/api/v2/rescan-file",
+            body={"_id": identifier, "DB": library},
+        )
 
     # Service-specific read workflows. These keep the supported API paths fixed
     # and provide useful MCP tools without exposing arbitrary host selection.
