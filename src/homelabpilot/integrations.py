@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import hmac
+import ipaddress
 import os
 from typing import Any
 from urllib.parse import quote, urljoin
@@ -578,6 +579,55 @@ def register_integration_tools(
     async def pulsarr_list_content_router_rules() -> Any:
         """List Pulsarr content-router rules and their routing conditions."""
         return await request("pulsarr", "GET", "/v1/content-router/rules")
+
+    @mcp.tool()
+    async def flaresolverr_list_sessions() -> Any:
+        """List active FlareSolverr browser sessions."""
+        return await request(
+            "flaresolverr", "POST", "/v1", body={"cmd": "sessions.list"}, read_only_post=True
+        )
+
+    @mcp.tool()
+    async def flaresolverr_request_get(url: str, max_timeout: int = 60000) -> Any:
+        """Fetch a public HTTP(S) page through FlareSolverr and return its solved response."""
+        require_permission("operations")
+        from urllib.parse import urlparse
+        parsed = urlparse(url)
+        if (
+            parsed.scheme not in {"http", "https"}
+            or not parsed.hostname
+            or parsed.username is not None
+            or parsed.password is not None
+            or len(url) > 4096
+        ):
+            raise ValueError("url must be a valid public HTTP(S) URL without embedded credentials")
+        host = parsed.hostname.rstrip(".").lower()
+        if host in {"localhost", "localhost.localdomain"} or host.endswith(
+            (".localhost", ".local", ".internal", ".lan", ".home")
+        ):
+            raise ValueError("Local and internal hostnames are not allowed")
+        try:
+            address = ipaddress.ip_address(host)
+        except ValueError:
+            address = None
+        if address is not None and not address.is_global:
+            raise ValueError("Private, loopback, link-local and reserved IP addresses are not allowed")
+        if max_timeout < 1000 or max_timeout > 120000:
+            raise ValueError("max_timeout must be between 1000 and 120000 milliseconds")
+        result = await request(
+            "flaresolverr",
+            "POST",
+            "/v1",
+            body={"cmd": "request.get", "url": url, "maxTimeout": max_timeout},
+            read_only_post=True,
+        )
+        if isinstance(result, dict) and isinstance(result.get("solution"), dict):
+            solution = dict(result["solution"])
+            response_text = solution.get("response")
+            if isinstance(response_text, str) and len(response_text) > 20000:
+                solution["response"] = response_text[:20000] + "\\n...[truncated by HomeLabPilot]"
+            result = {**result, "solution": solution}
+        return result
 
     @mcp.tool()
     async def cleanuparr_get_health() -> Any:
