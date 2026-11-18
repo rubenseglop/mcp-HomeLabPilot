@@ -1663,10 +1663,7 @@ async def _web_api_request_inner(
         )
     if path.startswith("/web-api/agents/"):
         gateway_url = os.getenv("HOMELABPILOT_AGENT_GATEWAY_URL", "http://homelabpilot-agents:8766").rstrip("/")
-        gateway_token = os.getenv("HOMELABPILOT_AGENT_GATEWAY_TOKEN", "").strip()
-        if len(gateway_token) < 32:
-            raise ValueError("Codex gateway is not configured: set HOMELABPILOT_AGENT_GATEWAY_TOKEN")
-        headers = {"Authorization": f"Bearer {gateway_token}", "Accept": "application/json"}
+        headers = {"Accept": "application/json"}
         try:
             async with httpx.AsyncClient(timeout=httpx.Timeout(15.0, read=5.0)) as client:
                 if method == "GET" and path == "/web-api/agents/status":
