@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from stackarr.web import DASHBOARD, HomeLabPilotWebMiddleware
+from homelabpilot.web import DASHBOARD, HomeLabPilotWebMiddleware
 
 
 def call_asgi(app, path, method="GET", headers=None, body=b""):
@@ -135,7 +135,7 @@ def test_dashboard_exposes_advanced_api_explorer_and_bazarr():
 
 def test_web_api_advanced_api_dispatches_to_shared_permission_checked_bridge(monkeypatch):
     import asyncio
-    import stackarr.server as server
+    import homelabpilot.server as server
 
     calls = []
 
@@ -156,7 +156,7 @@ def test_web_api_advanced_api_dispatches_to_shared_permission_checked_bridge(mon
 
 def test_web_api_advanced_api_rejects_unknown_service():
     import asyncio
-    import stackarr.server as server
+    import homelabpilot.server as server
 
     with pytest.raises(ValueError, match="service must be radarr"):
         asyncio.run(server._web_api_request(
@@ -167,7 +167,7 @@ def test_web_api_advanced_api_rejects_unknown_service():
 
 def test_web_api_advanced_api_rejects_non_object_params():
     import asyncio
-    import stackarr.server as server
+    import homelabpilot.server as server
 
     with pytest.raises(ValueError, match="params must be a JSON object"):
         asyncio.run(server._web_api_request(
@@ -300,7 +300,7 @@ def test_authenticated_web_api_rejects_cross_origin_post():
     start, body = call_asgi(
         app, "/web-api/torrents/control", method="POST",
         headers=[
-            (b"cookie", cookie), (b"host", b"stackarr.local"),
+            (b"cookie", cookie), (b"host", b"homelabpilot.local"),
             (b"origin", b"https://attacker.example"),
             (b"content-type", b"application/json"),
         ],
@@ -321,8 +321,8 @@ def test_authenticated_web_api_allows_same_origin_post():
     start, _ = call_asgi(
         app, "/web-api/torrents/control", method="POST",
         headers=[
-            (b"cookie", cookie), (b"host", b"stackarr.local"),
-            (b"origin", b"https://stackarr.local"),
+            (b"cookie", cookie), (b"host", b"homelabpilot.local"),
+            (b"origin", b"https://homelabpilot.local"),
             (b"content-type", b"application/json"),
         ],
         body=b'{}',
@@ -345,7 +345,7 @@ def test_dashboard_has_persistent_english_spanish_language_switch():
     assert start["status"] == 200
     assert b'data-language="en"' in body and "🇬🇧".encode() in body
     assert b'data-language="es"' in body and "🇪🇸".encode() in body
-    assert b"stackarr-language" in body
+    assert b"homelabpilot-language" in body
     assert "Películas".encode() in body
     assert b"'Save changes':'Guardar cambios'" in body
     assert b"'Preview delete':'Vista previa del borrado'" in body
