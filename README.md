@@ -169,6 +169,7 @@ The container runs as a non-root user, drops Linux capabilities, and uses a read
 - Lidarr: `/api/v1`
 - Scryer: GraphQL at `/graphql`
 - qBittorrent: Web API under `/api/v2`
+- Home Assistant: REST API under `/api` (long-lived access token; read-only MCP workflows)
 
 ## Completed development roadmap
 
@@ -180,6 +181,8 @@ The container runs as a non-root user, drops Linux capabilities, and uses a read
 ## Additional app integrations
 
 Configure only the services you run. The API bridge accepts a service name and native API path; it never accepts a caller-provided host. Plex uses `PLEX_TOKEN`, Jellyfin uses `JELLYFIN_API_KEY`, Seerr uses `SEERR_API_KEY`, Immich uses `IMMICH_API_KEY`, RomM uses its bearer API token, and Cloudflare uses a scoped API token. Transmission uses its configured RPC URL and optional basic-auth credentials. Other HTTP apps use the configured API key header.
+
+Home Assistant exposes read-only MCP tools for core configuration, entity states (optionally filtered by domain), individual entity lookup, and the available service catalogue. Configure `HOMEASSISTANT_URL` and a long-lived access token in `HOMEASSISTANT_TOKEN`; HomeLabPilot does not invoke Home Assistant services through these tools.
 
 `integration_catalog` reports configuration without showing credentials. `stack_status` checks configured API endpoints and Postgres/Redis TCP reachability. Postgres and Redis are currently connectivity checks only; Recyclarr is listed as a container/CLI integration. App-specific SQL and CLI workflows are not exposed by the generic HTTP API tool.
 
