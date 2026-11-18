@@ -19,9 +19,9 @@ HTTP_INTEGRATIONS = {
     "jellyfin": ("JELLYFIN_URL", "JELLYFIN_API_KEY", "emby", "/System/Info/Public"),
     "seerr": ("SEERR_URL", "SEERR_API_KEY", "x-api-key", "/api/v1/status"),
     "transmission": ("TRANSMISSION_URL", "", "basic", "/transmission/rpc"),
-    "pulsarr": ("PULSARR_URL", "PULSARR_API_KEY", "bearer", "/api/docs"),
-    "cleanuparr": ("CLEANUPARR_URL", "CLEANUPARR_API_KEY", "x-api-key", "/"),
-    "maintainerr": ("MAINTAINERR_URL", "", "none", "/"),
+    "pulsarr": ("PULSARR_URL", "PULSARR_API_KEY", "x-api-key", "/health"),
+    "cleanuparr": ("CLEANUPARR_URL", "", "none", "/health"),
+    "maintainerr": ("MAINTAINERR_URL", "", "none", "/api/health/ready"),
     "agregarr": ("AGREGARR_URL", "AGREGARR_API_KEY", "x-api-key", "/"),
     "tracearr": ("TRACEARR_URL", "TRACEARR_API_KEY", "bearer", "/"),
     "immich": ("IMMICH_URL", "IMMICH_API_KEY", "x-api-key", "/api/server/ping"),
@@ -422,6 +422,36 @@ def register_integration_tools(
         if not term or len(term) > 200:
             raise ValueError("search_term is required and must be at most 200 characters")
         return await request("seerr", "GET", "/api/v1/search", params={"query": term})
+
+    @mcp.tool()
+    async def pulsarr_get_health() -> Any:
+        """Read Pulsarr health and database connectivity status."""
+        return await request("pulsarr", "GET", "/health")
+
+    @mcp.tool()
+    async def pulsarr_get_approval_requests(limit: int = 25, offset: int = 0) -> Any:
+        """List Pulsarr requests waiting for approval, with bounded pagination."""
+        if not 1 <= limit <= 100 or offset < 0:
+            raise ValueError("limit must be 1..100 and offset must be non-negative")
+        return await request(
+            "pulsarr", "GET", "/v1/approval/requests",
+            params={"limit": limit, "offset": offset},
+        )
+
+    @mcp.tool()
+    async def pulsarr_list_content_router_rules() -> Any:
+        """List Pulsarr content-router rules and their routing conditions."""
+        return await request("pulsarr", "GET", "/v1/content-router/rules")
+
+    @mcp.tool()
+    async def cleanuparr_get_health() -> Any:
+        """Read Cleanuparr health status."""
+        return await request("cleanuparr", "GET", "/health")
+
+    @mcp.tool()
+    async def maintainerr_get_health() -> Any:
+        """Read Maintainerr readiness and database connectivity status."""
+        return await request("maintainerr", "GET", "/api/health/ready")
 
     @mcp.tool()
     async def homeassistant_get_config() -> Any:
