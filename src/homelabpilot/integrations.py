@@ -28,7 +28,7 @@ HTTP_INTEGRATIONS = {
     "immich": ("IMMICH_URL", "IMMICH_API_KEY", "x-api-key", "/api/server/ping"),
     "homeassistant": ("HOMEASSISTANT_URL", "HOMEASSISTANT_TOKEN", "bearer", "/api/"),
     "romm": ("ROMM_URL", "ROMM_API_TOKEN", "bearer", "/api/platforms"),
-    "bookorbit": ("BOOKORBIT_URL", "BOOKORBIT_API_KEY", "x-api-key", "/"),
+    "bookorbit": ("BOOKORBIT_URL", "BOOKORBIT_API_KEY", "x-api-key", "/api/v1/health"),
     "tinymediamanager": ("TINYMEDIAMANAGER_URL", "TINYMEDIAMANAGER_API_KEY", "api-key", "/"),
     "tidarr": ("TIDARR_URL", "TIDARR_API_KEY", "x-api-key", "/"),
     "flaresolverr": ("FLARESOLVERR_URL", "", "none", "/"),
@@ -588,6 +588,76 @@ def register_integration_tools(
     async def maintainerr_get_health() -> Any:
         """Read Maintainerr readiness and database connectivity status."""
         return await request("maintainerr", "GET", "/api/health/ready")
+
+    # BookOrbit workflows (official /api/v1 API; read-only).
+    @mcp.tool()
+    async def bookorbit_get_health() -> Any:
+        """Check BookOrbit API and database health."""
+        return await request("bookorbit", "GET", "/api/v1/health")
+
+    @mcp.tool()
+    async def bookorbit_get_app_info() -> Any:
+        """Read BookOrbit version and server application information."""
+        return await request("bookorbit", "GET", "/api/v1/app-info")
+
+    @mcp.tool()
+    async def bookorbit_get_current_user() -> Any:
+        """Read the identity and effective permissions of the configured API key."""
+        return await request("bookorbit", "GET", "/api/v1/auth/me")
+
+    @mcp.tool()
+    async def bookorbit_list_libraries() -> Any:
+        """List libraries visible to the configured BookOrbit account."""
+        return await request("bookorbit", "GET", "/api/v1/libraries")
+
+    @mcp.tool()
+    async def bookorbit_get_library_stats(library_id: int) -> Any:
+        """Read book and storage statistics for one accessible library."""
+        if library_id < 1:
+            raise ValueError("library_id must be a positive integer")
+        return await request("bookorbit", "GET", f"/api/v1/libraries/{library_id}/stats")
+
+    @mcp.tool()
+    async def bookorbit_search_books(query: str, limit: int = 10) -> Any:
+        """Search accessible BookOrbit libraries by title, author or other indexed book text."""
+        term = query.strip()
+        if not term or len(term) > 500:
+            raise ValueError("query must contain 1..500 characters")
+        if not 1 <= limit <= 20:
+            raise ValueError("limit must be 1..20")
+        return await request(
+            "bookorbit", "GET", "/api/v1/books/search",
+            params={"q": term, "limit": limit},
+        )
+
+    @mcp.tool()
+    async def bookorbit_get_book(book_id: int) -> Any:
+        """Read the metadata and available formats for one accessible book."""
+        if book_id < 1:
+            raise ValueError("book_id must be a positive integer")
+        return await request("bookorbit", "GET", f"/api/v1/books/{book_id}")
+
+    @mcp.tool()
+    async def bookorbit_get_statistics(library_ids: list[int] | None = None) -> Any:
+        """Read BookOrbit reading-library statistics, optionally scoped to library IDs."""
+        ids = library_ids or []
+        if len(ids) > 50 or any(not isinstance(value, int) or value < 1 for value in ids):
+            raise ValueError("library_ids must contain at most 50 positive integers")
+        params: dict[str, Any] = {}
+        if ids:
+            params["libraryIds"] = ids
+        return await request("bookorbit", "GET", "/api/v1/statistics/summary", params=params)
+
+    @mcp.tool()
+    async def bookorbit_get_format_distribution(library_ids: list[int] | None = None) -> Any:
+        """Read the distribution of ebook, PDF, audiobook and comic formats."""
+        ids = library_ids or []
+        if len(ids) > 50 or any(not isinstance(value, int) or value < 1 for value in ids):
+            raise ValueError("library_ids must contain at most 50 positive integers")
+        params: dict[str, Any] = {}
+        if ids:
+            params["libraryIds"] = ids
+        return await request("bookorbit", "GET", "/api/v1/statistics/format-distribution", params=params)
 
     # Agregarr workflows (official /api/v1 API).
     @mcp.tool()
