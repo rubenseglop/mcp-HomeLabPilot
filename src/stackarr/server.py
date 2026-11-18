@@ -333,26 +333,53 @@ integration_status = register_integration_tools(
 async def stack_status() -> dict[str, Any]:
     """Check configured services and report their API status/version."""
     checks: dict[str, Any] = {}
-    for service, (url_env, _, api_prefix) in ARR_SERVICES.items():
+    for service, (url_env, key_env, api_prefix) in ARR_SERVICES.items():
+        configured = bool(os.getenv(url_env, "").strip() and os.getenv(key_env, "").strip())
+        if not configured:
+            checks[service] = {"configured": False, "ok": False}
+            continue
         try:
             payload = await _arr_request(service, "GET", f"{api_prefix}/system/status")
             checks[service] = {
+                "configured": True,
                 "ok": True,
                 "version": payload.get("version") if isinstance(payload, dict) else None,
                 "app_name": payload.get("appName") if isinstance(payload, dict) else None,
             }
-        except Exception as exc:
-            checks[service] = {"ok": False, "error": str(exc)}
-    try:
-        result = await scryer_graphql("query StackStatus { scryerVersion }")
-        checks["scryer"] = {"ok": "errors" not in result, "result": result}
-    except Exception as exc:
-        checks["scryer"] = {"ok": False, "error": str(exc)}
-    try:
-        version = await qbittorrent_api_request("GET", "/api/v2/app/version")
-        checks["qbittorrent"] = {"ok": True, "version": version}
-    except Exception as exc:
-        checks["qbittorrent"] = {"ok": False, "error": str(exc)}
+        except Exception:
+            checks[service] = {
+                "configured": True,
+                "ok": False,
+                "error": f"{service} is configured but its status check failed; verify its URL and API key",
+            }
+    scryer_configured = bool(
+        os.getenv("SCRYER_URL", "").strip() and os.getenv("SCRYER_API_KEY", "").strip()
+    )
+    if not scryer_configured:
+        checks["scryer"] = {"configured": False, "ok": False}
+    else:
+        try:
+            result = await scryer_graphql("query StackStatus { scryerVersion }")
+            checks["scryer"] = {
+                "configured": True, "ok": "errors" not in result, "result": result
+            }
+        except Exception:
+            checks["scryer"] = {
+                "configured": True, "ok": False,
+                "error": "Scryer is configured but its status check failed; verify its URL and API key",
+            }
+    qbit_configured = bool(os.getenv("QBITTORRENT_URL", "").strip())
+    if not qbit_configured:
+        checks["qbittorrent"] = {"configured": False, "ok": False}
+    else:
+        try:
+            version = await qbittorrent_api_request("GET", "/api/v2/app/version")
+            checks["qbittorrent"] = {"configured": True, "ok": True, "version": version}
+        except Exception:
+            checks["qbittorrent"] = {
+                "configured": True, "ok": False,
+                "error": "qBittorrent is configured but its status check failed; verify its URL and credentials",
+            }
     checks.update(await integration_status())
     return {"services": checks}
 
