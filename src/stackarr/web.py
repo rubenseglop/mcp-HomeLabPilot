@@ -205,7 +205,7 @@ async function openView(view){const target=$('workspace');target.textContent='Lo
    const fields=config.fields||[];
    const controls=fields.map(field=>{
     const secret=field.kind==='secret',inputType=secret?'password':field.kind==='port'?'number':'text';
-    const placeholder=secret?(field.secret_set?'Saved · enter a new value to replace':'Enter credential'):'';
+    const placeholder=secret?(field.secret_set?'Saved · enter a new value to replace':'Enter credential'):field.redacted?'Saved URL hidden · enter a new URL to replace':'';
     const input='<input data-app-config-key="'+esc(field.key)+'" type="'+inputType+'" '+(secret?'autocomplete="new-password"':'')+' value="'+esc(field.value||'')+'" placeholder="'+esc(placeholder)+'" '+(field.kind==='port'?'min="1" max="65535" step="1"':'')+' style="width:100%;background:#0b1322;color:#e8edf5;border:1px solid #34435d;border-radius:8px;padding:9px;margin-top:5px">';
     const saved=secret&&field.secret_set?'<span class="muted"> · Saved (not displayed)</span>':'';
     const clear=secret&&field.secret_set?'<label class="muted" style="display:flex;align-items:center;gap:7px;margin-top:5px"><input type="checkbox" data-app-clear-secret="'+esc(field.key)+'" style="width:auto;margin:0">Remove saved credential</label>':'';
