@@ -791,6 +791,7 @@ def test_app_config_is_encrypted_and_never_returns_secret(monkeypatch, tmp_path)
     monkeypatch.setenv("MCP_AUTH_TOKEN", "test-mcp-token-that-is-long-enough-123456")
     monkeypatch.setenv("RADARR_URL", "http://radarr:7878")
     monkeypatch.setenv("RADARR_API_KEY", "do-not-return-this-secret")
+    monkeypatch.setenv("QBITTORRENT_USERNAME", "private-user")
 
     config = config_store.get_app_config()["radarr"]["fields"]
     url = next(field for field in config if field["key"] == "RADARR_URL")
@@ -798,6 +799,12 @@ def test_app_config_is_encrypted_and_never_returns_secret(monkeypatch, tmp_path)
     assert url["value"] == "http://radarr:7878"
     assert secret["value"] == ""
     assert secret["secret_set"] is True
+    qbit_user = next(
+        field for field in config_store.get_app_config()["qbittorrent"]["fields"]
+        if field["key"] == "QBITTORRENT_USERNAME"
+    )
+    assert qbit_user["value"] == ""
+    assert qbit_user["secret_set"] is True
 
     config_store.save_app_config("radarr", {
         "RADARR_URL": "http://radarr:7879",
