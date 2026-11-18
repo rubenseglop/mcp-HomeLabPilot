@@ -51,7 +51,7 @@ function runCodex(conversation, prompt, job) {
     : ["exec", "--json", "--sandbox", "read-only", "--skip-git-repo-check", "-"];
   const child = spawn("codex", args, {
     cwd: "/workspace",
-    env: { ...process.env, CODEX_HOME, HOME: "/home/node", NO_COLOR: "1" },
+    env: (() => { const clean = { ...process.env, CODEX_HOME, HOME: "/home/node", NO_COLOR: "1" }; delete clean.HOMELABPILOT_AGENT_GATEWAY_TOKEN; return clean; })(),
     stdio: ["pipe", "pipe", "pipe"]
   });
   job.pid = child.pid;
@@ -108,7 +108,7 @@ function runCodex(conversation, prompt, job) {
     "",
     "SOLICITUD DEL USUARIO:",
     prompt
-  ].join("\\n");
+  ].join("\n");
   child.stdin.end(guardedPrompt);
 }
 
