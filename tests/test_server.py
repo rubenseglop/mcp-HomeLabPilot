@@ -935,3 +935,14 @@ def test_pulsarr_authentication_and_api_endpoints_are_configured():
     assert HTTP_INTEGRATIONS["maintainerr"] == (
         "MAINTAINERR_URL", "", "none", "/api/health/ready"
     )
+
+
+
+def test_tracearr_uses_bearer_auth_and_public_health_endpoint():
+    from homelabpilot.integrations import HTTP_INTEGRATIONS
+    from homelabpilot.config_store import APP_CONFIG_FIELDS
+
+    assert HTTP_INTEGRATIONS["tracearr"] == (
+        "TRACEARR_URL", "TRACEARR_API_KEY", "bearer", "/api/v1/public/health"
+    )
+    assert APP_CONFIG_FIELDS["tracearr"] == ("TRACEARR_URL", "TRACEARR_API_KEY")
