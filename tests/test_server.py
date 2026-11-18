@@ -907,3 +907,16 @@ def test_arr_read_tools_reject_invalid_pagination():
         asyncio.run(server.arr_get_history("radarr", page=0))
     with pytest.raises(ValueError, match="page_size"):
         asyncio.run(server.arr_get_missing_items("sonarr", page_size=201))
+
+
+
+def test_homeassistant_integration_uses_bearer_token_and_rest_healthcheck():
+    from homelabpilot.integrations import HTTP_INTEGRATIONS
+    from homelabpilot.config_store import APP_CONFIG_FIELDS
+
+    assert HTTP_INTEGRATIONS["homeassistant"] == (
+        "HOMEASSISTANT_URL", "HOMEASSISTANT_TOKEN", "bearer", "/api/"
+    )
+    assert APP_CONFIG_FIELDS["homeassistant"] == (
+        "HOMEASSISTANT_URL", "HOMEASSISTANT_TOKEN"
+    )
