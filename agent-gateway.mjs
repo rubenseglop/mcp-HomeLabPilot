@@ -6,7 +6,7 @@ import path from "node:path";
 
 const PORT = Number(process.env.AGENT_GATEWAY_PORT || 8766);
 const TOKEN = process.env.HOMELABPILOT_AGENT_GATEWAY_TOKEN || "";
-const MCP_TOKEN = process.env.MCP_AUTH_TOKEN || "";
+
 const STATE = process.env.AGENT_STATE_DIR || "/state";
 const CODEX_HOME = process.env.CODEX_HOME || "/home/node/.codex";
 const STORE = path.join(STATE, "conversations.json");
@@ -114,7 +114,7 @@ function runCodex(conversation, prompt, job) {
 
 await fs.mkdir(CODEX_HOME, { recursive: true });
 await fs.writeFile(path.join(CODEX_HOME, "config.toml"),
-  '[mcp_servers.homelabpilot]\nurl = "http://homelabpilot:8000/mcp"\nbearer_token_env_var = "MCP_AUTH_TOKEN"\nenabled = true\nrequired = true\n',
+  '[mcp_servers.homelabpilot]\nurl = "http://homelabpilot-mcp-proxy:8001/mcp"\nenabled = true\nrequired = true\n',
   { mode: 0o600 });
 await loadStore();
 
@@ -127,7 +127,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "GET" && url.pathname === "/health") {
       let authenticated = false;
       try { await fs.access(path.join(CODEX_HOME, "auth.json")); authenticated = true; } catch {}
-      send(res, 200, { ok: true, agent: "codex", authenticated, mcp_configured: MCP_TOKEN.length >= 32 }); return;
+      send(res, 200, { ok: true, agent: "codex", authenticated, mcp_configured: true }); return;
     }
     if (req.method === "GET" && url.pathname === "/conversations") {
       send(res, 200, store.conversations.slice().sort((a,b) => b.updated_at.localeCompare(a.updated_at)).map(c => ({ id:c.id, title:c.title, created_at:c.created_at, updated_at:c.updated_at }))); return;
