@@ -306,14 +306,7 @@ def register_integration_tools(
                     "error": f"{service} API check failed; verify its URL, credential and health endpoint",
                 }
         for service, (host_env, port_env, mode) in NON_HTTP_INTEGRATIONS.items():
-            if service == "docker":
-                if os.getenv(host_env, "false").lower() not in {"1", "true", "yes", "on"}:
-                    continue
-                checks[service] = {
-                    "configured": os.getenv(host_env, "false").lower()
-                    in {"1", "true", "yes", "on"},
-                    "mode": mode,
-                }
+            if service in {"docker", "recyclarr"}:
                 continue
             host = os.getenv(host_env, "").strip()
             if not host:
