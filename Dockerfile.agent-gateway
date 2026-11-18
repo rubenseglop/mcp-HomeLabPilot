@@ -7,9 +7,15 @@ ENV NODE_ENV=production \
     AGENT_STATE_DIR=/state \
     AGENT_GATEWAY_PORT=8766
 
-RUN npm install --global @openai/codex @anthropic-ai/claude-code \
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates \
+    && update-ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && npm install --global @openai/codex @anthropic-ai/claude-code \
     && mkdir -p /app /state /workspace /home/node/.codex /home/node/.claude \
     && chown -R node:node /app /state /workspace /home/node/.codex /home/node/.claude
+
+RUN printf "\nprecedence ::ffff:0:0/96 100\n" >> /etc/gai.conf
 
 WORKDIR /app
 COPY --chown=node:node agent-gateway.mjs ./agent-gateway.mjs

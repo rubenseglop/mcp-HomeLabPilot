@@ -204,6 +204,18 @@ async function runAgentChat(form){
    const option=document.createElement('option');option.value=started.conversation_id;option.textContent='New conversation · '+new Date().toLocaleString();select.insertBefore(option,select.options[1]||null);
   }
   $('agent-prompt').value='';
+  const messages=$('agent-messages');
+  const userMessage=document.createElement('div');
+  userMessage.style.cssText='margin:9px 0;padding:10px;border-radius:10px;background:#101827;white-space:pre-wrap;overflow-wrap:anywhere';
+  const userLabel=document.createElement('div');
+  userLabel.className='muted';
+  userLabel.style.cssText='font-size:11px;margin-bottom:5px';
+  userLabel.textContent='You';
+  const userText=document.createElement('div');
+  userText.textContent=prompt;
+  userMessage.append(userLabel,userText);
+  messages.appendChild(userMessage);
+  messages.scrollTop=messages.scrollHeight;
   const startedAt=Date.now();let job;
   do{
    await new Promise(resolve=>setTimeout(resolve,1200));
@@ -241,6 +253,10 @@ async function openView(view){const target=$('workspace');target.textContent='Lo
   select.addEventListener('change',async()=>{if(!select.value){$('agent-messages').textContent='New conversation';return;}try{const convo=await request('/web-api/agents/conversation?id='+encodeURIComponent(select.value));renderAgentConversation(convo);}catch(err){$('agent-messages').textContent=err.message;}});
   $('agent-new-chat').addEventListener('click',()=>{select.value='';$('agent-messages').textContent='New conversation';$('agent-prompt').focus();});
   await updateProvider();
+  $('agent-chat-form').addEventListener('submit',e=>{
+   e.preventDefault();
+   runAgentChat(e).catch(err=>{$('agent-chat-status').textContent='Error: '+err.message;});
+  });
   return;
  }
  if(view==='apps'){

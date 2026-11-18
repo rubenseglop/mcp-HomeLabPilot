@@ -82,6 +82,8 @@ services:
       AGENT_STATE_DIR: /state
       CODEX_HOME: /home/node/.codex
       CLAUDE_CONFIG_DIR: /home/node/.claude
+    extra_hosts:
+      - "auth.openai.com:172.64.146.15"
     volumes:
       - homelabpilot_agents_state:/state
       - homelabpilot_codex_home:/home/node/.codex
