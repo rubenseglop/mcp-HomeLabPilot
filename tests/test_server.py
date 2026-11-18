@@ -754,3 +754,32 @@ def test_lidarr_album_update_preserves_other_fields(monkeypatch):
     assert updated["monitored"] is False
     assert updated["artistId"] == 3
     assert updated["profileId"] == 4
+
+def test_stack_status_marks_missing_services_as_unconfigured(monkeypatch):
+    import asyncio
+    import stackarr.server as server
+
+    for url_env, key_env, _ in server.ARR_SERVICES.values():
+        monkeypatch.delenv(url_env, raising=False)
+        monkeypatch.delenv(key_env, raising=False)
+    for name in (
+        "SCRYER_URL", "SCRYER_API_KEY", "QBITTORRENT_URL",
+        "QBITTORRENT_USERNAME", "QBITTORRENT_PASSWORD",
+    ):
+        monkeypatch.delenv(name, raising=False)
+
+    async def unexpected_call(*args, **kwargs):
+        raise AssertionError("An unconfigured service must not be contacted")
+
+    async def no_integrations():
+        return {}
+
+    monkeypatch.setattr(server, "_arr_request", unexpected_call)
+    monkeypatch.setattr(server, "scryer_graphql", unexpected_call)
+    monkeypatch.setattr(server, "qbittorrent_api_request", unexpected_call)
+    monkeypatch.setattr(server, "integration_status", no_integrations)
+
+    result = asyncio.run(server.stack_status())
+    for service in (*server.ARR_SERVICES, "scryer", "qbittorrent"):
+        assert result["services"][service] == {"configured": False, "ok": False}
+
