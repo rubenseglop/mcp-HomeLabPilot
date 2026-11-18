@@ -236,6 +236,7 @@ async function openView(view){const target=$('workspace');target.textContent='Lo
     badge.textContent=online?'Online':configured?'Needs attention':'Not configured';badge.className='status '+(online?'ok':configured?'bad':'');
     status.textContent=online?'Saved. Connection successful.':configured?'Saved. Settings applied, but the connection check failed.':'Saved. This integration does not yet have an active health check.';
     const latest=await request('/web-api/apps/config');Object.assign(appConfigs,latest);renderAppDetails(APP_CATALOG.find(x=>x.id===appId),$('app-detail-'+appId));
+    $('app-detail-'+appId).querySelector('[data-app-config-status]').textContent=online?'Saved. Connection successful.':configured?'Saved. Settings applied, but the connection check failed.':'Saved. This integration does not yet have an active health check.';
    }catch(err){status.textContent='Could not save: '+err.message;}
    finally{button.disabled=false;}
   });
