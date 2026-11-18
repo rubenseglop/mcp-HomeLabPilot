@@ -371,7 +371,9 @@ def test_dashboard_exposes_codex_chat_workspace():
     assert start["status"] == 200
     for marker in (
         'data-view="agent-chat"',
-        "AI Chat · Codex",
+        "AI Chat · Agents",
+        "Claude Code",
+        "agent-provider",
         "/web-api/agents/status",
         "/web-api/agents/chat",
         "/web-api/agents/job",
