@@ -16,7 +16,7 @@ By default, Compose publishes the port on loopback only. To open the dashboard f
 
 The dashboard includes an AI Chat workspace backed by an isolated Codex CLI container. The agent container has its own persistent Codex home and conversation store; it does not mount the host Docker socket, media folders, or the HomeLabPilot application state. The browser talks to the authenticated HomeLabPilot web API, which proxies requests to the private agent gateway.
 
-Set `HOMELABPILOT_AGENT_GATEWAY_TOKEN` in the private `.env` to a separate random value of at least 32 characters. Generate it with `openssl rand -hex 32`. The Compose stack also starts a private MCP reverse proxy. Its bearer token remains inside that proxy container and is not passed to Codex. The proxy exposes an allowlist of read-only HomeLabPilot MCP tools; write, confirmation, and generic API mutation tools are blocked server-side.
+The Compose stack places the agent gateway and MCP reverse proxy on a dedicated private Docker network shared only with HomeLabPilot. The MCP proxy keeps the HomeLabPilot bearer token inside its own container and does not pass it to Codex. The proxy exposes an allowlist of read-only HomeLabPilot MCP tools; write, confirmation, and generic API mutation tools are blocked server-side.
 
 The first release intentionally runs Codex with the `read-only` sandbox and exposes read-only MCP tools only. It can inspect configured services, libraries, queues and status, but cannot change your stack. Conversation history and Codex login state persist in dedicated named volumes. Claude Code is not included yet.
 
