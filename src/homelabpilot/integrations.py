@@ -152,7 +152,7 @@ def register_integration_tools(
             raise RuntimeError(
                 f"{service} API request failed; verify the URL, credentials, path and service logs"
             ) from None
-        is_read_only = verb == "GET" or (
+        is_read_only = verb == "GET" or read_only_post or (
             service == "transmission"
             and isinstance(body, dict)
             and body.get("method") in TRANSMISSION_READ_METHODS
@@ -321,7 +321,7 @@ def register_integration_tools(
             raise ValueError("greater_than_gb must be smaller than less_than_gb")
         return await request(
             "tdarr", "POST", "/api/v2/search-db",
-            body={"string": term, "greaterThanGB": greater_than_gb, "lessThanGB": less_than_gb},
+            body={"data": {"string": term, "greaterThanGB": greater_than_gb, "lessThanGB": less_than_gb}},
             read_only_post=True,
         )
 
@@ -335,10 +335,10 @@ def register_integration_tools(
         filters = [{"id": "file", "value": file_path_contains.strip()}] if file_path_contains.strip() else []
         return await request(
             "tdarr", "POST", "/api/v2/client/jobs",
-            body={
+            body={"data": {
                 "start": start, "pageSize": page_size, "filters": filters,
                 "sorts": [{"id": "start", "desc": True}], "opts": {},
-            },
+            }},
             read_only_post=True,
         )
 
@@ -387,7 +387,7 @@ def register_integration_tools(
             raise PermissionError(f"Type exactly: {expected_phrase}")
         return await request(
             "tdarr", "POST", "/api/v2/bulk-update-files",
-            body={"fileIds": ids, "updatedObj": {"TranscodeDecisionMaker": "Queued"}},
+            body={"data": {"fileIds": ids, "updatedObj": {"TranscodeDecisionMaker": "Queued"}}},
         )
 
     @mcp.tool()
@@ -415,7 +415,7 @@ def register_integration_tools(
             raise PermissionError("Type exactly: CONFIRM TDARR RESCAN FILE")
         return await request(
             "tdarr", "POST", "/api/v2/rescan-file",
-            body={"_id": identifier, "DB": library},
+            body={"data": {"_id": identifier, "DB": library}},
         )
 
     # Service-specific read workflows. These keep the supported API paths fixed
