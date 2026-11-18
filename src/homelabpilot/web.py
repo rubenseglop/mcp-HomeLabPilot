@@ -169,7 +169,7 @@ const APP_CATALOG=[
 {id:'redis',name:'Redis',category:'Infrastructure',mode:'Status only',desc:'Cache TCP reachability check.',support:'Status only'},
 {id:'docker',name:'Docker gateway',category:'Infrastructure',mode:'Status only',desc:'Restricted allowlisted container controls.',support:'Docker view'},
 {id:'cloudflare',name:'Cloudflare',category:'Infrastructure',mode:'API integration',desc:'Cloudflare account API connectivity.',support:'API explorer'},
-{id:'homeassistant',name:'Home Assistant',category:'Smart home',mode:'Planned integration',desc:'Home automation platform.',support:'Dashboard support is planned for this integration.'},
+{id:'homeassistant',name:'Home Assistant',category:'Smart home',mode:'API integration',desc:'Smart home states, history and confirmed device/service control.',support:'MCP tools · API explorer'},
 {id:'frigate',name:'Frigate',category:'Smart home',mode:'Planned integration',desc:'Local NVR and object detection.',support:'Dashboard support is planned for this integration.'}
 ];
 const APP_ENV_KEYS={
