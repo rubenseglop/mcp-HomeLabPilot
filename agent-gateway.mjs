@@ -1,11 +1,10 @@
 import http from "node:http";
 import { spawn } from "node:child_process";
-import { randomUUID, timingSafeEqual } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 
 const PORT = Number(process.env.AGENT_GATEWAY_PORT || 8766);
-const TOKEN = process.env.HOMELABPILOT_AGENT_GATEWAY_TOKEN || "";
 
 const STATE = process.env.AGENT_STATE_DIR || "/state";
 const CODEX_HOME = process.env.CODEX_HOME || "/home/node/.codex";
@@ -23,10 +22,6 @@ async function saveStore() {
   const tmp = STORE + ".tmp";
   await fs.writeFile(tmp, JSON.stringify(store, null, 2), { mode: 0o600 });
   await fs.rename(tmp, STORE);
-}
-function safeEqual(a, b) {
-  const aa = Buffer.from(String(a)); const bb = Buffer.from(String(b));
-  return aa.length === bb.length && timingSafeEqual(aa, bb);
 }
 function send(res, status, data) {
   const body = Buffer.from(JSON.stringify(data));
