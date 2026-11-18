@@ -81,9 +81,11 @@ services:
       AGENT_GATEWAY_PORT: 8766
       AGENT_STATE_DIR: /state
       CODEX_HOME: /home/node/.codex
+      CLAUDE_CONFIG_DIR: /home/node/.claude
     volumes:
       - homelabpilot_agents_state:/state
       - homelabpilot_codex_home:/home/node/.codex
+      - homelabpilot_claude_home:/home/node/.claude
     read_only: true
     tmpfs:
       - /tmp:size=64m,noexec,nosuid
@@ -126,6 +128,8 @@ volumes:
     name: homelabpilot_agents_state
   homelabpilot_codex_home:
     name: homelabpilot_codex_home
+  homelabpilot_claude_home:
+    name: homelabpilot_claude_home
   homelabpilot_state:
     name: homelabpilot_stackarr_state
 
