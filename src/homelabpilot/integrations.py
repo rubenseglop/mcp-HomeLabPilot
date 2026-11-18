@@ -1205,6 +1205,114 @@ def register_integration_tools(
         body: Any = normalized[0] if len(normalized) == 1 else normalized
         return await request("tinymediamanager", "POST", f"/api/{section}", body=body)
 
+    TIDARR_DOWNLOAD_TYPES = {"album", "track", "video", "playlist", "mix", "artist", "artist_videos"}
+
+    def _tidarr_download_item(item: Any) -> dict[str, Any]:
+        if not isinstance(item, dict):
+            raise ValueError("item must be an object")
+        if set(item) - {"id", "url", "type", "quality"}:
+            raise ValueError("item accepts only id, url, type and quality")
+        item_id = str(item.get("id", "")).strip()
+        kind = item.get("type")
+        url = item.get("url")
+        quality = item.get("quality")
+        if not item_id or len(item_id) > 128:
+            raise ValueError("item.id must contain 1-128 characters")
+        if kind not in TIDARR_DOWNLOAD_TYPES:
+            raise ValueError(f"type must be one of: {', '.join(sorted(TIDARR_DOWNLOAD_TYPES))}")
+        if not isinstance(url, str) or len(url) > 2048:
+            raise ValueError("item.url must be a Tidal URL")
+        from urllib.parse import urlparse
+        parsed = urlparse(url)
+        if (
+            parsed.scheme != "https"
+            or parsed.hostname not in {"listen.tidal.com", "tidal.com", "www.tidal.com"}
+            or not parsed.path.startswith(f"/{kind.removesuffix('_videos')}/")
+        ):
+            raise ValueError("url must be an HTTPS Tidal URL matching the selected type")
+        normalized = {"id": item_id, "url": url, "type": kind, "status": "queue_download"}
+        if quality is not None:
+            if quality not in {"max", "high", "normal", "low"}:
+                raise ValueError("quality must be max, high, normal or low")
+            normalized["quality"] = quality
+        return normalized
+
+    @mcp.tool()
+    async def tidarr_get_auth_status() -> Any:
+        """Check whether Tidarr requires authentication and which authentication mode is active."""
+        return await request("tidarr", "GET", "/api/is-auth-active")
+
+    @mcp.tool()
+    async def tidarr_get_download_queue(offset: int = 0, limit: int = 50) -> Any:
+        """List Tidarr downloads and their statuses, with bounded pagination."""
+        if offset < 0 or offset > 100000 or limit < 1 or limit > 200:
+            raise ValueError("offset must be 0-100000 and limit must be 1-200")
+        return await request("tidarr", "GET", "/api/queue/list", params={"offset": offset, "limit": limit})
+
+    @mcp.tool()
+    async def tidarr_get_queue_status() -> Any:
+        """Read Tidarr queue pause and rate-limit batch status."""
+        return await request("tidarr", "GET", "/api/queue/status")
+
+    @mcp.tool()
+    async def tidarr_get_download_history() -> Any:
+        """Read Tidarr download history; availability depends on ENABLE_HISTORY."""
+        return await request("tidarr", "GET", "/api/history/list")
+
+    @mcp.tool()
+    async def tidarr_get_sync_list() -> Any:
+        """List playlists and mixes configured for automatic synchronization."""
+        return await request("tidarr", "GET", "/api/sync/list")
+
+    @mcp.tool()
+    async def tidarr_preview_action(action: str, item: Any = None) -> dict[str, Any]:
+        """Preview adding a Tidal item or a queue/sync operation; nothing changes until confirmed."""
+        require_permission("operations")
+        allowed = {"add_download", "pause_queue", "resume_queue", "retry_failed", "sync_now"}
+        if action not in allowed:
+            raise ValueError(f"action must be one of: {', '.join(sorted(allowed))}")
+        payload = _tidarr_download_item(item) if action == "add_download" else None
+        snapshot = {"service": "tidarr", "action": action, "item": payload}
+        phrase = f"CONFIRM TIDARR {action.upper().replace('_', ' ')}"
+        if payload:
+            phrase += f" {payload['type'].upper()} {payload['id']}"
+        return {
+            "preview_token": make_preview_token(snapshot),
+            "typed_confirmation": phrase,
+            "action": action,
+            "item": payload,
+            "warning": "Adding a download starts Tidarr's download workflow; queue actions affect pending downloads.",
+        }
+
+    @mcp.tool()
+    async def tidarr_confirm_action(
+        action: str, preview_token: str, typed_confirmation: str, item: Any = None
+    ) -> Any:
+        """Execute only the exact Tidarr action shown in a matching preview."""
+        require_permission("operations")
+        allowed = {"add_download", "pause_queue", "resume_queue", "retry_failed", "sync_now"}
+        if action not in allowed:
+            raise ValueError(f"action must be one of: {', '.join(sorted(allowed))}")
+        payload = _tidarr_download_item(item) if action == "add_download" else None
+        snapshot = {"service": "tidarr", "action": action, "item": payload}
+        expected_token = make_preview_token(snapshot)
+        phrase = f"CONFIRM TIDARR {action.upper().replace('_', ' ')}"
+        if payload:
+            phrase += f" {payload['type'].upper()} {payload['id']}"
+        if not hmac.compare_digest(preview_token, expected_token):
+            raise PermissionError("The Tidarr preview is stale or does not match this action")
+        if not hmac.compare_digest(typed_confirmation, phrase):
+            raise PermissionError(f"Type exactly: {phrase}")
+        if action == "add_download":
+            return await request("tidarr", "POST", "/api/save", body={"item": payload})
+        paths = {
+            "pause_queue": "/api/queue/pause",
+            "resume_queue": "/api/queue/resume",
+            "retry_failed": "/api/retry-failed",
+            "sync_now": "/api/sync/trigger",
+        }
+        return await request("tidarr", "POST", paths[action])
+
     async def status_checks() -> dict[str, Any]:
         checks: dict[str, Any] = {}
         for service, config in HTTP_INTEGRATIONS.items():
