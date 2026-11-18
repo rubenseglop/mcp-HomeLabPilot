@@ -938,6 +938,16 @@ def test_pulsarr_authentication_and_api_endpoints_are_configured():
 
 
 
+def test_youtarr_external_api_uses_x_api_key_and_capabilities_healthcheck():
+    from homelabpilot.integrations import HTTP_INTEGRATIONS
+    from homelabpilot.config_store import APP_CONFIG_FIELDS
+
+    assert HTTP_INTEGRATIONS["youtarr"] == (
+        "YOUTARR_URL", "YOUTARR_API_KEY", "x-api-key", "/external-api/v1/capabilities"
+    )
+    assert APP_CONFIG_FIELDS["youtarr"] == ("YOUTARR_URL", "YOUTARR_API_KEY")
+
+
 def test_tracearr_uses_bearer_auth_and_public_health_endpoint():
     from homelabpilot.integrations import HTTP_INTEGRATIONS
     from homelabpilot.config_store import APP_CONFIG_FIELDS
