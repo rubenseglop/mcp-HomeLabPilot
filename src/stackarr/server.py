@@ -1,4 +1,4 @@
-"""StackARR MCP: full-control API bridge for media applications.
+"""HomeLabPilot MCP: full-control API bridge for media applications.
 
 The server never accepts a caller-supplied hostname. Requests are restricted to
 service base URLs configured by the operator, preventing the MCP tools from
@@ -24,7 +24,7 @@ from mcp.server.transport_security import TransportSecuritySettings
 import uvicorn
 
 from stackarr.audit import list_events as list_audit_events, record_event
-from stackarr.web import StackARRWebMiddleware
+from stackarr.web import HomeLabPilotWebMiddleware
 
 TIMEOUT = float(os.getenv("HTTP_TIMEOUT", "15"))
 _AUDIT_SOURCE: ContextVar[str] = ContextVar("stackarr_audit_source", default="mcp")
@@ -46,7 +46,7 @@ def _mcp_allowed_hosts() -> list[str]:
 
 
 mcp = FastMCP(
-    "StackARR",
+    "HomeLabPilot",
     host=os.getenv("MCP_HOST", "0.0.0.0"),
     transport_security=TransportSecuritySettings(allowed_hosts=_mcp_allowed_hosts()),
 )
@@ -199,7 +199,7 @@ async def arr_api_request(
     if method.upper() == "DELETE":
         raise PermissionError("Direct ARR DELETE requests are disabled; use a preview and typed confirmation")
     if method.upper() != "GET" and "/command" in normalized_path:
-        raise PermissionError("Generic ARR command requests are disabled; use a dedicated StackARR workflow")
+        raise PermissionError("Generic ARR command requests are disabled; use a dedicated HomeLabPilot workflow")
     return await _arr_request(service, method, path, params, body)
 
 
@@ -468,7 +468,7 @@ async def bazarr_update_settings(settings: dict[str, Any]) -> Any:
 
 @mcp.tool()
 async def stackarr_get_operation_history(limit: int = 100, offset: int = 0) -> Any:
-    """Read recent StackARR writes; stored records contain operation metadata, never request bodies or secrets."""
+    """Read recent HomeLabPilot writes; stored records contain operation metadata, never request bodies or secrets."""
     return list_audit_events(limit, offset)
 SENSITIVE_CONFIG_KEY = re.compile(
     r'(?:password|passwd|api.?key|token|secret|credential|auth.?key|private.?key)',
@@ -1035,7 +1035,7 @@ async def arr_grab_release(service: str, guid: str, indexer_id: int) -> Any:
 async def scryer_introspect() -> Any:
     """Discover Scryer's live GraphQL query and mutation fields and their arguments."""
     query = """
-    query StackARRSchema {
+    query HomeLabPilotSchema {
       __schema {
         queryType { name fields { name description args { name type { kind name ofType { kind name ofType { kind name } } } } } }
         mutationType { name fields { name description args { name type { kind name ofType { kind name ofType { kind name } } } } } }
@@ -1053,7 +1053,7 @@ async def scryer_list_recycled_items(limit: int = 100, offset: int = 0) -> Any:
     if offset < 0:
         raise ValueError("offset must be >= 0")
     query = """
-    query StackARRRecycleBin($limit: Int!, $offset: Int!) {
+    query HomeLabPilotRecycleBin($limit: Int!, $offset: Int!) {
       recycleBinSettings {
         enabled path retentionDays effectivePaths validationError
       }
@@ -1078,7 +1078,7 @@ async def scryer_list_titles(
     if not 1 <= limit <= 100 or offset < 0:
         raise ValueError("limit must be 1..100 and offset must be non-negative")
     query = """
-    query StackARRTitles($query: String, $facet: MediaFacetValue, $libraryIds: [ID!], $limit: Int, $offset: Int) {
+    query HomeLabPilotTitles($query: String, $facet: MediaFacetValue, $libraryIds: [ID!], $limit: Int, $offset: Int) {
       titles(query: $query, facet: $facet, libraryIds: $libraryIds, limit: $limit, offset: $offset) {
         totalCount hasMore managedBytes
         items {
@@ -1098,7 +1098,7 @@ async def scryer_list_titles(
 async def scryer_list_media_requests(facet: str | None = None, status: str | None = None) -> Any:
     """List Scryer media requests visible to the configured Scryer account."""
     query = """
-    query StackARRRequests($facet: MediaFacetValue, $status: MediaRequestStatusValue) {
+    query HomeLabPilotRequests($facet: MediaFacetValue, $status: MediaRequestStatusValue) {
       mediaRequests(facet: $facet, status: $status) {
         id title year facet status createdAt updatedAt createdTitleId
         requestedQualityProfileName approvedQualityProfileName requestedLeaseDays approvedLeaseDays
@@ -1117,7 +1117,7 @@ async def scryer_list_audit_events(
     if not 1 <= limit <= 200:
         raise ValueError("limit must be between 1 and 200")
     query = """
-    query StackARRScryerAudit($limit: Int!, $titleId: ID, $facet: MediaFacetValue, $afterSequence: Long, $beforeSequence: Long) {
+    query HomeLabPilotScryerAudit($limit: Int!, $titleId: ID, $facet: MediaFacetValue, $afterSequence: Long, $beforeSequence: Long) {
       auditLog(limit: $limit, titleId: $titleId, facet: $facet, afterSequence: $afterSequence, beforeSequence: $beforeSequence) {
         sequence eventId occurredAt actorKind actorUserId actorDisplayName titleId facet eventType streamKind streamId
       }
@@ -1135,7 +1135,7 @@ async def scryer_preview_delete_title(title_id: str) -> Any:
     if not title_id.strip():
         raise ValueError("title_id is required")
     query = """
-    query StackARRDeleteTitlePreview($titleId: ID!) {
+    query HomeLabPilotDeleteTitlePreview($titleId: ID!) {
       deleteTitlePreview(titleId: $titleId) {
         fingerprint totalFileCount mediaCount subtitleCount imageCount otherCount directoryCount
         requiresTypedConfirmation typedConfirmationPrompt targetLabel samplePaths
@@ -1164,7 +1164,7 @@ async def scryer_delete_title(
     if not expected or typed_confirmation != expected:
         raise ValueError("typed_confirmation must exactly match the preview's confirmation prompt or title")
     query = """
-    mutation StackARRDeleteTitle($input: DeleteTitleInput!) {
+    mutation HomeLabPilotDeleteTitle($input: DeleteTitleInput!) {
       deleteTitle(input: $input) {
         id recyclePurged recyclePreserved recycleBusy recycleFailed
       }
@@ -1565,7 +1565,7 @@ async def _web_api_request_inner(
             hashes, str(payload.get("preview_token", "")),
             str(payload.get("typed_confirmation", "")), delete_files,
         )
-    raise ValueError("Unknown StackARR web API operation")
+    raise ValueError("Unknown HomeLabPilot web API operation")
 
 
 async def _web_api_request(
@@ -1579,7 +1579,7 @@ async def _web_api_request(
 
 
 def main() -> None:
-    """Run StackARR over stdio (default) or authenticated Streamable HTTP."""
+    """Run HomeLabPilot over stdio (default) or authenticated Streamable HTTP."""
     transport = os.getenv("MCP_TRANSPORT", "stdio").strip().lower()
     if transport == "stdio":
         mcp.run(transport="stdio")
@@ -1594,7 +1594,7 @@ def main() -> None:
     app = _BearerAuthMiddleware(mcp.streamable_http_app(), token)
     web_username = os.getenv("STACKARR_WEB_USERNAME", "admin").strip() or "admin"
     web_password = os.getenv("STACKARR_WEB_PASSWORD", "").strip() or token
-    app = StackARRWebMiddleware(
+    app = HomeLabPilotWebMiddleware(
         app, token, stack_status, _web_api_request,
         web_username=web_username, web_password=web_password,
     )

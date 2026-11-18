@@ -17,7 +17,7 @@ services:
       STACKARR_DOCKER_GATEWAY_TOKEN: ${STACKARR_DOCKER_GATEWAY_TOKEN:-}
     ports:
       - "${STACKARR_BIND_ADDRESS:-127.0.0.1}:${STACKARR_PORT:-8765}:8000"
-    # StackARR uses its own Compose network by default.
+    # HomeLabPilot uses its own Compose network by default.
     # Attach it to your media apps' networks if you want to use Docker DNS.
     read_only: true
     tmpfs:

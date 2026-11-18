@@ -1,4 +1,4 @@
-"""Small unit tests for StackARR path validation."""
+"""Small unit tests for HomeLabPilot path validation."""
 import pytest
 
 from stackarr.server import _safe_path

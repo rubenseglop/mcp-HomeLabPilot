@@ -1,14 +1,14 @@
-# StackARR
+# HomeLabPilot
 
 A unified media-stack application combining a browser dashboard and an MCP server. Use the web interface directly, or connect an MCP client such as ChatGPT to the same backend.
 
-It connects to the native APIs of Radarr, Sonarr, Prowlarr, Bazarr, Lidarr, Scryer and qBittorrent. StackARR is designed to be installed by different users on different Docker hosts; it does not require any particular folder layout, IP address, container name, Docker network or storage system.
+It connects to the native APIs of Radarr, Sonarr, Prowlarr, Bazarr, Lidarr, Scryer and qBittorrent. HomeLabPilot is designed to be installed by different users on different Docker hosts; it does not require any particular folder layout, IP address, container name, Docker network or storage system.
 
 ## Web dashboard
 
-StackARR serves its browser dashboard and MCP endpoint from the same application and port. Open `http://YOUR_DOCKER_HOST:8765/` and sign in with `STACKARR_WEB_USERNAME` and `STACKARR_WEB_PASSWORD`. These dashboard credentials are separate from `MCP_AUTH_TOKEN`; the MCP bearer token is only for MCP clients. The browser receives a random, HttpOnly session cookie and does not store either credential in browser local storage.
+HomeLabPilot serves its browser dashboard and MCP endpoint from the same application and port. Open `http://YOUR_DOCKER_HOST:8765/` and sign in with `STACKARR_WEB_USERNAME` and `STACKARR_WEB_PASSWORD`. These dashboard credentials are separate from `MCP_AUTH_TOKEN`; the MCP bearer token is only for MCP clients. The browser receives a random, HttpOnly session cookie and does not store either credential in browser local storage.
 
-The dashboard currently includes live service status, Radarr movie, Sonarr series and Lidarr artist/album browsing, queue/history views, qBittorrent controls, Scryer library/requests/audit/recycle-bin views, and StackARR operation history. Configuration includes a curated Bazarr subtitle settings form, ARR profiles and integrations, Prowlarr configuration, and selected qBittorrent preferences. Destructive deletions display a current snapshot, require a typed confirmation, and reject stale previews. The optional Docker view is available only through the restricted Docker profile. Secret fields are redacted when configurations are read and restored server-side when records are updated.
+The dashboard currently includes live service status, Radarr movie, Sonarr series and Lidarr artist/album browsing, queue/history views, qBittorrent controls, Scryer library/requests/audit/recycle-bin views, and HomeLabPilot operation history. Configuration includes a curated Bazarr subtitle settings form, ARR profiles and integrations, Prowlarr configuration, and selected qBittorrent preferences. Destructive deletions display a current snapshot, require a typed confirmation, and reject stale previews. The optional Docker view is available only through the restricted Docker profile. Secret fields are redacted when configurations are read and restored server-side when records are updated.
 
 By default, Compose publishes the port on loopback only. To open the dashboard from another device on your LAN, set `STACKARR_BIND_ADDRESS=0.0.0.0` in your private `.env` and recreate the container. This also makes the authenticated MCP endpoint reachable on the LAN. Do not forward this port from your router to the public internet. For remote access, use a private VPN such as Tailscale or a trusted HTTPS access layer.
 
@@ -22,7 +22,7 @@ By default, Compose publishes the port on loopback only. To open the dashboard f
 - `scryer_list_recycled_items`: read Scryer's recycle-bin settings and paged recycled-file details, including scheduled purge dates.
 - `scryer_list_titles`, `scryer_list_media_requests`, `scryer_list_audit_events`: dedicated read-only Scryer catalog, request and audit workflows.
 - `scryer_preview_delete_title` / `scryer_delete_title`: deletion preview, fingerprint check and typed confirmation. Destructive fields are blocked in the generic GraphQL tool.
-- `stackarr_get_operation_history`: read StackARR's metadata-only local audit trail.
+- `stackarr_get_operation_history`: read HomeLabPilot's metadata-only local audit trail.
 - `bazarr_get_settings` / `bazarr_update_settings`: curated native Bazarr settings form and admin-only updates.
 - `arr_preview_delete_configuration` / `arr_delete_configuration`: preview and confirm configuration deletion; generic ARR DELETE is blocked.
 - `qbittorrent_preview_delete_torrents` / `qbittorrent_delete_torrents`: snapshot and typed confirmation before torrent removal or data deletion.
@@ -55,7 +55,7 @@ Set `STACKARR_MCP_PERMISSION_LEVEL` in the private `.env` file to control what a
 
 The generic ARR REST bridge applies the same checks: GET is read-only, ordinary writes require operations, and configuration/system endpoints require admin. Direct ARR DELETE requests are refused; configuration deletion uses a preview token and exact typed confirmation. Scryer mutations require admin, and destructive mutations are available only through dedicated preview/confirmation tools.
 
-The level is enforced server-side for shared write operations from both MCP tools and the browser dashboard; the dashboard still has its own separate login. Changing the level requires recreating the StackARR container. Invalid values fail closed. Use `read` when connecting an unfamiliar MCP client; raise it to `operations` or `admin` only when those capabilities are needed. Permission is not a per-action approval prompt: an MCP client should still obtain the user's explicit confirmation before invoking sensitive admin operations.
+The level is enforced server-side for shared write operations from both MCP tools and the browser dashboard; the dashboard still has its own separate login. Changing the level requires recreating the HomeLabPilot container. Invalid values fail closed. Use `read` when connecting an unfamiliar MCP client; raise it to `operations` or `admin` only when those capabilities are needed. Permission is not a per-action approval prompt: an MCP client should still obtain the user's explicit confirmation before invoking sensitive admin operations.
 
 ## Configuration coverage
 
@@ -63,7 +63,7 @@ The dashboard exposes an Advanced API explorer for the native REST APIs of Radar
 
 The Scryer dashboard includes a schema-driven control center plus dedicated library search, media request, audit log and recycle-bin views. The schema view is generated from the installed instance. Deleting a title requires a preview fingerprint and the exact confirmation prompt returned by Scryer. The generic GraphQL console remains useful for other operations, but destructive delete fields are blocked there.
 
-StackARR records successful and failed writes initiated through its API in a local SQLite audit database. It stores timestamp, source, service, operation, target and outcome; request bodies, API keys and tokens are excluded. Compose persists the database in the `stackarr_state` named volume. The dashboard and `stackarr_get_operation_history` show recent events; the log is capped at 10,000 entries.
+HomeLabPilot records successful and failed writes initiated through its API in a local SQLite audit database. It stores timestamp, source, service, operation, target and outcome; request bodies, API keys and tokens are excluded. Compose persists the database in the `stackarr_state` named volume. The dashboard and `stackarr_get_operation_history` show recent events; the log is capped at 10,000 entries.
 
 ## Security model
 
@@ -74,22 +74,22 @@ StackARR records successful and failed writes initiated through its API in a loc
 - The web API requires an authenticated browser session and rejects cross-origin browser POSTs. Destructive actions show a current preview and require exact typed confirmation; snapshot fingerprints reject stale previews. Library updates fetch the current ARR object and change only requested fields.
 - Radarr, Sonarr, Prowlarr and Lidarr configuration records can be listed, edited, created from native JSON payloads and deleted. These configuration mutations require `admin`; secret fields are redacted from responses and existing secrets are preserved when editing records.
 - The assistant should ask before irreversible actions such as deleting library files, removing titles with files, deleting torrents and data, or changing global settings.
-- Optional Docker controls are disabled by default. Only a separate gateway mounts the Docker socket; StackARR can list and start/stop/restart exact allowlisted containers. It does not expose create, delete, exec, image, volume or arbitrary Engine API routes. The Docker socket remains host-powerful if the gateway itself is compromised, so enable the profile only on a trusted host and keep its network private.
+- Optional Docker controls are disabled by default. Only a separate gateway mounts the Docker socket; HomeLabPilot can list and start/stop/restart exact allowlisted containers. It does not expose create, delete, exec, image, volume or arbitrary Engine API routes. The Docker socket remains host-powerful if the gateway itself is compromised, so enable the profile only on a trusted host and keep its network private.
 
 ## Configure
 
 Copy `.env.example` to `.env` and fill in the URLs and credentials for the applications you have installed. Set `STACKARR_WEB_USERNAME` and `STACKARR_WEB_PASSWORD` to your dashboard login and a long, unique password. Keep `.env` outside Git.
 
-Every URL must be reachable **from inside the StackARR container**. The correct address depends on your deployment:
-- If StackARR and an application share a Docker network, use that application's Docker DNS name and internal port.
+Every URL must be reachable **from inside the HomeLabPilot container**. The correct address depends on your deployment:
+- If HomeLabPilot and an application share a Docker network, use that application's Docker DNS name and internal port.
 - If the application is reachable through a host-published port, use a host address reachable from the container.
 - If it is on another machine, use that machine's reachable LAN/VPN address.
 
 You do not need to configure services you do not use. Leave their variables empty.
 
-Scryer uses its GraphQL API at `/graphql` and a bearer API key. Create an API key in Scryer's security settings and give it the permissions needed for the operations you want StackARR to perform.
+Scryer uses its GraphQL API at `/graphql` and a bearer API key. Create an API key in Scryer's security settings and give it the permissions needed for the operations you want HomeLabPilot to perform.
 
-Operation previews are signed with `STACKARR_PREVIEW_SECRET`; if it is unset, StackARR uses `MCP_AUTH_TOKEN`. Keep the signing secret stable between preview and confirmation calls.
+Operation previews are signed with `STACKARR_PREVIEW_SECRET`; if it is unset, HomeLabPilot uses `MCP_AUTH_TOKEN`. Keep the signing secret stable between preview and confirmation calls.
 
 ## Install locally
 
@@ -118,7 +118,7 @@ Run the unit tests with `pip install -e ".[test]"` followed by `pytest`.
    openssl rand -hex 32
    ```
    Put the generated value in `MCP_AUTH_TOKEN`. Set `STACKARR_WEB_USERNAME` and `STACKARR_WEB_PASSWORD` for browser login, then fill in the URLs and credentials for the applications you use. Do not publish or share the `.env` file.
-3. Ensure StackARR can reach the configured application URLs from its container. The supplied Compose file creates an isolated StackARR network by default. If your applications are on other Docker networks, attach StackARR to those existing networks in `compose.yaml`. For each network, add it to the service's `networks` list and declare it at the bottom as external, using your own network name. For example:
+3. Ensure HomeLabPilot can reach the configured application URLs from its container. The supplied Compose file creates an isolated HomeLabPilot network by default. If your applications are on other Docker networks, attach HomeLabPilot to those existing networks in `compose.yaml`. For each network, add it to the service's `networks` list and declare it at the bottom as external, using your own network name. For example:
    ```yaml
    services:
      stackarr:
@@ -130,8 +130,8 @@ Run the unit tests with `pip install -e ".[test]"` followed by `pytest`.
        external: true
        name: YOUR_EXISTING_DOCKER_NETWORK
    ```
-   Repeat this for additional networks if your applications are split across them. Alternatively, configure URLs that are reachable from the StackARR container without joining their Docker networks.
-4. Start StackARR:
+   Repeat this for additional networks if your applications are split across them. Alternatively, configure URLs that are reachable from the HomeLabPilot container without joining their Docker networks.
+4. Start HomeLabPilot:
    ```bash
    docker compose up -d --build
    ```

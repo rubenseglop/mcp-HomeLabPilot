@@ -1,10 +1,10 @@
-"""Tests for the built-in StackARR browser dashboard."""
+"""Tests for the built-in HomeLabPilot browser dashboard."""
 import asyncio
 import json
 
 import pytest
 
-from stackarr.web import DASHBOARD, StackARRWebMiddleware
+from stackarr.web import DASHBOARD, HomeLabPilotWebMiddleware
 
 
 def call_asgi(app, path, method="GET", headers=None, body=b""):
@@ -48,13 +48,13 @@ def make_app():
         await send({"type": "http.response.start", "status": 404, "headers": []})
         await send({"type": "http.response.body", "body": b""})
 
-    return StackARRWebMiddleware(fallback, "test-secret-token", status, web_username="testuser", web_password="test-password")
+    return HomeLabPilotWebMiddleware(fallback, "test-secret-token", status, web_username="testuser", web_password="test-password")
 
 
 def test_dashboard_is_served():
     start, body = call_asgi(make_app(), "/")
     assert start["status"] == 200
-    assert b"StackARR" in body
+    assert b"HomeLabPilot" in body
 
 
 def test_dashboard_api_requires_login():
@@ -99,7 +99,7 @@ def test_authenticated_web_api_calls_shared_backend():
         await send({"type": "http.response.start", "status": 404, "headers": []})
         await send({"type": "http.response.body", "body": b""})
 
-    app = StackARRWebMiddleware(fallback, "test-secret-token", status, api, web_username="testuser", web_password="test-password")
+    app = HomeLabPilotWebMiddleware(fallback, "test-secret-token", status, api, web_username="testuser", web_password="test-password")
     login, _ = call_asgi(app, "/web-login", method="POST", headers=[(b"content-type", b"application/json")], body=json.dumps({"username": "testuser", "password": "test-password"}).encode())
     cookie = next(value.split(b";", 1)[0] for name, value in login["headers"] if name == b"set-cookie")
     start, _ = call_asgi(app, "/web-api/library", headers=[(b"cookie", cookie)])
@@ -119,7 +119,7 @@ def test_web_api_requires_session():
         await send({"type": "http.response.start", "status": 404, "headers": []})
         await send({"type": "http.response.body", "body": b""})
 
-    app = StackARRWebMiddleware(fallback, "test-secret-token", status, api)
+    app = HomeLabPilotWebMiddleware(fallback, "test-secret-token", status, api)
     start, _ = call_asgi(app, "/web-api/torrents")
     assert start["status"] == 401
 
@@ -278,7 +278,7 @@ def test_downloads_view_exposes_category_and_safe_remove_controls():
     assert b"data-torrent-set-category" in body
     assert b"data-torrent-delete" in body
     assert b"delete_files:false" in body
-    assert body.count("StackARR · Web dashboard and MCP endpoint in one application".encode()) == 1
+    assert body.count("HomeLabPilot · Web dashboard and MCP endpoint in one application".encode()) == 1
 
 
 def test_dashboard_surfaces_backend_error_details_and_uses_live_scryer_schema():
