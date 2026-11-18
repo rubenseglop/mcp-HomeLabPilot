@@ -23,11 +23,11 @@ HTTP_INTEGRATIONS = {
     "cleanuparr": ("CLEANUPARR_URL", "CLEANUPARR_API_KEY", "x-api-key", "/"),
     "maintainerr": ("MAINTAINERR_URL", "", "none", "/"),
     "agregarr": ("AGREGARR_URL", "AGREGARR_API_KEY", "x-api-key", "/"),
-    "tracearr": ("TRACEARR_URL", "TRACEARR_API_KEY", "x-api-key", "/"),
+    "tracearr": ("TRACEARR_URL", "TRACEARR_API_KEY", "bearer", "/"),
     "immich": ("IMMICH_URL", "IMMICH_API_KEY", "x-api-key", "/api/server/ping"),
     "romm": ("ROMM_URL", "ROMM_API_TOKEN", "bearer", "/api/platforms"),
     "bookorbit": ("BOOKORBIT_URL", "BOOKORBIT_API_KEY", "x-api-key", "/"),
-    "tinymediamanager": ("TINYMEDIAMANAGER_URL", "TINYMEDIAMANAGER_API_KEY", "x-api-key", "/"),
+    "tinymediamanager": ("TINYMEDIAMANAGER_URL", "TINYMEDIAMANAGER_API_KEY", "api-key", "/"),
     "tidarr": ("TIDARR_URL", "TIDARR_API_KEY", "x-api-key", "/"),
     "flaresolverr": ("FLARESOLVERR_URL", "", "none", "/"),
     "cloudflare": ("CLOUDFLARE_API_URL", "CLOUDFLARE_API_TOKEN", "bearer", "/user/tokens/verify"),
@@ -41,7 +41,7 @@ NON_HTTP_INTEGRATIONS = {
 TRANSMISSION_READ_METHODS = {"session-get", "session-stats", "torrent-get"}
 
 
-def _is_configured(service: str, config: tuple[str, str, str, str]) -> bool:
+def _is_configured(config: tuple[str, str, str, str]) -> bool:
     url_env, credential_env, _, _ = config
     if not os.getenv(url_env, "").strip():
         return False
@@ -92,6 +92,8 @@ def register_integration_tools(
             headers["X-Emby-Token"] = credential
         elif mode == "x-api-key":
             headers["X-Api-Key"] = credential
+        elif mode == "api-key":
+            headers["api-key"] = credential
         elif mode == "bearer":
             headers["Authorization"] = f"Bearer {credential}"
         return headers
@@ -103,7 +105,7 @@ def register_integration_tools(
         params: dict[str, Any] | None = None,
         body: Any = None,
     ) -> Any:
-        root, credential, mode, _ = resolve(service)
+        _, credential, mode, _ = resolve(service)
         verb = method.upper()
         if verb not in {"GET", "POST", "PUT", "PATCH", "DELETE"}:
             raise ValueError("method must be GET, POST, PUT, PATCH or DELETE")
@@ -170,7 +172,7 @@ def register_integration_tools(
         }
         services.update({
             service: {
-                "configured": _is_configured(service, config),
+                "configured": _is_configured(config),
                 "mode": "native HTTP API",
             }
             for service, config in HTTP_INTEGRATIONS.items()
@@ -284,19 +286,18 @@ def register_integration_tools(
         checks: dict[str, Any] = {}
         for service, config in HTTP_INTEGRATIONS.items():
             url_env, _, _, health_path = config
-            if not _is_configured(service, config):
-                checks[service] = {"configured": False}
+            if not _is_configured(config):
                 continue
             try:
                 if service == "transmission":
-                    result = await request(
+                    await request(
                         service,
                         "POST",
                         health_path,
                         body={"method": "session-get", "arguments": {}},
                     )
                 else:
-                    result = await request(service, "GET", health_path)
+                    await request(service, "GET", health_path)
                 checks[service] = {"configured": True, "ok": True}
             except Exception:
                 checks[service] = {
@@ -306,6 +307,8 @@ def register_integration_tools(
                 }
         for service, (host_env, port_env, mode) in NON_HTTP_INTEGRATIONS.items():
             if service == "docker":
+                if os.getenv(host_env, "false").lower() not in {"1", "true", "yes", "on"}:
+                    continue
                 checks[service] = {
                     "configured": os.getenv(host_env, "false").lower()
                     in {"1", "true", "yes", "on"},
@@ -314,7 +317,6 @@ def register_integration_tools(
                 continue
             host = os.getenv(host_env, "").strip()
             if not host:
-                checks[service] = {"configured": False, "mode": mode}
                 continue
             if service == "recyclarr":
                 checks[service] = {"configured": True, "mode": mode}
