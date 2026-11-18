@@ -423,6 +423,39 @@ def register_integration_tools(
         return await request("seerr", "GET", "/api/v1/search", params={"query": term})
 
     @mcp.tool()
+    async def cloudflare_list_zones(page: int = 1, per_page: int = 50, name: str = "") -> Any:
+        """List Cloudflare zones visible to the configured API token."""
+        if page < 1 or not 1 <= per_page <= 100:
+            raise ValueError("page must be >= 1 and per_page must be 1..100")
+        params: dict[str, Any] = {"page": page, "per_page": per_page}
+        if name.strip():
+            params["name"] = name.strip()[:253]
+        return await request("cloudflare", "GET", "/zones", params=params)
+
+    @mcp.tool()
+    async def cloudflare_list_dns_records(
+        zone_id: str, page: int = 1, per_page: int = 100,
+        record_type: str = "", name: str = "",
+    ) -> Any:
+        """List DNS records in a Cloudflare zone; optional type/name filters are supported."""
+        import re
+        if not re.fullmatch(r"[A-Fa-f0-9]{32}", zone_id):
+            raise ValueError("zone_id must be a 32-character Cloudflare zone ID")
+        if page < 1 or not 1 <= per_page <= 100:
+            raise ValueError("page must be >= 1 and per_page must be 1..100")
+        allowed_types = {"A", "AAAA", "CNAME", "TXT", "MX", "NS", "SRV", "CAA", "PTR"}
+        if record_type and record_type.upper() not in allowed_types:
+            raise ValueError(f"record_type must be one of: {', '.join(sorted(allowed_types))}")
+        params: dict[str, Any] = {"page": page, "per_page": per_page}
+        if record_type:
+            params["type"] = record_type.upper()
+        if name.strip():
+            params["name"] = name.strip()[:253]
+        return await request(
+            "cloudflare", "GET", f"/zones/{zone_id}/dns_records", params=params
+        )
+
+    @mcp.tool()
     async def immich_get_albums() -> Any:
         """List Immich albums."""
         return await request("immich", "GET", "/api/albums")
