@@ -23,7 +23,7 @@ HTTP_INTEGRATIONS = {
     "cleanuparr": ("CLEANUPARR_URL", "", "none", "/health"),
     "maintainerr": ("MAINTAINERR_URL", "", "none", "/api/health/ready"),
     "agregarr": ("AGREGARR_URL", "AGREGARR_API_KEY", "x-api-key", "/"),
-    "tracearr": ("TRACEARR_URL", "TRACEARR_API_KEY", "bearer", "/"),
+    "tracearr": ("TRACEARR_URL", "TRACEARR_API_KEY", "bearer", "/api/v1/public/health"),
     "immich": ("IMMICH_URL", "IMMICH_API_KEY", "x-api-key", "/api/server/ping"),
     "homeassistant": ("HOMEASSISTANT_URL", "HOMEASSISTANT_TOKEN", "bearer", "/api/"),
     "romm": ("ROMM_URL", "ROMM_API_TOKEN", "bearer", "/api/platforms"),
@@ -452,6 +452,156 @@ def register_integration_tools(
     async def maintainerr_get_health() -> Any:
         """Read Maintainerr readiness and database connectivity status."""
         return await request("maintainerr", "GET", "/api/health/ready")
+
+    @mcp.tool()
+    async def tracearr_get_health() -> Any:
+        """Read Tracearr version and connection status for configured media servers."""
+        return await request("tracearr", "GET", "/api/v1/public/health")
+
+    @mcp.tool()
+    async def tracearr_get_stats(server_id: str = "") -> Any:
+        """Read Tracearr dashboard totals for active streams, users, sessions and recent alerts."""
+        params: dict[str, Any] = {}
+        if server_id:
+            import re
+            if not re.fullmatch(r"[0-9a-fA-F-]{36}", server_id):
+                raise ValueError("server_id must be a UUID")
+            params["serverId"] = server_id
+        return await request("tracearr", "GET", "/api/v1/public/stats", params=params)
+
+    @mcp.tool()
+    async def tracearr_get_activity(
+        period: str = "month", server_id: str = "", timezone: str = "Europe/Madrid"
+    ) -> Any:
+        """Read Tracearr playback trends, concurrent streams, client platforms and quality breakdown."""
+        if period not in {"week", "month", "year"}:
+            raise ValueError("period must be week, month or year")
+        if not timezone or len(timezone) > 100:
+            raise ValueError("timezone must be a valid IANA timezone name")
+        params: dict[str, Any] = {"period": period, "timezone": timezone}
+        if server_id:
+            import re
+            if not re.fullmatch(r"[0-9a-fA-F-]{36}", server_id):
+                raise ValueError("server_id must be a UUID")
+            params["serverId"] = server_id
+        return await request("tracearr", "GET", "/api/v1/public/activity", params=params)
+
+    @mcp.tool()
+    async def tracearr_get_active_streams(server_id: str = "", summary: bool = False) -> Any:
+        """List current streams across Plex/Jellyfin/Emby, including playback and transcode details."""
+        params: dict[str, Any] = {"summary": str(summary).lower()}
+        if server_id:
+            import re
+            if not re.fullmatch(r"[0-9a-fA-F-]{36}", server_id):
+                raise ValueError("server_id must be a UUID")
+            params["server_id"] = server_id
+        return await request("tracearr", "GET", "/api/v2/public/streams", params=params)
+
+    @mcp.tool()
+    async def tracearr_get_watch_history(
+        page_size: int = 25, cursor: str = "", user_id: str = "",
+        server_id: str = "", media_id: str = "", media_type: str = "",
+        since: str = "", until: str = "",
+    ) -> Any:
+        """Read cursor-paginated playback history with optional user, server, title, type and date filters."""
+        import re
+        if not 1 <= page_size <= 100:
+            raise ValueError("page_size must be 1..100")
+        params: dict[str, Any] = {"pageSize": page_size}
+        for key, value in (("user_id", user_id), ("server_id", server_id), ("media_id", media_id)):
+            if value:
+                if not re.fullmatch(r"[0-9a-fA-F-]{36}", value):
+                    raise ValueError(f"{key} must be a UUID")
+                params[key] = value
+        if media_type:
+            if media_type not in {"movie", "episode", "track", "live", "photo", "trailer", "unknown"}:
+                raise ValueError("unsupported media_type")
+            params["media_type"] = media_type
+        for key, value in (("cursor", cursor), ("since", since), ("until", until)):
+            if value:
+                if len(value) > 500:
+                    raise ValueError(f"{key} is too long")
+                params[key] = value
+        return await request("tracearr", "GET", "/api/v2/public/history", params=params)
+
+    @mcp.tool()
+    async def tracearr_list_servers() -> Any:
+        """List configured media servers and their current health in Tracearr."""
+        return await request("tracearr", "GET", "/api/v2/public/servers")
+
+    @mcp.tool()
+    async def tracearr_list_users(page_size: int = 25, cursor: str = "", include_removed: bool = False) -> Any:
+        """List Tracearr user identities and linked media-server accounts."""
+        if not 1 <= page_size <= 100:
+            raise ValueError("page_size must be 1..100")
+        params: dict[str, Any] = {"pageSize": page_size, "include_removed": str(include_removed).lower()}
+        if cursor:
+            if len(cursor) > 500:
+                raise ValueError("cursor is too long")
+            params["cursor"] = cursor
+        return await request("tracearr", "GET", "/api/v2/public/users", params=params)
+
+    @mcp.tool()
+    async def tracearr_get_user(user_id: str) -> Any:
+        """Read one Tracearr identity and its linked server accounts."""
+        import re
+        if not re.fullmatch(r"[0-9a-fA-F-]{36}", user_id):
+            raise ValueError("user_id must be a UUID")
+        return await request("tracearr", "GET", f"/api/v2/public/users/{user_id}")
+
+    @mcp.tool()
+    async def tracearr_get_user_stats(user_id: str) -> Any:
+        """Read all-time, 30-day and 7-day plays/watch time plus top genres for one identity."""
+        import re
+        if not re.fullmatch(r"[0-9a-fA-F-]{36}", user_id):
+            raise ValueError("user_id must be a UUID")
+        return await request("tracearr", "GET", f"/api/v2/public/users/{user_id}/stats")
+
+    @mcp.tool()
+    async def tracearr_get_recently_added(
+        page_size: int = 25, cursor: str = "", server_id: str = "", media_type: str = ""
+    ) -> Any:
+        """Read recently added items across Tracearr libraries with cursor pagination."""
+        import re
+        if not 1 <= page_size <= 100:
+            raise ValueError("page_size must be 1..100")
+        params: dict[str, Any] = {"pageSize": page_size}
+        if cursor:
+            if len(cursor) > 500:
+                raise ValueError("cursor is too long")
+            params["cursor"] = cursor
+        if server_id:
+            if not re.fullmatch(r"[0-9a-fA-F-]{36}", server_id):
+                raise ValueError("server_id must be a UUID")
+            params["server_id"] = server_id
+        if media_type:
+            if media_type not in {"movie", "episode", "season", "show", "artist", "album", "track", "photo"}:
+                raise ValueError("unsupported media_type")
+            params["media_type"] = media_type
+        return await request("tracearr", "GET", "/api/v2/public/recently-added", params=params)
+
+    @mcp.tool()
+    async def tracearr_list_libraries() -> Any:
+        """Read per-library item counts, storage sizes and resolution rollups."""
+        return await request("tracearr", "GET", "/api/v2/public/libraries")
+
+    @mcp.tool()
+    async def tracearr_get_top_media(
+        media_type: str = "movie", days: int = 30, sort: str = "plays", page_size: int = 25, cursor: str = ""
+    ) -> Any:
+        """Rank most watched movies or shows by plays, watch time or viewers."""
+        if media_type not in {"movie", "show"} or sort not in {"plays", "watch_time", "viewers"}:
+            raise ValueError("media_type must be movie/show and sort must be plays/watch_time/viewers")
+        if not 1 <= days <= 365 or not 1 <= page_size <= 1000:
+            raise ValueError("days must be 1..365 and page_size 1..1000")
+        params: dict[str, Any] = {
+            "media_type": media_type, "days": days, "sort": sort, "pageSize": page_size
+        }
+        if cursor:
+            if len(cursor) > 500:
+                raise ValueError("cursor is too long")
+            params["cursor"] = cursor
+        return await request("tracearr", "GET", "/api/v2/public/top-media", params=params)
 
     @mcp.tool()
     async def homeassistant_get_config() -> Any:
