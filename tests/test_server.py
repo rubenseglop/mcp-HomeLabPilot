@@ -829,6 +829,7 @@ def test_app_config_rejects_unknown_fields_and_unsafe_urls(monkeypatch, tmp_path
 
 
 def test_app_config_can_explicitly_clear_a_secret(monkeypatch, tmp_path):
+    import os
     import stackarr.config_store as config_store
 
     monkeypatch.setattr(config_store, "CONFIG_PATH", tmp_path / "app-config.enc")
