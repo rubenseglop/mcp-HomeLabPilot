@@ -12,6 +12,16 @@ The dashboard includes a searchable Apps catalogue grouped by category. It disti
 
 By default, Compose publishes the port on loopback only. To open the dashboard from another device on your LAN, set `HOMELABPILOT_BIND_ADDRESS=0.0.0.0` in your private `.env` and recreate the container. This also makes the authenticated MCP endpoint reachable on the LAN. Do not forward this port from your router to the public internet. For remote access, use a private VPN such as Tailscale or a trusted HTTPS access layer.
 
+## AI chat · Codex CLI
+
+The dashboard includes an AI Chat workspace backed by an isolated Codex CLI container. The agent container has its own persistent Codex home and conversation store; it does not mount the host Docker socket, media folders, or the HomeLabPilot application state. The browser talks to the authenticated HomeLabPilot web API, which proxies requests to the private agent gateway.
+
+Set `HOMELABPILOT_AGENT_GATEWAY_TOKEN` in the private `.env` to a separate random value of at least 32 characters. Generate it with `openssl rand -hex 32`. The Compose stack also starts a private MCP reverse proxy. Its bearer token remains inside that proxy container and is not passed to Codex. The proxy exposes an allowlist of read-only HomeLabPilot MCP tools; write, confirmation, and generic API mutation tools are blocked server-side.
+
+The first release intentionally runs Codex with the `read-only` sandbox and exposes read-only MCP tools only. It can inspect configured services, libraries, queues and status, but cannot change your stack. Conversation history and Codex login state persist in dedicated named volumes. Claude Code is not included yet.
+
+After updating the stack at home, authenticate Codex inside its container with `docker compose exec homelabpilot-agents codex login --device-auth` and complete the device authorization flow. Then open the AI Chat section in the HomeLabPilot dashboard. Do not paste account tokens or credentials into the dashboard or chat.
+
 ## Current implementation
 
 - `arr_api_request`: full REST API bridge for Radarr, Sonarr, Prowlarr, Bazarr and Lidarr.
