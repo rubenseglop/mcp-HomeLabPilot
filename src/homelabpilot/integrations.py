@@ -24,7 +24,7 @@ HTTP_INTEGRATIONS = {
     "maintainerr": ("MAINTAINERR_URL", "", "none", "/api/health/ready"),
     "agregarr": ("AGREGARR_URL", "AGREGARR_API_KEY", "x-api-key", "/"),
     "tracearr": ("TRACEARR_URL", "TRACEARR_API_KEY", "bearer", "/api/v1/public/health"),
-    "tdarr": ("TDARR_URL", "TDARR_API_KEY", "x-api-key", "/api/v2/status"),
+    "tdarr": ("TDARR_URL", "", "x-api-key", "/api/v2/status"),
     "immich": ("IMMICH_URL", "IMMICH_API_KEY", "x-api-key", "/api/server/ping"),
     "homeassistant": ("HOMEASSISTANT_URL", "HOMEASSISTANT_TOKEN", "bearer", "/api/"),
     "romm": ("ROMM_URL", "ROMM_API_TOKEN", "bearer", "/api/platforms"),
@@ -73,6 +73,8 @@ def register_integration_tools(
         url_env, credential_env, auth_mode, health_path = HTTP_INTEGRATIONS[service]
         root = base_url(url_env)
         credential = os.getenv(credential_env, "").strip() if credential_env else ""
+        if service == "tdarr":
+            credential = os.getenv("TDARR_API_KEY", "").strip()
         if credential_env and not credential:
             raise ValueError(f"Missing configuration: {credential_env}")
         return root, credential, auth_mode, health_path
