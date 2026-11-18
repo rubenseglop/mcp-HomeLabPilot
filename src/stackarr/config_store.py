@@ -53,7 +53,7 @@ APP_CONFIG_FIELDS: dict[str, tuple[str, ...]] = {
 }
 
 CONFIG_PATH = Path(os.getenv("STACKARR_CONFIG_PATH", "/data/app-config.enc"))
-_SECRET_NAME = re.compile(r"(?:API_KEY|TOKEN|PASSWORD|SECRET|CREDENTIAL)", re.I)
+_SECRET_NAME = re.compile(r"(?:API_KEY|TOKEN|PASSWORD|USERNAME|SECRET|CREDENTIAL)", re.I)
 _HOSTNAME = re.compile(r"^[A-Za-z0-9_.:-]{1,253}$")
 _CONTAINER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
 
