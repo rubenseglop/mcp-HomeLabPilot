@@ -282,6 +282,81 @@ def register_integration_tools(
             raise ValueError("Transmission RPC writes must use POST")
         return await request(service, verb, path, params, body)
 
+
+    # Service-specific read workflows. These keep the supported API paths fixed
+    # and provide useful MCP tools without exposing arbitrary host selection.
+    @mcp.tool()
+    async def plex_get_library_sections() -> Any:
+        """List Plex library sections using the configured Plex server and token."""
+        return await request("plex", "GET", "/library/sections")
+
+    @mcp.tool()
+    async def plex_get_recently_added(section_id: int, limit: int = 25) -> Any:
+        """List recently added Plex items from one library section."""
+        if section_id < 1 or not 1 <= limit <= 100:
+            raise ValueError("section_id must be positive and limit must be between 1 and 100")
+        return await request(
+            "plex", "GET", f"/library/sections/{section_id}/recentlyAdded",
+            params={"X-Plex-Container-Start": 0, "X-Plex-Container-Size": limit},
+        )
+
+    @mcp.tool()
+    async def jellyfin_get_libraries() -> Any:
+        """List Jellyfin virtual folders/libraries."""
+        return await request("jellyfin", "GET", "/Library/VirtualFolders")
+
+    @mcp.tool()
+    async def jellyfin_search_items(search_term: str, limit: int = 25) -> Any:
+        """Search the Jellyfin library by title."""
+        term = search_term.strip()
+        if not term or len(term) > 200 or not 1 <= limit <= 100:
+            raise ValueError("search_term is required (max 200 chars) and limit must be 1..100")
+        return await request(
+            "jellyfin", "GET", "/Items",
+            params={"searchTerm": term, "Limit": limit, "Recursive": "true"},
+        )
+
+    @mcp.tool()
+    async def seerr_get_requests(request_type: str = "all", take: int = 20) -> Any:
+        """List Seerr media requests; request_type is all, movie or tv."""
+        if request_type not in {"all", "movie", "tv"} or not 1 <= take <= 100:
+            raise ValueError("request_type must be all, movie or tv; take must be 1..100")
+        return await request(
+            "seerr", "GET", "/api/v1/request",
+            params={"take": take, "filter": request_type},
+        )
+
+    @mcp.tool()
+    async def seerr_search_media(search_term: str) -> Any:
+        """Search movies and TV metadata through Seerr."""
+        term = search_term.strip()
+        if not term or len(term) > 200:
+            raise ValueError("search_term is required and must be at most 200 characters")
+        return await request("seerr", "GET", "/api/v1/search", params={"query": term})
+
+    @mcp.tool()
+    async def immich_get_albums() -> Any:
+        """List Immich albums."""
+        return await request("immich", "GET", "/api/albums")
+
+    @mcp.tool()
+    async def immich_get_server_statistics() -> Any:
+        """Read Immich server statistics."""
+        return await request("immich", "GET", "/api/server/statistics")
+
+    @mcp.tool()
+    async def romm_get_platforms() -> Any:
+        """List platforms configured in RomM."""
+        return await request("romm", "GET", "/api/platforms")
+
+    @mcp.tool()
+    async def romm_search_roms(search_term: str, limit: int = 25) -> Any:
+        """Search the RomM game library."""
+        term = search_term.strip()
+        if not term or len(term) > 200 or not 1 <= limit <= 100:
+            raise ValueError("search_term is required (max 200 chars) and limit must be 1..100")
+        return await request("romm", "GET", "/api/roms", params={"search": term, "limit": limit})
+
     async def status_checks() -> dict[str, Any]:
         checks: dict[str, Any] = {}
         for service, config in HTTP_INTEGRATIONS.items():
