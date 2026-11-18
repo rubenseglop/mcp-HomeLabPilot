@@ -154,7 +154,7 @@ const APP_CATALOG=[
 {id:'tinymediamanager',name:'TinyMediaManager',category:'Media',mode:'API integration',desc:'Media metadata management API.',support:'API explorer'},
 {id:'tidarr',name:'Tidarr',category:'Media',mode:'API integration',desc:'Music service API.',support:'API explorer'},
 {id:'tdarr',name:'Tdarr',category:'Media',mode:'Planned integration',desc:'Media transcoding and library health.',support:'Dashboard support is planned for this integration.'},
-{id:'youtarr',name:'Youtarr',category:'Media',mode:'Planned integration',desc:'YouTube media management.',support:'Dashboard support is planned for this integration.'},
+{id:'youtarr',name:'Youtarr',category:'Media',mode:'API integration',desc:'YouTube video catalog, download requests and request status.',support:'MCP tools · API explorer'},
 {id:'qbittorrent',name:'qBittorrent',category:'Downloads',mode:'Native integration',desc:'Torrent queue, categories, controls and file moves.',support:'Full dashboard'},
 {id:'transmission',name:'Transmission',category:'Downloads',mode:'API integration',desc:'Transmission RPC connectivity and read API.',support:'API explorer'},
 {id:'flaresolverr',name:'FlareSolverr',category:'Downloads',mode:'API integration',desc:'Challenge-solving service connectivity.',support:'API explorer'},
