@@ -177,7 +177,7 @@ function appCard(app,status){
  const online=!!(check&&check.ok===true),planned=app.mode==='Planned integration';
  const state=planned?'Planned':!check?'Not configured':online?'Online':configured?'Needs attention':'Not configured';
  const klass=online?'ok':configured?'bad':'';
- return '<article class="card" data-app-card data-category="'+esc(app.category)+'" data-search="'+esc((app.name+' '+app.desc+' '+app.category).toLowerCase())+'"><div class="cardtop"><div class="name">'+esc(app.name)+'</div><span class="status '+klass+'">'+esc(state)+'</span></div><div class="version">'+esc(app.category)+' · '+esc(app.mode)+'</div><p class="muted" style="line-height:1.5">'+esc(app.desc)+'</p><div class="muted">'+esc(app.support)+'</div></article>';
+ return '<article class="card" data-app-card data-category="'+esc(app.category)+'" data-search="'+esc((app.name+' '+app.desc+' '+app.category).toLowerCase())+'"><div class="cardtop"><div class="name">'+esc(app.name)+'</div><span class="status '+klass+'">'+esc(state)+'</span></div><div class="version">'+esc(app.category)+' · '+esc(app.mode)+'</div><p class="muted" style="line-height:1.5">'+esc(app.desc)+'</p><div class="muted">'+esc(app.support)+'</div><div class="actions" style="margin-top:12px"><button type="button" data-app-details="'+esc(app.id)+'">Details</button></div><div id="app-detail-'+esc(app.id)+'" class="info" hidden style="margin-top:10px"></div></article>';
 }
 
 async function openView(view){const target=$('workspace');target.textContent='Loading…';try{
@@ -191,6 +191,7 @@ async function openView(view){const target=$('workspace');target.textContent='Lo
   const filterApps=()=>{const term=$('apps-search').value.trim().toLowerCase();document.querySelectorAll('[data-app-card]').forEach(card=>{card.style.display=(active==='All'||card.dataset.category===active)&&card.dataset.search.includes(term)?'':'none';});};
   $('apps-search').addEventListener('input',filterApps);
   $('apps-categories').addEventListener('click',e=>{const b=e.target.closest('[data-app-filter]');if(!b)return;active=b.dataset.appFilter;$('apps-categories').querySelectorAll('button').forEach(x=>x.style.borderColor=x===b?'#647cf6':'#34435d');filterApps();});
+  $('apps-grid').addEventListener('click',e=>{const b=e.target.closest('[data-app-details]');if(!b)return;const app=APP_CATALOG.find(x=>x.id===b.dataset.appDetails);if(!app)return;const panel=$('app-detail-'+app.id);const check=statuses[app.id]||{};panel.hidden=!panel.hidden;if(panel.hidden)return;const vars=app.env||[];panel.innerHTML='<strong>'+esc(app.name)+' · integration details</strong><p class="muted">'+esc(app.mode)+' · '+esc(check.ok===true?'Connection successful':check.configured?'Configured; connection not verified':'Configuration not detected')+'</p><p>'+esc(app.desc)+'</p><p class="muted">'+(vars.length?'Configuration keys: '+vars.map(esc).join(', '):'No editable configuration form is available for this integration yet.')+'</p><p class="muted">Credentials are intentionally never displayed in the dashboard. Configuration editing and service-specific controls are a later implementation step.</p>';});
   return;
  }
  if(view==='operation-history'){
