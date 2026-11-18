@@ -363,3 +363,19 @@ def test_dashboard_exposes_complete_lidarr_music_workflows():
         'foreignArtistId',
     ):
         assert marker.encode() in body
+
+
+
+def test_dashboard_exposes_codex_chat_workspace():
+    start, body = call_asgi(make_app(), "/")
+    assert start["status"] == 200
+    for marker in (
+        'data-view="agent-chat"',
+        "AI Chat · Codex",
+        "/web-api/agents/status",
+        "/web-api/agents/chat",
+        "/web-api/agents/job",
+        "renderAgentConversation",
+        "Read-only mode",
+    ):
+        assert marker.encode() in body
