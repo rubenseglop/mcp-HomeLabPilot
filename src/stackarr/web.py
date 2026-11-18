@@ -172,6 +172,11 @@ const APP_CATALOG=[
 {id:'homeassistant',name:'Home Assistant',category:'Smart home',mode:'Planned integration',desc:'Home automation platform.',support:'Dashboard support is planned for this integration.'},
 {id:'frigate',name:'Frigate',category:'Smart home',mode:'Planned integration',desc:'Local NVR and object detection.',support:'Dashboard support is planned for this integration.'}
 ];
+const APP_ENV_KEYS={
+radarr:['RADARR_URL','RADARR_API_KEY'],sonarr:['SONARR_URL','SONARR_API_KEY'],lidarr:['LIDARR_URL','LIDARR_API_KEY'],prowlarr:['PROWLARR_URL','PROWLARR_API_KEY'],bazarr:['BAZARR_URL','BAZARR_API_KEY'],scryer:['SCRYER_URL','SCRYER_API_KEY'],qbittorrent:['QBITTORRENT_URL','QBITTORRENT_USERNAME','QBITTORRENT_PASSWORD'],
+plex:['PLEX_URL','PLEX_TOKEN'],jellyfin:['JELLYFIN_URL','JELLYFIN_API_KEY'],seerr:['SEERR_URL','SEERR_API_KEY'],transmission:['TRANSMISSION_URL','TRANSMISSION_USERNAME','TRANSMISSION_PASSWORD'],pulsarr:['PULSARR_URL','PULSARR_API_KEY'],cleanuparr:['CLEANUPARR_URL','CLEANUPARR_API_KEY'],maintainerr:['MAINTAINERR_URL'],agregarr:['AGREGARR_URL','AGREGARR_API_KEY'],tracearr:['TRACEARR_URL','TRACEARR_API_KEY'],immich:['IMMICH_URL','IMMICH_API_KEY'],romm:['ROMM_URL','ROMM_API_TOKEN'],bookorbit:['BOOKORBIT_URL','BOOKORBIT_API_KEY'],tinymediamanager:['TINYMEDIAMANAGER_URL','TINYMEDIAMANAGER_API_KEY'],tidarr:['TIDARR_URL','TIDARR_API_KEY'],flaresolverr:['FLARESOLVERR_URL'],cloudflare:['CLOUDFLARE_API_URL','CLOUDFLARE_API_TOKEN'],recyclarr:['RECYCLARR_CONTAINER'],postgres:['POSTGRES_HOST','POSTGRES_PORT'],redis:['REDIS_HOST','REDIS_PORT'],docker:['STACKARR_DOCKER_ENABLED','STACKARR_DOCKER_PERMISSION_LEVEL','STACKARR_DOCKER_ALLOWED_CONTAINERS'],homeassistant:['HOMEASSISTANT_URL','HOMEASSISTANT_TOKEN'],frigate:['FRIGATE_URL','FRIGATE_API_KEY'],tdarr:['TDARR_URL','TDARR_API_KEY'],youtarr:['YOUTARR_URL','YOUTARR_API_KEY'],questarr:['QUESTARR_URL','QUESTARR_API_KEY']
+};
+APP_CATALOG.forEach(app=>{app.env=APP_ENV_KEYS[app.id]||[];});
 function appCard(app,status){
  const check=status[app.id],configured=!!(check&&(check.configured===true||check.ok===true||check.version||check.app_name));
  const online=!!(check&&check.ok===true),planned=app.mode==='Planned integration';
