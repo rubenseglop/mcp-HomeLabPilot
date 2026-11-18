@@ -25,6 +25,7 @@ HTTP_INTEGRATIONS = {
     "agregarr": ("AGREGARR_URL", "AGREGARR_API_KEY", "x-api-key", "/"),
     "tracearr": ("TRACEARR_URL", "TRACEARR_API_KEY", "bearer", "/"),
     "immich": ("IMMICH_URL", "IMMICH_API_KEY", "x-api-key", "/api/server/ping"),
+    "homeassistant": ("HOMEASSISTANT_URL", "HOMEASSISTANT_TOKEN", "bearer", "/api/"),
     "romm": ("ROMM_URL", "ROMM_API_TOKEN", "bearer", "/api/platforms"),
     "bookorbit": ("BOOKORBIT_URL", "BOOKORBIT_API_KEY", "x-api-key", "/"),
     "tinymediamanager": ("TINYMEDIAMANAGER_URL", "TINYMEDIAMANAGER_API_KEY", "api-key", "/"),
@@ -421,6 +422,41 @@ def register_integration_tools(
         if not term or len(term) > 200:
             raise ValueError("search_term is required and must be at most 200 characters")
         return await request("seerr", "GET", "/api/v1/search", params={"query": term})
+
+    @mcp.tool()
+    async def homeassistant_get_config() -> Any:
+        """Read Home Assistant core configuration, version, timezone and loaded components."""
+        return await request("homeassistant", "GET", "/api/config")
+
+    @mcp.tool()
+    async def homeassistant_list_states(domain: str = "", limit: int = 500) -> Any:
+        """List current Home Assistant entity states, optionally filtered by domain."""
+        if not 1 <= limit <= 2000:
+            raise ValueError("limit must be between 1 and 2000")
+        params: dict[str, Any] = {}
+        if domain:
+            import re
+            if not re.fullmatch(r"[a-z_][a-z0-9_]*", domain):
+                raise ValueError("domain must be a valid Home Assistant domain")
+        states = await request("homeassistant", "GET", "/api/states", params=params)
+        if not isinstance(states, list):
+            raise RuntimeError("Home Assistant returned an unexpected states response")
+        if domain:
+            states = [item for item in states if isinstance(item, dict) and str(item.get("entity_id", "")).startswith(domain + ".")]
+        return {"total": len(states), "returned": min(len(states), limit), "states": states[:limit]}
+
+    @mcp.tool()
+    async def homeassistant_get_state(entity_id: str) -> Any:
+        """Read the current state and attributes for one Home Assistant entity."""
+        import re
+        if not re.fullmatch(r"[a-z_][a-z0-9_]*\\.[a-z0-9_]+", entity_id):
+            raise ValueError("entity_id must use the domain.entity_id format")
+        return await request("homeassistant", "GET", f"/api/states/{entity_id}")
+
+    @mcp.tool()
+    async def homeassistant_list_services() -> Any:
+        """List Home Assistant service domains and available service names without invoking them."""
+        return await request("homeassistant", "GET", "/api/services")
 
     @mcp.tool()
     async def cloudflare_list_zones(page: int = 1, per_page: int = 50, name: str = "") -> Any:
