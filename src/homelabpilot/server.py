@@ -1661,6 +1661,49 @@ async def _web_api_request_inner(
             hashes, str(payload.get("preview_token", "")),
             str(payload.get("typed_confirmation", "")), delete_files,
         )
+    if path.startswith("/web-api/agents/"):
+        gateway_url = os.getenv("HOMELABPILOT_AGENT_GATEWAY_URL", "http://homelabpilot-agents:8766").rstrip("/")
+        gateway_token = os.getenv("HOMELABPILOT_AGENT_GATEWAY_TOKEN", "").strip()
+        if len(gateway_token) < 32:
+            raise ValueError("Codex gateway is not configured: set HOMELABPILOT_AGENT_GATEWAY_TOKEN")
+        headers = {"Authorization": f"Bearer {gateway_token}", "Accept": "application/json"}
+        try:
+            async with httpx.AsyncClient(timeout=httpx.Timeout(15.0, read=5.0)) as client:
+                if method == "GET" and path == "/web-api/agents/status":
+                    response = await client.get(f"{gateway_url}/health", headers=headers)
+                elif method == "GET" and path == "/web-api/agents/conversations":
+                    response = await client.get(f"{gateway_url}/conversations", headers=headers)
+                elif method == "GET" and path == "/web-api/agents/conversation":
+                    conversation_id = (query.get("id") or [""])[0]
+                    if not re.fullmatch(r"[0-9a-f-]{36}", conversation_id):
+                        raise ValueError("A valid conversation id is required")
+                    response = await client.get(f"{gateway_url}/conversations/{conversation_id}", headers=headers)
+                elif method == "POST" and path == "/web-api/agents/chat":
+                    prompt = str(payload.get("prompt", "")).strip()
+                    if not prompt or len(prompt) > 20000:
+                        raise ValueError("The message must contain between 1 and 20,000 characters")
+                    body = {"prompt": prompt}
+                    if payload.get("conversation_id"):
+                        body["conversation_id"] = str(payload["conversation_id"])
+                    response = await client.post(f"{gateway_url}/chat", headers=headers, json=body)
+                elif method == "GET" and path == "/web-api/agents/job":
+                    job_id = (query.get("id") or [""])[0]
+                    if not re.fullmatch(r"[0-9a-f-]{36}", job_id):
+                        raise ValueError("A valid job id is required")
+                    response = await client.get(f"{gateway_url}/jobs/{job_id}", headers=headers)
+                else:
+                    raise ValueError("Unknown agent gateway operation")
+                response.raise_for_status()
+                return response.json()
+        except httpx.HTTPStatusError as exc:
+            try:
+                detail = exc.response.json().get("error", "Agent gateway request failed")
+            except ValueError:
+                detail = "Agent gateway request failed"
+            raise ValueError(detail) from exc
+        except httpx.RequestError as exc:
+            raise ValueError("Codex gateway is unavailable; check the homelabpilot-agents container") from exc
+
     raise ValueError("Unknown HomeLabPilot web API operation")
 
 
