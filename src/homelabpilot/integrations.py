@@ -9,6 +9,7 @@ import asyncio
 import hmac
 import ipaddress
 import os
+import secrets
 from typing import Any
 from urllib.parse import quote, urljoin
 
@@ -707,11 +708,10 @@ def register_integration_tools(
     ) -> Any:
         """Submit only the exact Youtarr request shown in a matching preview."""
         require_permission("operations")
+        if not idempotency_key or len(idempotency_key) > 200:
+            raise ValueError("Pass the idempotency_key returned by youtarr_preview_request")
         payload = _youtarr_request_payload(request_type, youtube_id, channel_id, channel_url)
-        if idempotency_key:
-            if len(idempotency_key) > 200:
-                raise ValueError("idempotency_key is too long")
-            payload["idempotencyKey"] = idempotency_key
+        payload["idempotencyKey"] = idempotency_key
         snapshot = {"service": "youtarr", "payload": payload}
         expected_token = make_preview_token(snapshot)
         phrase = f"CONFIRM YOUTARR {request_type.upper()} " + (
