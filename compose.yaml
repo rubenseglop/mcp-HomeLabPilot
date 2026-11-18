@@ -51,7 +51,7 @@ services:
       dockerfile: Dockerfile.docker-gateway
     restart: unless-stopped
     environment:
-      HOMELABPILOT_DOCKER_GATEWAY_TOKEN: ${HOMELABPILOT_DOCKER_GATEWAY_TOKEN:-}
+      HOMELABPILOT_DOCKER_GATEWAY_TOKEN: ${HOMELABPILOT_DOCKER_GATEWAY_TOKEN:-${STACKARR_DOCKER_GATEWAY_TOKEN:-}}
       HOMELABPILOT_DOCKER_ALLOWED_CONTAINERS: ${HOMELABPILOT_DOCKER_ALLOWED_CONTAINERS:-${STACKARR_DOCKER_ALLOWED_CONTAINERS:-}}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
