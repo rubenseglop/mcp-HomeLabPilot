@@ -6,11 +6,11 @@ It connects to the native APIs of Radarr, Sonarr, Prowlarr, Bazarr, Lidarr, Scry
 
 ## Web dashboard
 
-HomeLabPilot serves its browser dashboard and MCP endpoint from the same application and port. Open `http://YOUR_DOCKER_HOST:8765/` and sign in with `STACKARR_WEB_USERNAME` and `STACKARR_WEB_PASSWORD`. These dashboard credentials are separate from `MCP_AUTH_TOKEN`; the MCP bearer token is only for MCP clients. The browser receives a random, HttpOnly session cookie and does not store either credential in browser local storage.
+HomeLabPilot serves its browser dashboard and MCP endpoint from the same application and port. Open `http://YOUR_DOCKER_HOST:8765/` and sign in with `HOMELABPILOT_WEB_USERNAME` and `HOMELABPILOT_WEB_PASSWORD`. These dashboard credentials are separate from `MCP_AUTH_TOKEN`; the MCP bearer token is only for MCP clients. The browser receives a random, HttpOnly session cookie and does not store either credential in browser local storage.
 
-The dashboard includes a searchable Apps catalogue grouped by category. It distinguishes native dashboard integrations, generic API integrations, status-only checks and planned integrations, and shows the latest connectivity state without exposing credentials. Unconfigured native services are reported separately from configured services whose health check fails. Native integrations with existing dashboard workflows provide a direct shortcut from their catalogue card. Each card also exposes a connection form for allowlisted settings. Values are saved to `/data/app-config.enc` on the existing persistent volume using Fernet encryption and restrictive file permissions. The browser receives non-secret values and secret-presence flags only; secret values are never returned. Blank secret fields preserve existing credentials, while an explicit checkbox clears them. Saved settings override bootstrap environment values and are applied to the running process without a container restart. Set a stable `STACKARR_CONFIG_ENCRYPTION_KEY` in the private `.env` (recommended); if omitted, `MCP_AUTH_TOKEN` is used as the key source, so rotating that token makes the encrypted settings unreadable. Only known application fields are accepted, and service URLs cannot contain embedded credentials, query strings or fragments. Entries marked as planned can store connection details, but they do not gain API functionality or health checks until their integration is implemented. The catalogue is an inventory/status view; integrations marked as planned are not yet manageable from the dashboard. The dashboard currently includes live service status, Radarr movie, Sonarr series and Lidarr artist/album browsing, queue/history views, qBittorrent controls, Scryer library/requests/audit/recycle-bin views, and HomeLabPilot operation history. Configuration includes a curated Bazarr subtitle settings form, ARR profiles and integrations, Prowlarr configuration, and selected qBittorrent preferences. Destructive deletions display a current snapshot, require a typed confirmation, and reject stale previews. The optional Docker view is available only through the restricted Docker profile. Secret fields are redacted when configurations are read and restored server-side when records are updated.
+The dashboard includes a searchable Apps catalogue grouped by category. It distinguishes native dashboard integrations, generic API integrations, status-only checks and planned integrations, and shows the latest connectivity state without exposing credentials. Unconfigured native services are reported separately from configured services whose health check fails. Native integrations with existing dashboard workflows provide a direct shortcut from their catalogue card. Each card also exposes a connection form for allowlisted settings. Values are saved to `/data/app-config.enc` on the existing persistent volume using Fernet encryption and restrictive file permissions. The browser receives non-secret values and secret-presence flags only; secret values are never returned. Blank secret fields preserve existing credentials, while an explicit checkbox clears them. Saved settings override bootstrap environment values and are applied to the running process without a container restart. Set a stable `HOMELABPILOT_CONFIG_ENCRYPTION_KEY` in the private `.env` (recommended); if omitted, `MCP_AUTH_TOKEN` is used as the key source, so rotating that token makes the encrypted settings unreadable. Only known application fields are accepted, and service URLs cannot contain embedded credentials, query strings or fragments. Entries marked as planned can store connection details, but they do not gain API functionality or health checks until their integration is implemented. The catalogue is an inventory/status view; integrations marked as planned are not yet manageable from the dashboard. The dashboard currently includes live service status, Radarr movie, Sonarr series and Lidarr artist/album browsing, queue/history views, qBittorrent controls, Scryer library/requests/audit/recycle-bin views, and HomeLabPilot operation history. Configuration includes a curated Bazarr subtitle settings form, ARR profiles and integrations, Prowlarr configuration, and selected qBittorrent preferences. Destructive deletions display a current snapshot, require a typed confirmation, and reject stale previews. The optional Docker view is available only through the restricted Docker profile. Secret fields are redacted when configurations are read and restored server-side when records are updated.
 
-By default, Compose publishes the port on loopback only. To open the dashboard from another device on your LAN, set `STACKARR_BIND_ADDRESS=0.0.0.0` in your private `.env` and recreate the container. This also makes the authenticated MCP endpoint reachable on the LAN. Do not forward this port from your router to the public internet. For remote access, use a private VPN such as Tailscale or a trusted HTTPS access layer.
+By default, Compose publishes the port on loopback only. To open the dashboard from another device on your LAN, set `HOMELABPILOT_BIND_ADDRESS=0.0.0.0` in your private `.env` and recreate the container. This also makes the authenticated MCP endpoint reachable on the LAN. Do not forward this port from your router to the public internet. For remote access, use a private VPN such as Tailscale or a trusted HTTPS access layer.
 
 ## Current implementation
 
@@ -26,7 +26,7 @@ By default, Compose publishes the port on loopback only. To open the dashboard f
 - `scryer_list_recycled_items`: read Scryer's recycle-bin settings and paged recycled-file details, including scheduled purge dates.
 - `scryer_list_titles`, `scryer_list_media_requests`, `scryer_list_audit_events`: dedicated read-only Scryer catalog, request and audit workflows.
 - `scryer_preview_delete_title` / `scryer_delete_title`: deletion preview, fingerprint check and typed confirmation. Destructive fields are blocked in the generic GraphQL tool.
-- `stackarr_get_operation_history`: read HomeLabPilot's metadata-only local audit trail.
+- `homelabpilot_get_operation_history`: read HomeLabPilot's metadata-only local audit trail.
 - `bazarr_get_settings` / `bazarr_update_settings`: curated native Bazarr settings form and admin-only updates.
 - `arr_preview_delete_configuration` / `arr_delete_configuration`: preview and confirm configuration deletion; generic ARR DELETE is blocked.
 - `qbittorrent_preview_delete_torrents` / `qbittorrent_delete_torrents`: snapshot and typed confirmation before torrent removal or data deletion.
@@ -51,7 +51,7 @@ The wider integration catalog adds native HTTP API access for Plex, Jellyfin, Se
 
 ## MCP permission levels
 
-Set `STACKARR_MCP_PERMISSION_LEVEL` in the private `.env` file to control what an authenticated MCP client may do:
+Set `HOMELABPILOT_MCP_PERMISSION_LEVEL` in the private `.env` file to control what an authenticated MCP client may do:
 
 - `read`: inspect service status, libraries, queues, releases, torrents and configuration. All writes are blocked.
 - `operations`: the default. Includes ordinary media operations such as adding titles, grabbing releases, changing monitoring, categorizing torrents and pausing/resuming/rechecking downloads.
@@ -67,7 +67,7 @@ The dashboard exposes an Advanced API explorer for the native REST APIs of Radar
 
 The Scryer dashboard includes a schema-driven control center plus dedicated library search, media request, audit log and recycle-bin views. The schema view is generated from the installed instance. Deleting a title requires a preview fingerprint and the exact confirmation prompt returned by Scryer. The generic GraphQL console remains useful for other operations, but destructive delete fields are blocked there.
 
-HomeLabPilot records successful and failed writes initiated through its API in a local SQLite audit database. It stores timestamp, source, service, operation, target and outcome; request bodies, API keys and tokens are excluded. Compose persists the database in the `stackarr_state` named volume. The dashboard and `stackarr_get_operation_history` show recent events; the log is capped at 10,000 entries.
+HomeLabPilot records successful and failed writes initiated through its API in a local SQLite audit database. It stores timestamp, source, service, operation, target and outcome; request bodies, API keys and tokens are excluded. Compose persists the database in the `homelabpilot_state` named volume. The dashboard and `homelabpilot_get_operation_history` show recent events; the log is capped at 10,000 entries.
 
 ## Security model
 
@@ -82,7 +82,7 @@ HomeLabPilot records successful and failed writes initiated through its API in a
 
 ## Configure
 
-Copy `.env.example` to `.env` and fill in the URLs and credentials for the applications you have installed. Set `STACKARR_WEB_USERNAME` and `STACKARR_WEB_PASSWORD` to your dashboard login and a long, unique password. Keep `.env` outside Git.
+Copy `.env.example` to `.env` and fill in the URLs and credentials for the applications you have installed. Set `HOMELABPILOT_WEB_USERNAME` and `HOMELABPILOT_WEB_PASSWORD` to your dashboard login and a long, unique password. Keep `.env` outside Git.
 
 Every URL must be reachable **from inside the HomeLabPilot container**. The correct address depends on your deployment:
 - If HomeLabPilot and an application share a Docker network, use that application's Docker DNS name and internal port.
@@ -93,7 +93,7 @@ You do not need to configure services you do not use. Leave their variables empt
 
 Scryer uses its GraphQL API at `/graphql` and a bearer API key. Create an API key in Scryer's security settings and give it the permissions needed for the operations you want HomeLabPilot to perform.
 
-Operation previews are signed with `STACKARR_PREVIEW_SECRET`; if it is unset, HomeLabPilot uses `MCP_AUTH_TOKEN`. Keep the signing secret stable between preview and confirmation calls.
+Operation previews are signed with `HOMELABPILOT_PREVIEW_SECRET`; if it is unset, HomeLabPilot uses `MCP_AUTH_TOKEN`. Keep the signing secret stable between preview and confirmation calls.
 
 ## Install locally
 
@@ -106,7 +106,7 @@ pip install -e .
 cp .env.example .env
 # Edit .env, then export its variables before launching:
 set -a && source .env && set +a
-stackarr-mcp
+homelabpilot-mcp
 ```
 
 The server supports MCP over stdio and authenticated Streamable HTTP. HTTP mode requires a bearer token of at least 32 characters and rejects unauthenticated requests.
@@ -121,11 +121,11 @@ Run the unit tests with `pip install -e ".[test]"` followed by `pytest`.
    cp .env.example .env
    openssl rand -hex 32
    ```
-   Put the generated value in `MCP_AUTH_TOKEN`. Set `STACKARR_WEB_USERNAME` and `STACKARR_WEB_PASSWORD` for browser login, then fill in the URLs and credentials for the applications you use. Do not publish or share the `.env` file.
+   Put the generated value in `MCP_AUTH_TOKEN`. Set `HOMELABPILOT_WEB_USERNAME` and `HOMELABPILOT_WEB_PASSWORD` for browser login, then fill in the URLs and credentials for the applications you use. Do not publish or share the `.env` file.
 3. Ensure HomeLabPilot can reach the configured application URLs from its container. The supplied Compose file creates an isolated HomeLabPilot network by default. If your applications are on other Docker networks, attach HomeLabPilot to those existing networks in `compose.yaml`. For each network, add it to the service's `networks` list and declare it at the bottom as external, using your own network name. For example:
    ```yaml
    services:
-     stackarr:
+     homelabpilot:
        networks:
          - default
          - media_apps
@@ -141,14 +141,14 @@ Run the unit tests with `pip install -e ".[test]"` followed by `pytest`.
    ```
 5. Check startup:
    ```bash
-   docker compose logs -f stackarr
+   docker compose logs -f homelabpilot
    ```
 
-The MCP endpoint is `http://YOUR_DOCKER_HOST:8765/mcp` and requires `Authorization: Bearer <MCP_AUTH_TOKEN>`. The dashboard is at the same host and port, at `/`. By default both are bound to loopback; set `STACKARR_BIND_ADDRESS=0.0.0.0` for LAN access. Never expose the port directly to the public internet.
+The MCP endpoint is `http://YOUR_DOCKER_HOST:8765/mcp` and requires `Authorization: Bearer <MCP_AUTH_TOKEN>`. The dashboard is at the same host and port, at `/`. By default both are bound to loopback; set `HOMELABPILOT_BIND_ADDRESS=0.0.0.0` for LAN access. Never expose the port directly to the public internet.
 
-Docker management is opt-in. Set `STACKARR_DOCKER_ENABLED=true`, `STACKARR_DOCKER_PERMISSION_LEVEL=operations`, a unique 32-character-or-longer `STACKARR_DOCKER_GATEWAY_TOKEN`, and a comma-separated exact container name/ID allowlist in `.env`. Then start the optional gateway with `docker compose --profile docker up -d --build`. The gateway is not published on a host port and accepts only list/start/stop/restart for allowlisted containers. The Docker socket is host-powerful; enabling the module means trusting the gateway and its host.
+Docker management is opt-in. Set `HOMELABPILOT_DOCKER_ENABLED=true`, `HOMELABPILOT_DOCKER_PERMISSION_LEVEL=operations`, a unique 32-character-or-longer `HOMELABPILOT_DOCKER_GATEWAY_TOKEN`, and a comma-separated exact container name/ID allowlist in `.env`. Then start the optional gateway with `docker compose --profile docker up -d --build`. The gateway is not published on a host port and accepts only list/start/stop/restart for allowlisted containers. The Docker socket is host-powerful; enabling the module means trusting the gateway and its host.
 
-The MCP HTTP transport validates the incoming `Host` header to prevent DNS-rebinding attacks. Set `STACKARR_MCP_ALLOWED_HOSTS` to a comma-separated allowlist matching the host and published port used by your MCP client (for example, `localhost:*,127.0.0.1:*,[::1]:*,192.168.1.61:8765`). Entries are exact patterns; `host:*` allows any port for that hostname. Add each LAN, Tailscale, or reverse-proxy hostname that clients actually use.
+The MCP HTTP transport validates the incoming `Host` header to prevent DNS-rebinding attacks. Set `HOMELABPILOT_MCP_ALLOWED_HOSTS` to a comma-separated allowlist matching the host and published port used by your MCP client (for example, `localhost:*,127.0.0.1:*,[::1]:*,192.168.1.61:8765`). Entries are exact patterns; `host:*` allows any port for that hostname. Add each LAN, Tailscale, or reverse-proxy hostname that clients actually use.
 
 The container runs as a non-root user, drops Linux capabilities, and uses a read-only filesystem.
 
