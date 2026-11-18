@@ -9,7 +9,7 @@ import asyncio
 import hmac
 import os
 from typing import Any
-from urllib.parse import urljoin
+from urllib.parse import quote, urljoin
 
 import httpx
 
@@ -452,6 +452,38 @@ def register_integration_tools(
         if not re.fullmatch(r"[a-z_][a-z0-9_]*\\.[a-z0-9_]+", entity_id):
             raise ValueError("entity_id must use the domain.entity_id format")
         return await request("homeassistant", "GET", f"/api/states/{entity_id}")
+
+    @mcp.tool()
+    async def homeassistant_get_history(
+        entity_id: str, start_time: str, end_time: str = "",
+        minimal_response: bool = True, no_attributes: bool = False,
+    ) -> Any:
+        """Read historical state changes for one Home Assistant entity over a time range."""
+        import re
+        from datetime import datetime
+        if not re.fullmatch(r"[a-z_][a-z0-9_]*\\.[a-z0-9_]+", entity_id):
+            raise ValueError("entity_id must use the domain.entity_id format")
+        def validate_timestamp(value: str, label: str) -> None:
+            try:
+                parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            except (TypeError, ValueError):
+                raise ValueError(f"{label} must be an ISO-8601 timestamp") from None
+            if parsed.tzinfo is None:
+                raise ValueError(f"{label} must include a timezone")
+        validate_timestamp(start_time, "start_time")
+        params: dict[str, Any] = {
+            "filter_entity_id": entity_id,
+            "minimal_response": str(minimal_response).lower(),
+            "no_attributes": str(no_attributes).lower(),
+        }
+        if end_time:
+            validate_timestamp(end_time, "end_time")
+            params["end_time"] = end_time
+        return await request(
+            "homeassistant", "GET",
+            "/api/history/period/" + quote(start_time, safe=""),
+            params=params,
+        )
 
     @mcp.tool()
     async def homeassistant_list_services() -> Any:
