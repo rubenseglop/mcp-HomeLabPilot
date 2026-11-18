@@ -121,7 +121,7 @@ def _display_value(key: str, value: str) -> str:
     if _field_kind(key) == "url":
         try:
             parsed = urlsplit(value)
-            if not parsed.scheme or not parsed.hostname:
+            if not parsed.scheme or not parsed.hostname or parsed.username or parsed.password or parsed.query or parsed.fragment:
                 return ""
             host = parsed.hostname
             if ":" in host and not host.startswith("["):
@@ -143,12 +143,14 @@ def get_app_config() -> dict[str, Any]:
             value = os.getenv(key, "")
             kind = _field_kind(key)
             secret = kind == "secret"
+            display_value = "" if secret else _display_value(key, value)
             fields.append({
                 "key": key,
                 "label": key.removeprefix(app_id.upper() + "_").replace("_", " ").title(),
                 "kind": kind,
-                "value": "" if secret else _display_value(key, value),
+                "value": display_value,
                 "configured": bool(value),
+                "redacted": bool(value) and kind == "url" and not display_value,
                 "secret_set": bool(value) if secret else False,
             })
         result[app_id] = {"fields": fields}
@@ -215,8 +217,8 @@ def save_app_config(
     current = dict(store.get(app_id, {}))
     for key, raw in values.items():
         value = _validate_value(key, raw)
-        if _field_kind(key) == "secret" and not value:
-            continue  # An empty password box means keep the current secret.
+        if not value:
+            continue  # Empty fields preserve the existing environment or saved value.
         current[key] = value
     for key in clear:
         current[key] = ""
