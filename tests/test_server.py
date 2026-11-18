@@ -930,7 +930,7 @@ def test_pulsarr_authentication_and_api_endpoints_are_configured():
         "PULSARR_URL", "PULSARR_API_KEY", "x-api-key", "/health"
     )
     assert HTTP_INTEGRATIONS["cleanuparr"] == (
-        "CLEANUPARR_URL", "", "none", "/health"
+        "CLEANUPARR_URL", "CLEANUPARR_API_KEY", "x-api-key", "/health"
     )
     assert HTTP_INTEGRATIONS["maintainerr"] == (
         "MAINTAINERR_URL", "", "none", "/api/health/ready"
