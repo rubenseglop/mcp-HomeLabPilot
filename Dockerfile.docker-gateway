@@ -2,6 +2,6 @@ FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 WORKDIR /app
-COPY src/stackarr/docker_gateway.py ./docker_gateway.py
+COPY src/homelabpilot/docker_gateway.py ./docker_gateway.py
 EXPOSE 2375
 CMD ["python", "/app/docker_gateway.py"]
