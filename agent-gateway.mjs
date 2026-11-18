@@ -46,7 +46,7 @@ function runCodex(conversation, prompt, job) {
     : ["exec", "--json", "--sandbox", "read-only", "--skip-git-repo-check", "-"];
   const child = spawn("codex", args, {
     cwd: "/workspace",
-    env: (() => { const clean = { ...process.env, CODEX_HOME, HOME: "/home/node", NO_COLOR: "1" }; delete clean.HOMELABPILOT_AGENT_GATEWAY_TOKEN; return clean; })(),
+    env: { ...process.env, CODEX_HOME, HOME: "/home/node", NO_COLOR: "1" },
     stdio: ["pipe", "pipe", "pipe"]
   });
   job.pid = child.pid;
