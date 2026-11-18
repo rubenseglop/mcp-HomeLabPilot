@@ -26,6 +26,9 @@ import uvicorn
 from stackarr.audit import list_events as list_audit_events, record_event
 from stackarr.web import HomeLabPilotWebMiddleware
 from stackarr.integrations import register_integration_tools
+from stackarr.config_store import get_app_config, load_saved_config, save_app_config
+
+load_saved_config()
 
 TIMEOUT = float(os.getenv("HTTP_TIMEOUT", "15"))
 _AUDIT_SOURCE: ContextVar[str] = ContextVar("stackarr_audit_source", default="mcp")
@@ -1398,6 +1401,16 @@ async def _web_api_request_inner(
     path: str, method: str, query: dict[str, list[str]], payload: dict[str, Any]
 ) -> Any:
     """Shared browser API actions; all service calls reuse the same configured API layer."""
+    if method == "GET" and path == "/web-api/apps/config":
+        return get_app_config()
+    if method == "POST" and path == "/web-api/apps/config":
+        app_id = str(payload.get("app_id", ""))
+        values = payload.get("values", {})
+        clear_secrets = payload.get("clear_secrets", [])
+        result = save_app_config(app_id, values, clear_secrets)
+        _audit("CONFIG_UPDATE", app_id, ",".join(sorted(values)))
+        return result
+
     if method == "POST" and path == "/web-api/scryer/graphql":
         query_text = str(payload.get("query", ""))
         if not query_text.strip():
