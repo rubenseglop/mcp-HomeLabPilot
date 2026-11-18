@@ -42,6 +42,16 @@ async function readBody(req) {
 function conversationView(c) {
   return { id: c.id, agent: c.agent || "codex", title: c.title, created_at: c.created_at, updated_at: c.updated_at, messages: c.messages || [] };
 }
+function codexErrorMessage(event) {
+  const error = event?.error;
+  const value = event?.message ?? (error && typeof error === "object" ? error.message ?? error : error);
+  if (typeof value === "string" && value.trim()) return value;
+  if (value && typeof value === "object") {
+    try { return JSON.stringify(value); } catch {}
+  }
+  return "Codex ha encontrado un error";
+}
+
 function runCodex(conversation, prompt, job) {
   const args = conversation.thread_id
     ? ["exec", "resume", conversation.thread_id, "--json", "--sandbox", "read-only", "--skip-git-repo-check", "-"]
@@ -69,7 +79,7 @@ function runCodex(conversation, prompt, job) {
         if (item.type === "mcp_tool_call") job.activities.push({ type: "mcp", name: item.server || "MCP", tool: item.tool || item.name || "tool", status: item.status || "running" });
         else if (item.type === "command_execution") job.activities.push({ type: "command", name: "Comando", status: item.status || "completed" });
       }
-      if (event.type === "turn.failed" || event.type === "error") job.error = String(event.message || event.error || "Codex ha encontrado un error");
+      if (event.type === "turn.failed" || event.type === "error") job.error = codexErrorMessage(event);
       job.events.push({ type: event.type, item_type: event.item?.type || null, text: event.item?.type === "agent_message" ? String(event.item.text || "").slice(0, 12000) : undefined, status: event.item?.status || undefined });
       if (job.events.length > 250) job.events.shift();
       job.updated_at = now();
@@ -85,7 +95,8 @@ function runCodex(conversation, prompt, job) {
       try {
         const event = JSON.parse(pending);
         if (event.type === "thread.started" && event.thread_id) conversation.thread_id = event.thread_id;
-        if (event.item?.type === "agent_message") job.answer = event.item.text || job.answer;
+        if (event.item?.type === "agent_message" && typeof event.item.text === "string") job.answer = event.item.text || job.answer;
+        if (event.type === "turn.failed" || event.type === "error") job.error = codexErrorMessage(event);
       } catch {}
     }
     job.status = code === 0 && !job.error ? "completed" : "failed";
