@@ -177,12 +177,15 @@ radarr:['RADARR_URL','RADARR_API_KEY'],sonarr:['SONARR_URL','SONARR_API_KEY'],li
 plex:['PLEX_URL','PLEX_TOKEN'],jellyfin:['JELLYFIN_URL','JELLYFIN_API_KEY'],seerr:['SEERR_URL','SEERR_API_KEY'],transmission:['TRANSMISSION_URL','TRANSMISSION_USERNAME','TRANSMISSION_PASSWORD'],pulsarr:['PULSARR_URL','PULSARR_API_KEY'],cleanuparr:['CLEANUPARR_URL','CLEANUPARR_API_KEY'],maintainerr:['MAINTAINERR_URL'],agregarr:['AGREGARR_URL','AGREGARR_API_KEY'],tracearr:['TRACEARR_URL','TRACEARR_API_KEY'],immich:['IMMICH_URL','IMMICH_API_KEY'],romm:['ROMM_URL','ROMM_API_TOKEN'],bookorbit:['BOOKORBIT_URL','BOOKORBIT_API_KEY'],tinymediamanager:['TINYMEDIAMANAGER_URL','TINYMEDIAMANAGER_API_KEY'],tidarr:['TIDARR_URL','TIDARR_API_KEY'],flaresolverr:['FLARESOLVERR_URL'],cloudflare:['CLOUDFLARE_API_URL','CLOUDFLARE_API_TOKEN'],recyclarr:['RECYCLARR_CONTAINER'],postgres:['POSTGRES_HOST','POSTGRES_PORT'],redis:['REDIS_HOST','REDIS_PORT'],docker:['STACKARR_DOCKER_ENABLED','STACKARR_DOCKER_PERMISSION_LEVEL','STACKARR_DOCKER_ALLOWED_CONTAINERS'],homeassistant:['HOMEASSISTANT_URL','HOMEASSISTANT_TOKEN'],frigate:['FRIGATE_URL','FRIGATE_API_KEY'],tdarr:['TDARR_URL','TDARR_API_KEY'],youtarr:['YOUTARR_URL','YOUTARR_API_KEY'],questarr:['QUESTARR_URL','QUESTARR_API_KEY']
 };
 APP_CATALOG.forEach(app=>{app.env=APP_ENV_KEYS[app.id]||[];});
+const APP_DASHBOARD_VIEWS={radarr:'movies',sonarr:'series',lidarr:'artists',prowlarr:'settings',bazarr:'settings',scryer:'scryer',qbittorrent:'downloads',docker:'docker'};
 function appCard(app,status){
- const check=status[app.id],configured=!!(check&&(check.configured===true||check.ok===true||check.version||check.app_name));
- const online=!!(check&&check.ok===true),planned=app.mode==='Planned integration';
- const state=planned?'Planned':!check?'Not configured':online?'Online':configured?'Needs attention':'Not configured';
+ const check=status[app.id],online=!!(check&&check.ok===true);
+ const configured=!!(check&&(check.configured===true||online));
+ const planned=app.mode==='Planned integration';
+ const state=planned?'Planned':!configured?'Not configured':online?'Online':'Needs attention';
  const klass=online?'ok':configured?'bad':'';
- return '<article class="card" data-app-card data-category="'+esc(app.category)+'" data-search="'+esc((app.name+' '+app.desc+' '+app.category).toLowerCase())+'"><div class="cardtop"><div class="name">'+esc(app.name)+'</div><span class="status '+klass+'">'+esc(state)+'</span></div><div class="version">'+esc(app.category)+' · '+esc(app.mode)+'</div><p class="muted" style="line-height:1.5">'+esc(app.desc)+'</p><div class="muted">'+esc(app.support)+'</div><div class="actions" style="margin-top:12px"><button type="button" data-app-details="'+esc(app.id)+'">Details</button></div><div id="app-detail-'+esc(app.id)+'" class="info" hidden style="margin-top:10px"></div></article>';
+ const open=APP_DASHBOARD_VIEWS[app.id];
+ return '<article class="card" data-app-card data-category="'+esc(app.category)+'" data-search="'+esc((app.name+' '+app.desc+' '+app.category).toLowerCase())+'"><div class="cardtop"><div class="name">'+esc(app.name)+'</div><span class="status '+klass+'">'+esc(state)+'</span></div><div class="version">'+esc(app.category)+' · '+esc(app.mode)+'</div><p class="muted" style="line-height:1.5">'+esc(app.desc)+'</p><div class="muted">'+esc(app.support)+'</div><div class="actions" style="margin-top:12px">'+(open?'<button type="button" data-app-open="'+esc(app.id)+'">Open dashboard</button>':'')+'<button type="button" data-app-details="'+esc(app.id)+'">Details</button></div><div id="app-detail-'+esc(app.id)+'" class="info" hidden style="margin-top:10px"></div></article>';
 }
 
 async function openView(view){const target=$('workspace');target.textContent='Loading…';try{
@@ -196,7 +199,17 @@ async function openView(view){const target=$('workspace');target.textContent='Lo
   const filterApps=()=>{const term=$('apps-search').value.trim().toLowerCase();document.querySelectorAll('[data-app-card]').forEach(card=>{card.style.display=(active==='All'||card.dataset.category===active)&&card.dataset.search.includes(term)?'':'none';});};
   $('apps-search').addEventListener('input',filterApps);
   $('apps-categories').addEventListener('click',e=>{const b=e.target.closest('[data-app-filter]');if(!b)return;active=b.dataset.appFilter;$('apps-categories').querySelectorAll('button').forEach(x=>x.style.borderColor=x===b?'#647cf6':'#34435d');filterApps();});
-  $('apps-grid').addEventListener('click',e=>{const b=e.target.closest('[data-app-details]');if(!b)return;const app=APP_CATALOG.find(x=>x.id===b.dataset.appDetails);if(!app)return;const panel=$('app-detail-'+app.id);const check=statuses[app.id]||{};panel.hidden=!panel.hidden;if(panel.hidden)return;const vars=app.env||[];panel.innerHTML='<strong>'+esc(app.name)+' · integration details</strong><p class="muted">'+esc(app.mode)+' · '+esc(check.ok===true?'Connection successful':check.configured?'Configured; connection not verified':'Configuration not detected')+'</p><p>'+esc(app.desc)+'</p><p class="muted">'+(vars.length?'Configuration keys: '+vars.map(esc).join(', '):'No editable configuration form is available for this integration yet.')+'</p><p class="muted">Credentials are intentionally never displayed in the dashboard. Configuration editing and service-specific controls are a later implementation step.</p>';});
+  $('apps-grid').addEventListener('click',e=>{
+   const open=e.target.closest('[data-app-open]');
+   if(open){const view=APP_DASHBOARD_VIEWS[open.dataset.appOpen];if(view)openView(view);return;}
+   const b=e.target.closest('[data-app-details]');if(!b)return;
+   const app=APP_CATALOG.find(x=>x.id===b.dataset.appDetails);if(!app)return;
+   const panel=$('app-detail-'+app.id),check=statuses[app.id]||{};
+   panel.hidden=!panel.hidden;if(panel.hidden)return;
+   const vars=app.env||[];
+   const connection=check.ok===true?'Connection successful':check.configured===true?'Configured but not reachable':'Not configured';
+   panel.innerHTML='<strong>'+esc(app.name)+' · integration details</strong><p class="muted">'+esc(app.mode)+' · '+esc(connection)+'</p><p>'+esc(app.desc)+'</p><p class="muted">'+(vars.length?'Required environment keys: '+vars.map(esc).join(', '):'No environment keys are defined for this integration.')+'</p><p class="muted">Credentials are never displayed. Environment-based connection settings must currently be changed in the private deployment configuration, then the container restarted.</p>';
+  });
   return;
  }
  if(view==='operation-history'){
