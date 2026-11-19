@@ -373,6 +373,7 @@ def test_dashboard_exposes_codex_chat_workspace():
         'data-view="agent-chat"',
         "AI Chat · Agents",
         "Claude Code",
+        "Gemini",
         "agent-provider",
         "/web-api/agents/status",
         "/web-api/agents/chat",
