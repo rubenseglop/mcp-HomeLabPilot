@@ -177,7 +177,7 @@ radarr:['RADARR_URL','RADARR_API_KEY'],sonarr:['SONARR_URL','SONARR_API_KEY'],li
 plex:['PLEX_URL','PLEX_TOKEN'],jellyfin:['JELLYFIN_URL','JELLYFIN_API_KEY'],seerr:['SEERR_URL','SEERR_API_KEY'],transmission:['TRANSMISSION_URL','TRANSMISSION_USERNAME','TRANSMISSION_PASSWORD'],pulsarr:['PULSARR_URL','PULSARR_API_KEY'],cleanuparr:['CLEANUPARR_URL','CLEANUPARR_API_KEY'],maintainerr:['MAINTAINERR_URL'],agregarr:['AGREGARR_URL','AGREGARR_API_KEY'],tracearr:['TRACEARR_URL','TRACEARR_API_KEY'],immich:['IMMICH_URL','IMMICH_API_KEY'],romm:['ROMM_URL','ROMM_API_TOKEN'],bookorbit:['BOOKORBIT_URL','BOOKORBIT_API_KEY'],tinymediamanager:['TINYMEDIAMANAGER_URL','TINYMEDIAMANAGER_API_KEY'],tidarr:['TIDARR_URL','TIDARR_API_KEY'],flaresolverr:['FLARESOLVERR_URL'],cloudflare:['CLOUDFLARE_API_URL','CLOUDFLARE_API_TOKEN'],recyclarr:['RECYCLARR_CONTAINER'],postgres:['POSTGRES_HOST','POSTGRES_PORT'],redis:['REDIS_HOST','REDIS_PORT'],docker:['HOMELABPILOT_DOCKER_ENABLED','HOMELABPILOT_DOCKER_PERMISSION_LEVEL','HOMELABPILOT_DOCKER_ALLOWED_CONTAINERS'],homeassistant:['HOMEASSISTANT_URL','HOMEASSISTANT_TOKEN'],frigate:['FRIGATE_URL','FRIGATE_API_KEY'],tdarr:['TDARR_URL','TDARR_API_KEY'],youtarr:['YOUTARR_URL','YOUTARR_API_KEY'],questarr:['QUESTARR_URL','QUESTARR_API_KEY']
 };
 APP_CATALOG.forEach(app=>{app.env=APP_ENV_KEYS[app.id]||[];});
-const APP_DASHBOARD_VIEWS={radarr:'movies',sonarr:'series',lidarr:'artists',prowlarr:'settings',bazarr:'settings',scryer:'scryer',qbittorrent:'downloads',docker:'docker'};
+const APP_DASHBOARD_VIEWS={radarr:'movies',sonarr:'series',lidarr:'artists',prowlarr:'settings',bazarr:'settings',scryer:'scryer',qbittorrent:'downloads',docker:'docker',tdarr:'tdarr'};
 function appCard(app,status){
  const check=status[app.id],online=!!(check&&check.ok===true);
  const configured=!!(check&&(check.configured===true||online));
@@ -257,6 +257,33 @@ async function openView(view){const target=$('workspace');target.textContent='Lo
    e.preventDefault();
    runAgentChat(e).catch(err=>{$('agent-chat-status').textContent='Error: '+err.message;});
   });
+  return;
+ }
+ if(view==='tdarr'){
+  target.innerHTML='<h3>Tdarr · Monitoring</h3><p class="muted">Read-only overview of server health, connected nodes, recent job reports and file search. This panel cannot queue or rescan files.</p><div class="actions" style="margin:12px 0"><button id="tdarr-refresh">Refresh overview</button><span id="tdarr-status" class="muted">Loading Tdarr…</span></div><div class="grid"><article class="card"><div class="name">Server status</div><pre id="tdarr-server" class="info" style="white-space:pre-wrap;overflow-wrap:anywhere">Loading…</pre></article><article class="card"><div class="name">Connected nodes</div><pre id="tdarr-nodes" class="info" style="white-space:pre-wrap;overflow-wrap:anywhere">Loading…</pre></article><article class="card"><div class="name">Recent job reports</div><pre id="tdarr-jobs" class="info" style="white-space:pre-wrap;overflow-wrap:anywhere">Loading…</pre></article></div><section class="section"><div class="sectionhead">Search media files</div><form id="tdarr-search-form" class="actions" style="flex-wrap:wrap"><input id="tdarr-search-term" placeholder="Filename or path contains…" style="min-width:220px;flex:1"><button>Search files</button></form><pre id="tdarr-files" class="info" style="white-space:pre-wrap;overflow-wrap:anywhere;margin-top:10px">Enter a filename or path fragment to search.</pre></section>';
+  const show=(id,value)=>$(id).textContent=JSON.stringify(value,null,2);
+  const loadTdarr=async()=>{
+   $('tdarr-status').textContent='Refreshing…';
+   try{
+    const [status,nodes,jobs]=await Promise.all([
+     request('/web-api/tdarr/status'),
+     request('/web-api/tdarr/nodes'),
+     request('/web-api/tdarr/jobs?start=0&page_size=20')
+    ]);
+    show('tdarr-server',status);show('tdarr-nodes',nodes);show('tdarr-jobs',jobs);
+    $('tdarr-status').textContent='Updated '+new Date().toLocaleTimeString();
+   }catch(err){$('tdarr-status').textContent='Could not load Tdarr: '+err.message;}
+  };
+  $('tdarr-refresh').addEventListener('click',loadTdarr);
+  $('tdarr-search-form').addEventListener('submit',async e=>{
+   e.preventDefault();
+   const term=$('tdarr-search-term').value.trim(),out=$('tdarr-files');
+   if(!term){out.textContent='Enter a filename or path fragment first.';return;}
+   out.textContent='Searching…';
+   try{show('tdarr-files',await request('/web-api/tdarr/files?search_term='+encodeURIComponent(term)));}
+   catch(err){out.textContent='Search failed: '+err.message;}
+  });
+  await loadTdarr();
   return;
  }
  if(view==='apps'){
