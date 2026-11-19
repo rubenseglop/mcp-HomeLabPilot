@@ -49,6 +49,21 @@ input{width:100%;padding:12px;border:1px solid #34435d;border-radius:10px;backgr
 #login button{width:100%;background:#536ce7;border:0;font-weight:650}.hidden{display:none!important}
 .foot{margin-top:28px;color:#71819a;font-size:11px;text-align:center}
 @media(max-width:600px){.shell{padding:52px 14px 20px}header{align-items:flex-start}.hero{align-items:flex-start;flex-direction:column}.actions button{padding:8px}.language-switch{top:8px;right:8px}}
+ 
+.app-layout{max-width:none;width:100%;min-height:100vh;margin:0;padding:0;display:grid;grid-template-columns:248px minmax(0,1fr)}
+.sidebar{position:sticky;top:0;height:100vh;display:flex;flex-direction:column;padding:24px 14px 16px;background:#0d1627;border-right:1px solid #25344d;overflow-y:auto}
+.sidebar-brand{padding:0 8px 25px;border-bottom:1px solid #25344d}.sidebar-brand .logo{width:39px;height:39px}
+.side-nav{display:flex;flex-direction:column;gap:25px;padding-top:23px}.nav-group{display:flex;flex-direction:column;gap:5px}
+.nav-label{padding:0 10px 7px;color:#71819a;font-size:10px;font-weight:750;letter-spacing:1.1px}
+.nav-link{width:100%;display:flex;align-items:center;gap:12px;text-align:left;border:1px solid transparent;background:transparent;color:#aebbd0;padding:10px 11px;border-radius:9px;font-size:13px}
+.nav-link:hover{background:#18243a;color:#fff}.nav-link.active{background:#253657;border-color:#354b70;color:#fff}
+.nav-link>span:first-of-type{font-weight:550}.sidebar-bottom{margin-top:auto;padding-top:15px;border-top:1px solid #25344d}
+.main-panel{min-width:0}.topbar{height:76px;margin:0;padding:0 30px;border-bottom:1px solid #25344d;background:#0e1728;display:flex;align-items:center;justify-content:space-between}
+.eyebrow{font-size:9px;letter-spacing:1.3px;color:#71819a;font-weight:750}.topbar-title{font-size:17px;font-weight:700;margin-top:3px}
+.page-content{max-width:1440px;margin:0 auto;padding:28px 30px 22px}.page-content .hero{margin:0 0 18px}
+.page-content .section{margin-top:22px}.page-content #workspace{min-height:100px}
+@media(max-width:760px){.app-layout{grid-template-columns:68px minmax(0,1fr)}.sidebar{padding:17px 7px}.sidebar-brand{padding:0 6px 18px}.sidebar-brand .brand>div:last-child{display:none}.sidebar-brand .logo{width:40px;height:40px}.nav-label{display:none}.side-nav{gap:15px;padding-top:17px}.nav-link{justify-content:center;padding:11px 5px;font-size:0}.nav-link>span{display:none}.sidebar-bottom .nav-link{font-size:0}.topbar{height:68px;padding:0 14px}.page-content{padding:20px 14px}.page-content .hero{align-items:flex-start;flex-direction:column}}
+@media(max-width:430px){.app-layout{grid-template-columns:56px minmax(0,1fr)}.sidebar{padding-left:4px;padding-right:4px}.page-content{padding:16px 10px}.topbar{padding:0 10px}}
 </style>
 </head>
 <body>
@@ -62,25 +77,42 @@ input{width:100%;padding:12px;border:1px solid #34435d;border-radius:10px;backgr
   <form id="login-form"><input id="username" autocomplete="username" placeholder="Username" required><input id="password" type="password" autocomplete="current-password" placeholder="Password" required><button>Sign in</button></form>
   <div id="login-error" class="error"></div>
 </div>
-<main id="app" class="shell hidden">
-  <header>
-    <div class="brand"><div class="logo">S</div><div><h1>HomeLabPilot</h1><div class="sub">Media stack control center</div></div></div>
-    <div class="actions"><button id="refresh">Refresh</button><button id="logout">Sign out</button></div>
-  </header>
-  <div class="hero"><div><h2>Overview</h2><div class="muted">Live connectivity of your configured services</div></div><div class="summary"><span class="pill" id="healthy">Checking…</span><span class="pill" id="updated">Not updated yet</span></div></div>
-  <div class="grid" id="services"></div>
-  <section class="section">
-    <div class="sectionhead">Media management</div>
-    <div class="actions" style="flex-wrap:wrap;margin-bottom:14px">
-      <button data-view="movies">Movies · Radarr</button><button data-view="series">Series · Sonarr</button>
-      <button data-view="radarr-queue">Radarr queue</button><button data-view="sonarr-queue">Sonarr queue</button>
-      <button data-view="downloads">Downloads · qBittorrent</button>
-      <button data-view="artists">Music · Lidarr</button><button data-view="lidarr-queue">Lidarr queue</button><button data-view="lidarr-history">Lidarr history</button><button data-view="lidarr-missing">Missing albums</button>
-      <button data-view="search-movies">Search movies</button><button data-view="search-series">Search series</button><button data-view="search-artists">Search artists</button><button data-view="scryer">Scryer schema</button><button data-view="scryer-titles">Scryer library</button><button data-view="scryer-requests">Scryer requests</button><button data-view="scryer-audit">Scryer audit</button><button data-view="scryer-recycle-bin">Scryer recycle bin</button><button data-view="operation-history">Operation history</button><button data-view="apps">Applications</button><button data-view="docker">Docker</button><button data-view="settings">Settings</button><button data-view="api-explorer">Advanced API</button><button data-view="agent-chat">AI Chat · Agents</button>
+<main id="app" class="app-layout hidden">
+  <aside class="sidebar">
+    <div class="brand sidebar-brand"><div class="logo">S</div><div><h1>HomeLabPilot</h1><div class="sub">Media stack control center</div></div></div>
+    <nav class="side-nav" aria-label="Main navigation">
+      <div class="nav-group"><div class="nav-label">WORKSPACE</div>
+        <button class="nav-link active" data-view="home">⌂ <span>Inicio</span></button>
+        <button class="nav-link" data-view="agent-chat">✧ <span>Chat</span></button>
+        <button class="nav-link" data-view="operation-history">◷ <span>Actividad</span></button>
+      </div>
+      <div class="nav-group"><div class="nav-label">BIBLIOTECA Y DESCARGAS</div>
+        <button class="nav-link" data-view="movies">▣ <span>Películas · Radarr</span></button>
+        <button class="nav-link" data-view="series">▤ <span>Series · Sonarr</span></button>
+        <button class="nav-link" data-view="artists">♫ <span>Música · Lidarr</span></button>
+        <button class="nav-link" data-view="downloads">⇩ <span>Descargas</span></button>
+        <button class="nav-link" data-view="scryer-titles">▦ <span>Biblioteca Scryer</span></button>
+      </div>
+      <div class="nav-group"><div class="nav-label">CONFIGURACIÓN</div>
+        <button class="nav-link" data-view="apps">▧ <span>Aplicaciones</span></button>
+        <button class="nav-link" data-view="docker">▣ <span>Docker</span></button>
+        <button class="nav-link" data-view="settings">⚙ <span>General</span></button>
+        <button class="nav-link" data-view="api-explorer">⌘ <span>API avanzada</span></button>
+      </div>
+    </nav>
+    <div class="sidebar-bottom"><button id="logout" class="nav-link">↪ <span>Cerrar sesión</span></button></div>
+  </aside>
+  <div class="main-panel">
+    <header class="topbar"><div><div class="eyebrow">HOMELAB CONTROL CENTER</div><div class="topbar-title" id="page-title">Inicio</div></div><div class="actions"><button id="refresh">Actualizar</button></div></header>
+    <div class="page-content">
+      <div class="hero" id="home-overview"><div><h2>Estado de servicios</h2><div class="muted">Conectividad de tus servicios configurados</div></div><div class="summary"><span class="pill" id="healthy">Comprobando…</span><span class="pill" id="updated">Aún sin actualizar</span></div></div>
+      <div class="grid" id="services"></div>
+      <section class="section">
+        <div class="info" id="workspace"><strong>Selecciona una sección</strong><br>Usa el menú lateral para consultar tus servicios y herramientas.</div>
+      </section>
+      <div class="foot">HomeLabPilot · Web dashboard and MCP endpoint in one application</div>
     </div>
-    <div class="info" id="workspace"><strong>Select a section</strong><br>Browse your library, inspect import queues and manage active downloads.</div>
-  </section>
-  <div class="foot">HomeLabPilot · Web dashboard and MCP endpoint in one application</div>
+  </div>
 </main>
 <script>
 const $=id=>document.getElementById(id);
@@ -582,7 +614,8 @@ async function openView(view){const target=$('workspace');target.textContent='Lo
  else if(view==='downloads'){data=await request('/web-api/torrents');const rows=(data||[]).map(x=>'<tr><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(x.name)+'</td><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(x.state)+'</td><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(x.progress===undefined?'—':Math.round(x.progress*100)+'%')+'</td><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(x.category)+'</td><td style="padding:10px;border-bottom:1px solid #25344d"><input data-torrent-category value="'+esc(x.category||'')+'" aria-label="Torrent category" style="width:110px;margin:0;padding:6px"><button data-torrent-set-category data-hash="'+esc(x.hash)+'">Set</button></td><td style="padding:10px;border-bottom:1px solid #25344d"><button data-torrent-action="pause" data-hash="'+esc(x.hash)+'">Pause</button> <button data-torrent-action="resume" data-hash="'+esc(x.hash)+'">Resume</button> <button data-torrent-delete data-hash="'+esc(x.hash)+'" data-name="'+esc(x.name)+'">Preview remove</button></td></tr>');html='<h3>Active downloads <span class="muted">('+rows.length+')</span></h3><p class="muted">Removing a torrent keeps its downloaded files by default. A preview and exact confirmation are required.</p>'+table(['Name','State','Progress','Category','Set category','Controls'],rows);}
  target.innerHTML=html||'<div class="muted">No records found.</div>';
  }catch(e){target.innerHTML='<div class="error">'+esc(e.message)+'</div>';}}
-document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>openView(b.dataset.view)));
+function setActiveView(view){document.querySelectorAll('.side-nav [data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===view));const titles={home:'Inicio','agent-chat':'Chat','operation-history':'Actividad',movies:'Películas · Radarr',series:'Series · Sonarr',artists:'Música · Lidarr',downloads:'Descargas','scryer-titles':'Biblioteca Scryer',apps:'Aplicaciones',docker:'Docker',settings:'General','api-explorer':'API avanzada'};$('page-title').textContent=titles[view]||view;}
+document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>{setActiveView(b.dataset.view);if(b.dataset.view==='home'){$('home-overview').scrollIntoView({behavior:'smooth',block:'start'});$('workspace').innerHTML='<strong>Resumen general</strong><br>Estado de conexión de los servicios configurados.';return;}openView(b.dataset.view);}));
 $('workspace').addEventListener('submit',async e=>{
  if(e.target.id==='scryer-title-search'){
   e.preventDefault();const out=$('scryer-title-results'),search=$('scryer-title-query').value.trim(),facet=$('scryer-title-facet').value;
