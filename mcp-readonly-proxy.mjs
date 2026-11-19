@@ -48,11 +48,35 @@ const server=http.createServer(async(req,res)=>{
       if(["transfer-encoding","connection","content-length"].includes(key.toLowerCase()))continue;
       responseHeaders[key]=value;
     }
-    if(req.method==="POST"&&rpc&&!Array.isArray(rpc)&&rpc.method==="tools/list"&&upstream.headers.get("content-type")?.includes("application/json")){
-      const data=await upstream.json();
-      if(Array.isArray(data.result?.tools))data.result.tools=data.result.tools.filter(tool=>READ_ONLY_TOOLS.test(String(tool.name||"")));
-      const out=Buffer.from(JSON.stringify(data));
-      res.writeHead(upstream.status,{...responseHeaders,"content-length":out.length,"cache-control":"no-store"});res.end(out);return;
+    if(req.method==="POST"&&rpc&&!Array.isArray(rpc)&&rpc.method==="tools/list"){
+      const contentType=upstream.headers.get("content-type")||"";
+      if(contentType.includes("application/json")){
+        const data=await upstream.json();
+        if(Array.isArray(data.result?.tools))data.result.tools=data.result.tools.filter(tool=>READ_ONLY_TOOLS.test(String(tool.name||"")));
+        const out=Buffer.from(JSON.stringify(data));
+        res.writeHead(upstream.status,{...responseHeaders,"content-length":out.length,"cache-control":"no-store"});res.end(out);return;
+      }
+      if(contentType.includes("text/event-stream")){
+        const source=await upstream.text();
+        const events=source.split(/\\r?\\n\\r?\\n/);
+        const filtered=events.map(event=>{
+          const lines=event.split(/\\r?\\n/);
+          const dataIndexes=[];
+          for(let i=0;i<lines.length;i++)if(lines[i].startsWith("data:"))dataIndexes.push(i);
+          if(!dataIndexes.length)return event;
+          try{
+            const payload=JSON.parse(dataIndexes.map(i=>lines[i].slice(5).trimStart()).join("\\n"));
+            if(Array.isArray(payload.result?.tools)){
+              payload.result.tools=payload.result.tools.filter(tool=>READ_ONLY_TOOLS.test(String(tool.name||"")));
+              lines[dataIndexes[0]]="data: "+JSON.stringify(payload);
+              for(const index of dataIndexes.slice(1).reverse())lines.splice(index,1);
+            }
+            return lines.join("\\n");
+          }catch{return event;}
+        }).join("\\n\\n");
+        const out=Buffer.from(filtered);
+        res.writeHead(upstream.status,{...responseHeaders,"content-length":out.length,"cache-control":"no-store"});res.end(out);return;
+      }
     }
     res.writeHead(upstream.status,responseHeaders);
     if(upstream.body)await pipeline(Readable.fromWeb(upstream.body),res);else res.end();
