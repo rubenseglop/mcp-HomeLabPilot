@@ -58,22 +58,22 @@ const server=http.createServer(async(req,res)=>{
       }
       if(contentType.includes("text/event-stream")){
         const source=await upstream.text();
-        const events=source.split(/\\r?\\n\\r?\\n/);
+        const events=source.split(/\r?\n\r?\n/);
         const filtered=events.map(event=>{
-          const lines=event.split(/\\r?\\n/);
+          const lines=event.split(/\r?\n/);
           const dataIndexes=[];
           for(let i=0;i<lines.length;i++)if(lines[i].startsWith("data:"))dataIndexes.push(i);
           if(!dataIndexes.length)return event;
           try{
-            const payload=JSON.parse(dataIndexes.map(i=>lines[i].slice(5).trimStart()).join("\\n"));
+            const payload=JSON.parse(dataIndexes.map(i=>lines[i].slice(5).trimStart()).join("\n"));
             if(Array.isArray(payload.result?.tools)){
               payload.result.tools=payload.result.tools.filter(tool=>READ_ONLY_TOOLS.test(String(tool.name||"")));
               lines[dataIndexes[0]]="data: "+JSON.stringify(payload);
               for(const index of dataIndexes.slice(1).reverse())lines.splice(index,1);
             }
-            return lines.join("\\n");
+            return lines.join("\n");
           }catch{return event;}
-        }).join("\\n\\n");
+        }).join("\n\n");
         const out=Buffer.from(filtered);
         res.writeHead(upstream.status,{...responseHeaders,"content-length":out.length,"cache-control":"no-store"});res.end(out);return;
       }
