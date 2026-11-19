@@ -88,10 +88,22 @@ input{width:100%;padding:12px;border:1px solid #34435d;border-radius:10px;backgr
       </div>
       <div class="nav-group"><div class="nav-label">BIBLIOTECA Y DESCARGAS</div>
         <button class="nav-link" data-view="movies">▣ <span>Películas · Radarr</span></button>
+        <button class="nav-link" data-view="radarr-queue">≡ <span>Cola de Radarr</span></button>
+        <button class="nav-link" data-view="search-movies">⌕ <span>Buscar películas</span></button>
         <button class="nav-link" data-view="series">▤ <span>Series · Sonarr</span></button>
+        <button class="nav-link" data-view="sonarr-queue">≡ <span>Cola de Sonarr</span></button>
+        <button class="nav-link" data-view="search-series">⌕ <span>Buscar series</span></button>
         <button class="nav-link" data-view="artists">♫ <span>Música · Lidarr</span></button>
+        <button class="nav-link" data-view="lidarr-queue">≡ <span>Cola de Lidarr</span></button>
+        <button class="nav-link" data-view="lidarr-history">◷ <span>Historial de Lidarr</span></button>
+        <button class="nav-link" data-view="lidarr-missing">♫ <span>Álbumes ausentes</span></button>
+        <button class="nav-link" data-view="search-artists">⌕ <span>Buscar artistas</span></button>
         <button class="nav-link" data-view="downloads">⇩ <span>Descargas</span></button>
         <button class="nav-link" data-view="scryer-titles">▦ <span>Biblioteca Scryer</span></button>
+        <button class="nav-link" data-view="scryer">⌘ <span>Esquema Scryer</span></button>
+        <button class="nav-link" data-view="scryer-requests">＋ <span>Solicitudes Scryer</span></button>
+        <button class="nav-link" data-view="scryer-audit">◷ <span>Auditoría Scryer</span></button>
+        <button class="nav-link" data-view="scryer-recycle-bin">▤ <span>Papelera Scryer</span></button>
       </div>
       <div class="nav-group"><div class="nav-label">CONFIGURACIÓN</div>
         <button class="nav-link" data-view="apps">▧ <span>Aplicaciones</span></button>
@@ -614,7 +626,7 @@ async function openView(view){const target=$('workspace');target.textContent='Lo
  else if(view==='downloads'){data=await request('/web-api/torrents');const rows=(data||[]).map(x=>'<tr><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(x.name)+'</td><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(x.state)+'</td><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(x.progress===undefined?'—':Math.round(x.progress*100)+'%')+'</td><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(x.category)+'</td><td style="padding:10px;border-bottom:1px solid #25344d"><input data-torrent-category value="'+esc(x.category||'')+'" aria-label="Torrent category" style="width:110px;margin:0;padding:6px"><button data-torrent-set-category data-hash="'+esc(x.hash)+'">Set</button></td><td style="padding:10px;border-bottom:1px solid #25344d"><button data-torrent-action="pause" data-hash="'+esc(x.hash)+'">Pause</button> <button data-torrent-action="resume" data-hash="'+esc(x.hash)+'">Resume</button> <button data-torrent-delete data-hash="'+esc(x.hash)+'" data-name="'+esc(x.name)+'">Preview remove</button></td></tr>');html='<h3>Active downloads <span class="muted">('+rows.length+')</span></h3><p class="muted">Removing a torrent keeps its downloaded files by default. A preview and exact confirmation are required.</p>'+table(['Name','State','Progress','Category','Set category','Controls'],rows);}
  target.innerHTML=html||'<div class="muted">No records found.</div>';
  }catch(e){target.innerHTML='<div class="error">'+esc(e.message)+'</div>';}}
-function setActiveView(view){document.querySelectorAll('.side-nav [data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===view));const titles={home:'Inicio','agent-chat':'Chat','operation-history':'Actividad',movies:'Películas · Radarr',series:'Series · Sonarr',artists:'Música · Lidarr',downloads:'Descargas','scryer-titles':'Biblioteca Scryer',apps:'Aplicaciones',docker:'Docker',settings:'General','api-explorer':'API avanzada'};$('page-title').textContent=titles[view]||view;}
+function setActiveView(view){document.querySelectorAll('.side-nav [data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===view));const titles={home:'Inicio','agent-chat':'Chat','operation-history':'Actividad',movies:'Películas · Radarr','radarr-queue':'Cola de Radarr','search-movies':'Buscar películas',series:'Series · Sonarr','sonarr-queue':'Cola de Sonarr','search-series':'Buscar series',artists:'Música · Lidarr','lidarr-queue':'Cola de Lidarr','lidarr-history':'Historial de Lidarr','lidarr-missing':'Álbumes ausentes','search-artists':'Buscar artistas',downloads:'Descargas','scryer-titles':'Biblioteca Scryer',scryer:'Esquema Scryer','scryer-requests':'Solicitudes Scryer','scryer-audit':'Auditoría Scryer','scryer-recycle-bin':'Papelera Scryer',apps:'Aplicaciones',docker:'Docker',settings:'General','api-explorer':'API avanzada'};$('page-title').textContent=titles[view]||view;}
 document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>{setActiveView(b.dataset.view);if(b.dataset.view==='home'){$('home-overview').scrollIntoView({behavior:'smooth',block:'start'});$('workspace').innerHTML='<strong>Resumen general</strong><br>Estado de conexión de los servicios configurados.';return;}openView(b.dataset.view);}));
 $('workspace').addEventListener('submit',async e=>{
  if(e.target.id==='scryer-title-search'){
