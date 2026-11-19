@@ -188,7 +188,7 @@ function runClaude(conversation, prompt, job) {
 
 
 function runGemini(conversation, prompt, job) {
-  const args = ["--prompt", "", "--output-format", "json", "--approval-mode", "plan", "--yolo=false"];
+  const args = ["--prompt", "", "--output-format", "json", "--approval-mode", "plan"];
   if (conversation.session_id) args.push("--resume", conversation.session_id);
   const child = spawn("gemini", args, {
     cwd: "/workspace",
@@ -241,7 +241,8 @@ const GEMINI_SETTINGS = path.join(GEMINI_HOME, "settings.json");
 let geminiSettings = {};
 try { geminiSettings = JSON.parse(await fs.readFile(GEMINI_SETTINGS, "utf8")); } catch {}
 geminiSettings.security = { ...(geminiSettings.security || {}), auth: { ...(geminiSettings.security?.auth || {}), selectedType: "gemini-api-key" } };
-geminiSettings.mcpServers = { ...(geminiSettings.mcpServers || {}), homelabpilot: { httpUrl: "http://homelabpilot-mcp-proxy:8001/mcp", timeout: 30000, trust: true } };
+geminiSettings.mcp = { ...(geminiSettings.mcp || {}), autoAllowInHeadless: true };
+geminiSettings.mcpServers = { ...(geminiSettings.mcpServers || {}), homelabpilot: { httpUrl: "http://homelabpilot-mcp-proxy:8001/mcp", timeout: 30000 } };
 await fs.writeFile(GEMINI_SETTINGS, JSON.stringify(geminiSettings, null, 2), { mode: 0o600 });
 await fs.writeFile(CLAUDE_MCP_CONFIG, JSON.stringify({ mcpServers: { homelabpilot: { type: "http", url: "http://homelabpilot-mcp-proxy:8001/mcp" } } }, null, 2), { mode: 0o600 });
 await fs.writeFile(path.join(CODEX_HOME, "config.toml"),
