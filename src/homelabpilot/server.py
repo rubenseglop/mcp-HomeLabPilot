@@ -1454,6 +1454,32 @@ async def _web_api_request_inner(
         _audit("CONFIG_UPDATE", app_id, ",".join(sorted(values)))
         return result
 
+    if method == "GET" and path == "/web-api/tdarr/status":
+        return await integration_status.dashboard_read("tdarr", "status")
+    if method == "GET" and path == "/web-api/tdarr/nodes":
+        return await integration_status.dashboard_read("tdarr", "nodes")
+    if method == "GET" and path == "/web-api/tdarr/jobs":
+        start = int((query.get("start") or ["0"])[0])
+        page_size = int((query.get("page_size") or ["25"])[0])
+        file_path_contains = (query.get("file_path_contains") or [""])[0]
+        return await integration_status.dashboard_read(
+            "tdarr", "job_reports", start=start, page_size=page_size,
+            file_path_contains=file_path_contains,
+        )
+    if method == "GET" and path == "/web-api/tdarr/files":
+        search_term = (query.get("search_term") or [""])[0]
+        greater_than_gb = float((query.get("greater_than_gb") or ["0"])[0])
+        less_than_gb = float((query.get("less_than_gb") or ["0"])[0])
+        return await integration_status.dashboard_read(
+            "tdarr", "search_files", search_term=search_term,
+            greater_than_gb=greater_than_gb, less_than_gb=less_than_gb,
+        )
+    if method == "GET" and path == "/web-api/tdarr/job-report":
+        job_id = (query.get("id") or [""])[0]
+        if not job_id:
+            raise ValueError("A Tdarr job ID is required")
+        return await integration_status.dashboard_read("tdarr", "job_report", job_id=job_id)
+
     if method == "POST" and path == "/web-api/scryer/graphql":
         query_text = str(payload.get("query", ""))
         if not query_text.strip():
