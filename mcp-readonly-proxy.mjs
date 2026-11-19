@@ -6,7 +6,7 @@ import { timingSafeEqual } from "node:crypto";
 const PORT = Number(process.env.MCP_PROXY_PORT || 8001);
 const TARGET = (process.env.HOMELABPILOT_MCP_URL || "http://homelabpilot:8000/mcp").replace(/\/$/, "");
 const TOKEN = process.env.MCP_AUTH_TOKEN || "";
-const READ_ONLY_TOOLS = /^(?!tdarr_)(stack_status|integration_catalog|scryer_introspect|arr_search_catalog|[a-z0-9]+_(get|list|search|status|schema|introspect|catalog)(_|$))/;
+const READ_ONLY_TOOLS = /^(stack_status|integration_catalog|scryer_introspect|arr_search_catalog|[a-z0-9]+_(get|list|search|status|schema|introspect|catalog)(_|$))/;
 
 function safeEqual(a,b){const x=Buffer.from(String(a)),y=Buffer.from(String(b));return x.length===y.length&&timingSafeEqual(x,y);}
 function json(res,status,body){const data=Buffer.from(JSON.stringify(body));res.writeHead(status,{"content-type":"application/json","content-length":data.length,"cache-control":"no-store"});res.end(data);}
