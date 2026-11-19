@@ -9,6 +9,7 @@ const PORT = Number(process.env.AGENT_GATEWAY_PORT || 8766);
 const STATE = process.env.AGENT_STATE_DIR || "/state";
 const CODEX_HOME = process.env.CODEX_HOME || "/home/node/.codex";
 const CLAUDE_CONFIG_DIR = process.env.CLAUDE_CONFIG_DIR || "/home/node/.claude";
+const GEMINI_HOME = process.env.GEMINI_HOME || "/home/node/.gemini";
 const CLAUDE_MCP_CONFIG = path.join(CLAUDE_CONFIG_DIR, "mcp.json");
 const STORE = path.join(STATE, "conversations.json");
 const jobs = new Map();
@@ -185,8 +186,63 @@ function runClaude(conversation, prompt, job) {
   child.stdin.end(guardedPrompt);
 }
 
+
+function runGemini(conversation, prompt, job) {
+  const args = ["--prompt", "", "--output-format", "json", "--approval-mode", "plan", "--yolo=false"];
+  if (conversation.session_id) args.push("--resume", conversation.session_id);
+  const child = spawn("gemini", args, {
+    cwd: "/workspace",
+    env: { ...process.env, GEMINI_HOME, HOME: "/home/node", NO_COLOR: "1", GEMINI_TELEMETRY_ENABLED: "false" },
+    stdio: ["pipe", "pipe", "pipe"]
+  });
+  job.pid = child.pid;
+  let stdout = "", stderrTail = "";
+  child.stdout.setEncoding("utf8");
+  child.stdout.on("data", chunk => { stdout = (stdout + chunk).slice(-200000); });
+  child.stderr.setEncoding("utf8");
+  child.stderr.on("data", chunk => { stderrTail = (stderrTail + chunk).slice(-5000); });
+  child.on("error", err => {
+    job.status = "failed"; job.error = "No se pudo iniciar Gemini CLI: " + err.message; job.updated_at = now();
+  });
+  child.on("close", async code => {
+    let parsed = null;
+    try { parsed = JSON.parse(stdout.trim()); } catch {}
+    if (parsed && typeof parsed === "object") {
+      if (typeof parsed.session_id === "string") conversation.session_id = parsed.session_id;
+      job.answer = parsed.response || parsed.result || parsed.text || job.answer;
+      if (parsed.error) job.error = typeof parsed.error === "string" ? parsed.error : JSON.stringify(parsed.error);
+    } else if (stdout.trim() && code === 0) {
+      job.answer = stdout.trim();
+    }
+    job.status = code === 0 && !job.error ? "completed" : "failed";
+    if (job.status === "failed" && !job.error) job.error = stderrTail.trim().slice(-1600) || "Gemini CLI terminó con código " + code;
+    conversation.updated_at = now();
+    conversation.messages.push({ role: "assistant", content: job.answer || job.error || "Gemini no ha devuelto texto.", created_at: now() });
+    job.updated_at = now();
+    await saveStore();
+  });
+  const guardedPrompt = [
+    "Eres Gemini integrado en HomeLabPilot. Responde en el idioma del usuario.",
+    "Puedes consultar servicios únicamente mediante las herramientas MCP de HomeLabPilot.",
+    "MODO DE SEGURIDAD: SOLO LECTURA. Usa exclusivamente herramientas de consulta disponibles a través del MCP.",
+    "No ejecutes comandos de shell ni uses herramientas para crear, editar, borrar, descargar, importar, mover, pausar, reanudar, reiniciar o modificar recursos o configuración.",
+    "No afirmes haber realizado cambios. Nunca reveles tokens, contraseñas, claves API ni datos de autenticación.",
+    "",
+    "SOLICITUD DEL USUARIO:",
+    prompt
+  ].join("\n");
+  child.stdin.end(guardedPrompt);
+}
+
 await fs.mkdir(CODEX_HOME, { recursive: true });
 await fs.mkdir(CLAUDE_CONFIG_DIR, { recursive: true });
+await fs.mkdir(GEMINI_HOME, { recursive: true });
+const GEMINI_SETTINGS = path.join(GEMINI_HOME, "settings.json");
+let geminiSettings = {};
+try { geminiSettings = JSON.parse(await fs.readFile(GEMINI_SETTINGS, "utf8")); } catch {}
+geminiSettings.security = { ...(geminiSettings.security || {}), auth: { ...(geminiSettings.security?.auth || {}), selectedType: "gemini-api-key" } };
+geminiSettings.mcpServers = { ...(geminiSettings.mcpServers || {}), homelabpilot: { httpUrl: "http://homelabpilot-mcp-proxy:8001/mcp", timeout: 30000, trust: true } };
+await fs.writeFile(GEMINI_SETTINGS, JSON.stringify(geminiSettings, null, 2), { mode: 0o600 });
 await fs.writeFile(CLAUDE_MCP_CONFIG, JSON.stringify({ mcpServers: { homelabpilot: { type: "http", url: "http://homelabpilot-mcp-proxy:8001/mcp" } } }, null, 2), { mode: 0o600 });
 await fs.writeFile(path.join(CODEX_HOME, "config.toml"),
   '[mcp_servers.homelabpilot]\nurl = "http://homelabpilot-mcp-proxy:8001/mcp"\nenabled = true\nrequired = true\n',
@@ -200,8 +256,9 @@ const server = http.createServer(async (req, res) => {
       let codexAuthenticated = false, claudeAuthenticated = false;
       try { await fs.access(path.join(CODEX_HOME, "auth.json")); codexAuthenticated = true; } catch {}
       try { await fs.access(path.join(CLAUDE_CONFIG_DIR, ".credentials.json")); claudeAuthenticated = true; } catch {}
+      const geminiAuthenticated = Boolean(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim());
       send(res, 200, { ok:true, agent:"codex", authenticated:codexAuthenticated, mcp_configured:true,
-        agents:{codex:{authenticated:codexAuthenticated},claude:{authenticated:claudeAuthenticated,mcp_configured:true}} }); return;
+        agents:{codex:{authenticated:codexAuthenticated},claude:{authenticated:claudeAuthenticated,mcp_configured:true},gemini:{authenticated:geminiAuthenticated,mcp_configured:true}} }); return;
     }
     if (req.method === "GET" && url.pathname === "/conversations") {
       const agent = url.searchParams.get("agent") || "codex";
@@ -221,7 +278,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "POST" && url.pathname === "/chat") {
       const body = await readBody(req);
       const agent = String(body.agent || "codex");
-      if (!["codex","claude"].includes(agent)) { send(res,400,{error:"Unknown agent"}); return; }
+      if (!["codex","claude","gemini"].includes(agent)) { send(res,400,{error:"Unknown agent"}); return; }
       const prompt = String(body.prompt || "").trim();
       if (!prompt || prompt.length > 20000) { send(res, 400, { error:"El mensaje debe tener entre 1 y 20.000 caracteres." }); return; }
       if (jobs.size >= 3 && [...jobs.values()].some(j => j.status === "running")) { send(res, 429, { error:"Ya hay tres tareas de Codex en ejecución." }); return; }
@@ -235,7 +292,7 @@ const server = http.createServer(async (req, res) => {
       const id = randomUUID();
       const job = { id, conversation_id:conversation.id, status:"running", answer:"", error:null, events:[], activities:[], created_at:now(), updated_at:now() };
       jobs.set(id, job); await saveStore();
-      if (agent === "claude") runClaude(conversation, prompt, job); else runCodex(conversation, prompt, job);
+      if (agent === "claude") runClaude(conversation, prompt, job); else if (agent === "gemini") runGemini(conversation, prompt, job); else runCodex(conversation, prompt, job);
       send(res, 202, { job_id:id, conversation_id:conversation.id }); return;
     }
     if (req.method === "GET" && url.pathname.startsWith("/jobs/")) {
