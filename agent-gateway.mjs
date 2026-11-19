@@ -188,18 +188,20 @@ function runClaude(conversation, prompt, job) {
 
 
 function runGemini(conversation, prompt, job) {
+  const history = (conversation.messages || []).slice(-13, -1).map(message =>
+    (message.role === "assistant" ? "Gemini" : "Usuario") + ": " + String(message.content || "")
+  ).join("\n\n");
   const guardedPrompt = [
     "Eres Gemini integrado en HomeLabPilot. Responde en el idioma del usuario.",
     "Puedes consultar servicios únicamente mediante las herramientas MCP de HomeLabPilot.",
     "MODO DE SEGURIDAD: SOLO LECTURA. Usa exclusivamente herramientas de consulta disponibles a través del MCP.",
     "No ejecutes comandos de shell ni uses herramientas para crear, editar, borrar, descargar, importar, mover, pausar, reanudar, reiniciar o modificar recursos o configuración.",
     "No afirmes haber realizado cambios. Nunca reveles tokens, contraseñas, claves API ni datos de autenticación.",
-    "",
-    "SOLICITUD DEL USUARIO:",
+    history ? "HISTORIAL RECIENTE DE LA CONVERSACIÓN:\n" + history : "",
+    "SOLICITUD ACTUAL DEL USUARIO:",
     prompt
-  ].join("\n");
+  ].filter(Boolean).join("\n\n");
   const args = ["--prompt", guardedPrompt, "--output-format", "json", "--approval-mode", "plan"];
-  if (conversation.session_id) args.push("--resume", conversation.session_id);
   const child = spawn("gemini", args, {
     cwd: "/workspace",
     env: { ...process.env, GEMINI_HOME, HOME: "/home/node", NO_COLOR: "1", GEMINI_TELEMETRY_ENABLED: "false" },
@@ -218,9 +220,8 @@ function runGemini(conversation, prompt, job) {
     let parsed = null;
     try { parsed = JSON.parse(stdout.trim()); } catch {}
     if (parsed && typeof parsed === "object") {
-      if (typeof parsed.session_id === "string") conversation.session_id = parsed.session_id;
       job.answer = parsed.response || parsed.result || parsed.text || job.answer;
-      if (parsed.error) job.error = typeof parsed.error === "string" ? parsed.error : JSON.stringify(parsed.error);
+      if (parsed.error) job.error = typeof parsed.error === "string" ? parsed.error : (parsed.error.message || JSON.stringify(parsed.error));
     } else if (stdout.trim() && code === 0) {
       job.answer = stdout.trim();
     }
