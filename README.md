@@ -12,15 +12,15 @@ The dashboard includes a searchable Apps catalogue grouped by category. It disti
 
 By default, Compose publishes the port on loopback only. To open the dashboard from another device on your LAN, set `HOMELABPILOT_BIND_ADDRESS=0.0.0.0` in your private `.env` and recreate the container. This also makes the authenticated MCP endpoint reachable on the LAN. Do not forward this port from your router to the public internet. For remote access, use a private VPN such as Tailscale or a trusted HTTPS access layer.
 
-## AI chat · Codex CLI and Claude Code
+## AI chat · Codex CLI
 
-The dashboard includes an AI Chat workspace with an agent selector for Codex CLI and Claude Code. Both run in the isolated agent container, use separate persistent authentication/configuration directories and maintain separate conversations. The agent container does not mount the host Docker socket, media folders, or HomeLabPilot application state. The browser talks to the authenticated HomeLabPilot web API, which proxies requests to the private agent gateway.
+The dashboard includes an AI Chat workspace for Codex CLI. Codex runs in the isolated agent container, uses its persistent authentication/configuration directory and maintains separate conversations. The agent container does not mount the host Docker socket, media folders, or HomeLabPilot application state. The browser talks to the authenticated HomeLabPilot web API, which proxies requests to the private agent gateway.
 
 The Compose stack places the agent gateway and MCP reverse proxy on a dedicated private Docker network shared only with HomeLabPilot. The MCP proxy keeps the HomeLabPilot bearer token inside its own container and does not pass it to either CLI. The proxy exposes an allowlist of read-only HomeLabPilot MCP tools; write, confirmation, and generic API mutation tools are blocked server-side.
 
-Both agents run in read-only mode. Codex uses its `read-only` sandbox; Claude Code uses plan mode and disallows local shell and file-editing tools. The MCP proxy independently blocks mutating tools. They can inspect configured services, libraries, queues and status, but cannot change your stack. Conversation history and each CLI's login state persist in separate named volumes.
+Codex runs in read-only mode using its `read-only` sandbox. The MCP proxy independently blocks mutating tools. Codex can inspect configured services, libraries, queues and status, but cannot change your stack. Conversation history and Codex login state persist in named volumes.
 
-After updating the stack at home, authenticate Codex with `docker compose exec homelabpilot-agents codex login --device-auth`. For Claude Code, run `docker compose exec -it homelabpilot-agents claude` and complete its interactive sign-in. Then open AI Chat and choose the agent. Do not paste account tokens or credentials into the dashboard or chat.
+After updating the stack, authenticate Codex with `docker compose exec homelabpilot-agents codex login --device-auth`. Then open AI Chat. Do not paste account tokens or credentials into the dashboard or chat.
 
 ## Current implementation
 
@@ -54,7 +54,7 @@ After updating the stack at home, authenticate Codex with `docker compose exec h
 - `arr_search_catalog`: find movies/series by title.
 - `arr_get_queue`: inspect download/import queues.
 - `arr_get_history` / `arr_get_missing_items`: consult recent activity and missing monitored items across Radarr, Sonarr and Lidarr.
-- `tdarr_get_status`, `tdarr_get_nodes`, `tdarr_search_files`, `tdarr_list_job_reports` and `tdarr_get_job_report`: inspect Tdarr status, connected nodes, media records and FFmpeg/HandBrake job reports.
+- `tdarr_get_status`, `tdarr_get_nodes`, `tdarr_search_files`, `tdarr_list_job_reports` and `tdarr_get_job_report`: read-only inspection of Tdarr status, connected nodes, media records and FFmpeg/HandBrake job reports. These tools are exposed through the read-only MCP proxy; Tdarr dashboard management remains planned.
 - `tdarr_preview_requeue_files` / `tdarr_confirm_requeue_files`: requeue up to 50 specifically selected files through the existing Tdarr flow/stack; exact file IDs are signed into the preview and require typed confirmation.
 - `tdarr_preview_rescan_file` / `tdarr_confirm_rescan_file`: refresh metadata and queue state for one selected file.
 - `plex_get_library_sections`, `plex_get_recently_added`, `plex_get_recently_added_all`, `plex_get_on_deck`, `plex_get_active_sessions`: inspect Plex libraries, recent additions, continue-watching and active playback.
