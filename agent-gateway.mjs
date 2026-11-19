@@ -264,6 +264,7 @@ const server = http.createServer(async (req, res) => {
     }
     if (req.method === "GET" && url.pathname === "/conversations") {
       const agent = url.searchParams.get("agent") || "codex";
+      if (agent !== "codex") { send(res,400,{error:"Only Codex is enabled in this HomeLabPilot build."}); return; }
       send(res, 200, store.conversations.filter(c => (c.agent || "codex") === agent).slice().sort((a,b) => b.updated_at.localeCompare(a.updated_at)).map(c => ({ id:c.id, agent:c.agent || "codex", title:c.title, created_at:c.created_at, updated_at:c.updated_at }))); return;
     }
     if (req.method === "GET" && url.pathname.startsWith("/conversations/")) {
@@ -280,7 +281,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "POST" && url.pathname === "/chat") {
       const body = await readBody(req);
       const agent = String(body.agent || "codex");
-      if (!["codex","claude","gemini"].includes(agent)) { send(res,400,{error:"Unknown agent"}); return; }
+      if (agent !== "codex") { send(res,400,{error:"Only Codex is enabled in this HomeLabPilot build."}); return; }
       const prompt = String(body.prompt || "").trim();
       if (!prompt || prompt.length > 20000) { send(res, 400, { error:"El mensaje debe tener entre 1 y 20.000 caracteres." }); return; }
       if (jobs.size >= 3 && [...jobs.values()].some(j => j.status === "running")) { send(res, 429, { error:"Ya hay tres tareas de Codex en ejecución." }); return; }
