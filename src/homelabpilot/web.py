@@ -31,7 +31,7 @@ header{display:flex;align-items:center;justify-content:space-between;gap:16px;ma
 .brand{display:flex;align-items:center;gap:13px}.logo{width:44px;height:44px;border-radius:14px;background:linear-gradient(135deg,#647cf6,#19b6a5);display:grid;place-items:center;font-weight:900;font-size:19px;color:white}
 h1{font-size:23px;margin:0;letter-spacing:-.5px} .sub{color:#91a0b8;font-size:13px;margin-top:4px}
 .actions{display:flex;gap:9px;align-items:center}button{border:1px solid #34435d;background:#18243a;color:#e8edf5;padding:9px 13px;border-radius:10px;cursor:pointer}button:hover{background:#243550}
-.language-switch{position:fixed;z-index:20;top:12px;right:14px;display:flex;gap:4px;padding:4px;border:1px solid #34435d;border-radius:12px;background:#111a2a;box-shadow:0 6px 20px #0005}.language-switch button{padding:5px 8px;border-color:transparent;background:transparent;font-size:17px;line-height:1}.language-switch button[aria-pressed="true"]{background:#293750;border-color:#465a79}
+.language-switch{display:flex;flex:0 0 auto;gap:3px;padding:3px;border:1px solid #34435d;border-radius:10px;background:#111a2a}.language-switch button{padding:5px 7px;border-color:transparent;background:transparent;font-size:16px;line-height:1}.language-switch button[aria-pressed="true"]{background:#293750;border-color:#465a79}#login-language{position:fixed;z-index:20;top:12px;right:14px;box-shadow:0 6px 20px #0005}
 .hero{display:flex;align-items:end;justify-content:space-between;gap:20px;margin:24px 0}
 h2{font-size:20px;margin:0 0 6px}.muted{color:#91a0b8;font-size:13px}.summary{display:flex;gap:10px;flex-wrap:wrap}
 .pill{border:1px solid #293750;background:#121d31;border-radius:999px;padding:7px 11px;font-size:12px;color:#b8c5d8}
@@ -48,7 +48,7 @@ h2{font-size:20px;margin:0 0 6px}.muted{color:#91a0b8;font-size:13px}.summary{di
 input{width:100%;padding:12px;border:1px solid #34435d;border-radius:10px;background:#0b1322;color:white;margin:10px 0}
 #login button{width:100%;background:#536ce7;border:0;font-weight:650}.hidden{display:none!important}
 .foot{margin-top:28px;color:#71819a;font-size:11px;text-align:center}
-@media(max-width:600px){.shell{padding:52px 14px 20px}header{align-items:flex-start}.hero{align-items:flex-start;flex-direction:column}.actions button{padding:8px}.language-switch{top:8px;right:8px}}
+@media(max-width:600px){.shell{padding:52px 14px 20px}header{align-items:flex-start}.hero{align-items:flex-start;flex-direction:column}.actions button{padding:8px}}
  
 .app-layout{max-width:none;width:100%;min-height:100vh;margin:0;padding:0;display:grid;grid-template-columns:248px minmax(0,1fr)}
 .sidebar{position:sticky;top:0;height:100vh;display:flex;flex-direction:column;padding:24px 14px 16px;background:#0d1627;border-right:1px solid #25344d;overflow-y:auto}
@@ -58,16 +58,17 @@ input{width:100%;padding:12px;border:1px solid #34435d;border-radius:10px;backgr
 .nav-link{width:100%;display:flex;align-items:center;gap:12px;text-align:left;border:1px solid transparent;background:transparent;color:#aebbd0;padding:10px 11px;border-radius:9px;font-size:13px}
 .nav-link:hover{background:#18243a;color:#fff}.nav-link.active{background:#253657;border-color:#354b70;color:#fff}
 .nav-link>span:first-of-type{font-weight:550}.sidebar-bottom{margin-top:auto;padding-top:15px;border-top:1px solid #25344d}
+.topbar-identity{display:flex;align-items:center;gap:22px;min-width:0}.topbar-identity .brand{flex:0 0 auto}.topbar-identity .logo{width:39px;height:39px}.topbar-identity h1{font-size:19px}.topbar-divider{height:34px;width:1px;background:#34435d}.topbar-title{font-size:15px;font-weight:650;margin:0;color:#b8c5d8;white-space:nowrap}.topbar-actions{gap:8px}.topbar-actions #logout{white-space:nowrap}
 .main-panel{min-width:0}.topbar{height:76px;margin:0;padding:0 30px;border-bottom:1px solid #25344d;background:#0e1728;display:flex;align-items:center;justify-content:space-between}
 .eyebrow{font-size:9px;letter-spacing:1.3px;color:#71819a;font-weight:750}.topbar-title{font-size:17px;font-weight:700;margin-top:3px}
 .page-content{max-width:1440px;margin:0 auto;padding:28px 30px 22px}.page-content .hero{margin:0 0 18px}
 .page-content .section{margin-top:22px}.page-content #workspace{min-height:100px}
-@media(max-width:760px){.app-layout{grid-template-columns:68px minmax(0,1fr)}.sidebar{padding:17px 7px}.sidebar-brand{padding:0 6px 18px}.sidebar-brand .brand>div:last-child{display:none}.sidebar-brand .logo{width:40px;height:40px}.nav-label{display:none}.side-nav{gap:15px;padding-top:17px}.nav-link{justify-content:center;padding:11px 5px;font-size:0}.nav-link>span{display:none}.sidebar-bottom .nav-link{font-size:0}.topbar{height:68px;padding:0 14px}.page-content{padding:20px 14px}.page-content .hero{align-items:flex-start;flex-direction:column}}
-@media(max-width:430px){.app-layout{grid-template-columns:56px minmax(0,1fr)}.sidebar{padding-left:4px;padding-right:4px}.page-content{padding:16px 10px}.topbar{padding:0 10px}}
+@media(max-width:760px){.topbar-identity{gap:10px}.topbar-identity .sub{display:none}.topbar-identity h1{font-size:16px}.topbar-actions{gap:5px}.topbar-actions button{padding:7px 8px}.app-layout{grid-template-columns:68px minmax(0,1fr)}.sidebar{padding:17px 7px}.sidebar-brand{padding:0 6px 18px}.sidebar-brand .brand>div:last-child{display:none}.sidebar-brand .logo{width:40px;height:40px}.nav-label{display:none}.side-nav{gap:15px;padding-top:17px}.nav-link{justify-content:center;padding:11px 5px;font-size:0}.nav-link>span{display:none}.sidebar-bottom .nav-link{font-size:0}.topbar{height:68px;padding:0 14px}.page-content{padding:20px 14px}.page-content .hero{align-items:flex-start;flex-direction:column}}
+@media(max-width:430px){.topbar-identity .topbar-divider,.topbar-title{display:none}.topbar-identity .logo{width:34px;height:34px}.topbar-actions #logout{font-size:0}.topbar-actions #logout:after{content:'↪';font-size:16px}.app-layout{grid-template-columns:56px minmax(0,1fr)}.sidebar{padding-left:4px;padding-right:4px}.page-content{padding:16px 10px}.topbar{padding:0 10px}}
 </style>
 </head>
 <body>
-<div class="language-switch" role="group" aria-label="Language">
+<div id="login-language" class="language-switch" role="group" aria-label="Language">
   <button type="button" data-language="en" aria-label="English" title="English">🇬🇧</button>
   <button type="button" data-language="es" aria-label="Español" title="Español">🇪🇸</button>
 </div>
@@ -79,7 +80,6 @@ input{width:100%;padding:12px;border:1px solid #34435d;border-radius:10px;backgr
 </div>
 <main id="app" class="app-layout hidden">
   <aside class="sidebar">
-    <div class="brand sidebar-brand"><div class="logo">S</div><div><h1>HomeLabPilot</h1><div class="sub">Media stack control center</div></div></div>
     <nav class="side-nav" aria-label="Main navigation">
       <div class="nav-group"><div class="nav-label">WORKSPACE</div>
         <button class="nav-link active" data-view="home">⌂ <span>Inicio</span></button>
@@ -112,10 +112,18 @@ input{width:100%;padding:12px;border:1px solid #34435d;border-radius:10px;backgr
         <button class="nav-link" data-view="api-explorer">⌘ <span>API avanzada</span></button>
       </div>
     </nav>
-    <div class="sidebar-bottom"><button id="logout" class="nav-link">↪ <span>Cerrar sesión</span></button></div>
   </aside>
   <div class="main-panel">
-    <header class="topbar"><div><div class="eyebrow">HOMELAB CONTROL CENTER</div><div class="topbar-title" id="page-title">Inicio</div></div><div class="actions"><button id="refresh">Actualizar</button></div></header>
+    <header class="topbar">
+      <div class="topbar-identity"><div class="brand"><div class="logo">S</div><div><h1>HomeLabPilot</h1><div class="sub">Media stack control center</div></div></div><div class="topbar-divider"></div><div class="topbar-title" id="page-title">Inicio</div></div>
+      <div class="actions topbar-actions">
+        <div class="language-switch" role="group" aria-label="Language">
+          <button type="button" data-language="en" aria-label="English" title="English">🇬🇧</button>
+          <button type="button" data-language="es" aria-label="Español" title="Español">🇪🇸</button>
+        </div>
+        <button id="refresh">Actualizar</button><button id="logout">Cerrar sesión</button>
+      </div>
+    </header>
     <div class="page-content">
       <div class="hero" id="home-overview"><div><h2>Estado de servicios</h2><div class="muted">Conectividad de tus servicios configurados</div></div><div class="summary"><span class="pill" id="healthy">Comprobando…</span><span class="pill" id="updated">Aún sin actualizar</span></div></div>
       <div class="grid" id="services"></div>
