@@ -76,7 +76,7 @@ input{width:100%;padding:12px;border:1px solid #34435d;border-radius:10px;backgr
       <button data-view="radarr-queue">Radarr queue</button><button data-view="sonarr-queue">Sonarr queue</button>
       <button data-view="downloads">Downloads · qBittorrent</button>
       <button data-view="artists">Music · Lidarr</button><button data-view="lidarr-queue">Lidarr queue</button><button data-view="lidarr-history">Lidarr history</button><button data-view="lidarr-missing">Missing albums</button>
-      <button data-view="search-movies">Search movies</button><button data-view="search-series">Search series</button><button data-view="search-artists">Search artists</button><button data-view="scryer">Scryer schema</button><button data-view="scryer-titles">Scryer library</button><button data-view="scryer-requests">Scryer requests</button><button data-view="scryer-audit">Scryer audit</button><button data-view="scryer-recycle-bin">Scryer recycle bin</button><button data-view="operation-history">Operation history</button><button data-view="apps">Apps</button><button data-view="docker">Docker</button><button data-view="settings">Settings</button><button data-view="api-explorer">Advanced API</button><button data-view="agent-chat">AI Chat · Agents</button>
+      <button data-view="search-movies">Search movies</button><button data-view="search-series">Search series</button><button data-view="search-artists">Search artists</button><button data-view="scryer">Scryer schema</button><button data-view="scryer-titles">Scryer library</button><button data-view="scryer-requests">Scryer requests</button><button data-view="scryer-audit">Scryer audit</button><button data-view="scryer-recycle-bin">Scryer recycle bin</button><button data-view="operation-history">Operation history</button><button data-view="apps">Applications</button><button data-view="docker">Docker</button><button data-view="settings">Settings</button><button data-view="api-explorer">Advanced API</button><button data-view="agent-chat">AI Chat · Agents</button>
     </div>
     <div class="info" id="workspace"><strong>Select a section</strong><br>Browse your library, inspect import queues and manage active downloads.</div>
   </section>
@@ -178,15 +178,13 @@ radarr:['RADARR_URL','RADARR_API_KEY'],sonarr:['SONARR_URL','SONARR_API_KEY'],li
 plex:['PLEX_URL','PLEX_TOKEN'],jellyfin:['JELLYFIN_URL','JELLYFIN_API_KEY'],seerr:['SEERR_URL','SEERR_API_KEY'],transmission:['TRANSMISSION_URL','TRANSMISSION_USERNAME','TRANSMISSION_PASSWORD'],pulsarr:['PULSARR_URL','PULSARR_API_KEY'],cleanuparr:['CLEANUPARR_URL','CLEANUPARR_API_KEY'],maintainerr:['MAINTAINERR_URL'],agregarr:['AGREGARR_URL','AGREGARR_API_KEY'],tracearr:['TRACEARR_URL','TRACEARR_API_KEY'],immich:['IMMICH_URL','IMMICH_API_KEY'],romm:['ROMM_URL','ROMM_API_TOKEN'],bookorbit:['BOOKORBIT_URL','BOOKORBIT_API_KEY'],tinymediamanager:['TINYMEDIAMANAGER_URL','TINYMEDIAMANAGER_API_KEY'],tidarr:['TIDARR_URL','TIDARR_API_KEY'],flaresolverr:['FLARESOLVERR_URL'],cloudflare:['CLOUDFLARE_API_URL','CLOUDFLARE_API_TOKEN'],recyclarr:['RECYCLARR_CONTAINER'],postgres:['POSTGRES_HOST','POSTGRES_PORT'],redis:['REDIS_HOST','REDIS_PORT'],docker:['HOMELABPILOT_DOCKER_ENABLED','HOMELABPILOT_DOCKER_PERMISSION_LEVEL','HOMELABPILOT_DOCKER_ALLOWED_CONTAINERS'],homeassistant:['HOMEASSISTANT_URL','HOMEASSISTANT_TOKEN'],frigate:['FRIGATE_URL','FRIGATE_API_KEY'],tdarr:['TDARR_URL','TDARR_API_KEY'],youtarr:['YOUTARR_URL','YOUTARR_API_KEY'],questarr:['QUESTARR_URL','QUESTARR_API_KEY']
 };
 APP_CATALOG.forEach(app=>{app.env=APP_ENV_KEYS[app.id]||[];});
-const APP_DASHBOARD_VIEWS={radarr:'movies',sonarr:'series',lidarr:'artists',prowlarr:'settings',bazarr:'settings',scryer:'scryer',qbittorrent:'downloads',docker:'docker',tdarr:'tdarr'};
 function appCard(app,status){
  const check=status[app.id],online=!!(check&&check.ok===true);
  const configured=!!(check&&(check.configured===true||online));
  const planned=app.mode==='Planned integration';
- const state=planned?'Planned':!configured?'Not configured':online?'Online':'Needs attention';
+ const state=planned?'Integración prevista':!configured?'Sin configurar':online?'Conectada':'Revisar conexión';
  const klass=online?'ok':configured?'bad':'';
- const open=APP_DASHBOARD_VIEWS[app.id];
- return '<article class="card" data-app-card data-category="'+esc(app.category)+'" data-search="'+esc((app.name+' '+app.desc+' '+app.category).toLowerCase())+'"><div class="cardtop"><div class="name">'+esc(app.name)+'</div><span class="status '+klass+'">'+esc(state)+'</span></div><div class="version">'+esc(app.category)+' · '+esc(app.mode)+'</div><p class="muted" style="line-height:1.5">'+esc(app.desc)+'</p><div class="muted">'+esc(app.support)+'</div><div class="actions" style="margin-top:12px">'+(open?'<button type="button" data-app-open="'+esc(app.id)+'">Open dashboard</button>':'')+'<button type="button" data-app-details="'+esc(app.id)+'">Details</button></div><div id="app-detail-'+esc(app.id)+'" class="info" hidden style="margin-top:10px"></div></article>';
+ return '<article class="card" data-app-card data-category="'+esc(app.category)+'" data-search="'+esc((app.name+' '+app.desc+' '+app.category).toLowerCase())+'" style="padding:12px"><div class="cardtop"><div><div class="name">'+esc(app.name)+'</div><div class="version">'+esc(app.category)+' · '+esc(app.mode)+'</div></div><span class="status '+klass+'">'+esc(state)+'</span></div><p class="muted" style="line-height:1.45;margin:8px 0">'+esc(app.desc)+'</p><button type="button" data-app-details="'+esc(app.id)+'">Ver información y configuración</button><div id="app-detail-'+esc(app.id)+'" class="info" hidden style="margin-top:10px"></div></article>';
 }
 
 function renderAgentConversation(conversation){
@@ -260,37 +258,10 @@ async function openView(view){const target=$('workspace');target.textContent='Lo
   });
   return;
  }
- if(view==='tdarr'){
-  target.innerHTML='<h3>Tdarr · Monitoring</h3><p class="muted">Read-only overview of server health, connected nodes, recent job reports and file search. This panel cannot queue or rescan files.</p><div class="actions" style="margin:12px 0"><button id="tdarr-refresh">Refresh overview</button><span id="tdarr-status" class="muted">Loading Tdarr…</span></div><div class="grid"><article class="card"><div class="name">Server status</div><pre id="tdarr-server" class="info" style="white-space:pre-wrap;overflow-wrap:anywhere">Loading…</pre></article><article class="card"><div class="name">Connected nodes</div><pre id="tdarr-nodes" class="info" style="white-space:pre-wrap;overflow-wrap:anywhere">Loading…</pre></article><article class="card"><div class="name">Recent job reports</div><pre id="tdarr-jobs" class="info" style="white-space:pre-wrap;overflow-wrap:anywhere">Loading…</pre></article></div><section class="section"><div class="sectionhead">Search media files</div><form id="tdarr-search-form" class="actions" style="flex-wrap:wrap"><input id="tdarr-search-term" placeholder="Filename or path contains…" style="min-width:220px;flex:1"><button>Search files</button></form><pre id="tdarr-files" class="info" style="white-space:pre-wrap;overflow-wrap:anywhere;margin-top:10px">Enter a filename or path fragment to search.</pre></section>';
-  const show=(id,value)=>$(id).textContent=JSON.stringify(value,null,2);
-  const loadTdarr=async()=>{
-   $('tdarr-status').textContent='Refreshing…';
-   try{
-    const [status,nodes,jobs]=await Promise.all([
-     request('/web-api/tdarr/status'),
-     request('/web-api/tdarr/nodes'),
-     request('/web-api/tdarr/jobs?start=0&page_size=20')
-    ]);
-    show('tdarr-server',status);show('tdarr-nodes',nodes);show('tdarr-jobs',jobs);
-    $('tdarr-status').textContent='Updated '+new Date().toLocaleTimeString();
-   }catch(err){$('tdarr-status').textContent='Could not load Tdarr: '+err.message;}
-  };
-  $('tdarr-refresh').addEventListener('click',loadTdarr);
-  $('tdarr-search-form').addEventListener('submit',async e=>{
-   e.preventDefault();
-   const term=$('tdarr-search-term').value.trim(),out=$('tdarr-files');
-   if(!term){out.textContent='Enter a filename or path fragment first.';return;}
-   out.textContent='Searching…';
-   try{show('tdarr-files',await request('/web-api/tdarr/files?search_term='+encodeURIComponent(term)));}
-   catch(err){out.textContent='Search failed: '+err.message;}
-  });
-  await loadTdarr();
-  return;
- }
  if(view==='apps'){
   data=await request('/web-api/status');const statuses=data.services||{};const appConfigs=await request('/web-api/apps/config');
   const categories=['All',...new Set(APP_CATALOG.map(app=>app.category))];
-  html='<h3>App catalogue</h3><p class="muted">Showing configured and available integrations. Native management is identified separately from generic API access and planned integrations.</p><input id="apps-search" placeholder="Search apps" style="max-width:420px"><div class="actions" id="apps-categories" style="flex-wrap:wrap;margin:10px 0 16px">'+categories.map((c,i)=>'<button type="button" data-app-filter="'+esc(c)+'" style="'+(i===0?'border-color:#647cf6':'')+'">'+esc(c)+'</button>').join('')+'</div><div class="grid" id="apps-grid">'+APP_CATALOG.map(app=>appCard(app,statuses)).join('')+'</div>';
+  html='<h3>Aplicaciones</h3><p class="muted">Servicios disponibles para HomeLabPilot y sus agentes. Aquí puedes comprobar su conexión y consultar o editar sus datos de acceso; la gestión diaria se realiza en la propia aplicación.</p><input id="apps-search" placeholder="Buscar aplicación" style="max-width:420px"><div class="actions" id="apps-categories" style="flex-wrap:wrap;margin:10px 0 16px">'+categories.map((c,i)=>'<button type="button" data-app-filter="'+esc(c)+'" style="'+(i===0?'border-color:#647cf6':'')+'">'+esc(c)+'</button>').join('')+'</div><div class="grid" id="apps-grid">'+APP_CATALOG.map(app=>appCard(app,statuses)).join('')+'</div>';
   target.innerHTML=html;let active='All';
   const filterApps=()=>{const term=$('apps-search').value.trim().toLowerCase();document.querySelectorAll('[data-app-card]').forEach(card=>{card.style.display=(active==='All'||card.dataset.category===active)&&card.dataset.search.includes(term)?'':'none';});};
   $('apps-search').addEventListener('input',filterApps);
@@ -310,8 +281,6 @@ async function openView(view){const target=$('workspace');target.textContent='Lo
    panel.innerHTML='<strong>'+esc(app.name)+' · connection settings</strong><p class="muted">'+esc(app.mode)+' · '+esc(connection)+'</p><p>'+esc(app.desc)+'</p><form data-app-config-form="'+esc(app.id)+'">'+(fields.length?controls:'<p class="muted">No connection fields are defined.</p>')+'<p class="muted">Credentials are encrypted in persistent /data storage and are never returned to this browser. Leave password fields blank to keep existing credentials.</p><div class="actions"><button type="submit" '+(!fields.length?'disabled':'')+'>Save connection</button></div><div class="muted" data-app-config-status style="margin-top:9px"></div></form>';
   };
   $('apps-grid').addEventListener('click',e=>{
-   const open=e.target.closest('[data-app-open]');
-   if(open){const view=APP_DASHBOARD_VIEWS[open.dataset.appOpen];if(view)openView(view);return;}
    const b=e.target.closest('[data-app-details]');if(!b)return;
    const app=APP_CATALOG.find(x=>x.id===b.dataset.appDetails);if(!app)return;
    const panel=$('app-detail-'+app.id);panel.hidden=!panel.hidden;if(!panel.hidden)renderAppDetails(app,panel);
