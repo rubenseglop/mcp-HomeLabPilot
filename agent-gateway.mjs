@@ -242,6 +242,7 @@ let geminiSettings = {};
 try { geminiSettings = JSON.parse(await fs.readFile(GEMINI_SETTINGS, "utf8")); } catch {}
 geminiSettings.security = { ...(geminiSettings.security || {}), auth: { ...(geminiSettings.security?.auth || {}), selectedType: "gemini-api-key" } };
 geminiSettings.mcp = { ...(geminiSettings.mcp || {}), autoAllowInHeadless: true };
+geminiSettings.tools = { ...(geminiSettings.tools || {}), core: [] };
 geminiSettings.mcpServers = { ...(geminiSettings.mcpServers || {}), homelabpilot: { httpUrl: "http://homelabpilot-mcp-proxy:8001/mcp", timeout: 30000 } };
 await fs.writeFile(GEMINI_SETTINGS, JSON.stringify(geminiSettings, null, 2), { mode: 0o600 });
 await fs.writeFile(CLAUDE_MCP_CONFIG, JSON.stringify({ mcpServers: { homelabpilot: { type: "http", url: "http://homelabpilot-mcp-proxy:8001/mcp" } } }, null, 2), { mode: 0o600 });
