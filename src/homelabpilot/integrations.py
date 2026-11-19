@@ -1865,4 +1865,21 @@ def register_integration_tools(
                 }
         return checks
 
+    async def dashboard_read(service: str, operation: str, **kwargs: Any) -> Any:
+        """Expose a fixed allowlist of read-only integration calls to the web dashboard."""
+        readers = {
+            "tdarr": {
+                "status": tdarr_get_status,
+                "nodes": tdarr_get_nodes,
+                "search_files": tdarr_search_files,
+                "job_reports": tdarr_list_job_reports,
+                "job_report": tdarr_get_job_report,
+            },
+        }
+        service_readers = readers.get(service)
+        if service_readers is None or operation not in service_readers:
+            raise ValueError("Unsupported dashboard read operation")
+        return await service_readers[operation](**kwargs)
+
+    status_checks.dashboard_read = dashboard_read
     return status_checks
