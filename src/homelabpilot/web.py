@@ -157,8 +157,8 @@ window.alert=message=>nativeAlert(translateText(String(message)));
 window.confirm=message=>nativeConfirm(translateText(String(message)));
 window.prompt=(message,value)=>nativePrompt(translateText(String(message)),value===undefined?undefined:translateText(String(value)));
 applyLanguage();new MutationObserver(records=>records.forEach(record=>record.addedNodes.forEach(translateNode))).observe(document.body,{childList:true,subtree:true});
-function showLogin(){ $('login').classList.remove('hidden');$('app').classList.add('hidden'); }
-function showApp(){ $('login').classList.add('hidden');$('app').classList.remove('hidden'); }
+function showLogin(){ $('login').classList.remove('hidden');$('app').classList.add('hidden');$('login-language').classList.remove('hidden'); }
+function showApp(){ $('login').classList.add('hidden');$('app').classList.remove('hidden');$('login-language').classList.add('hidden'); }
 async function request(path,options={}){const r=await fetch(path,{credentials:'same-origin',...options});if(r.status===401)throw new Error('unauthorized');const type=r.headers.get('content-type')||'';let data=null;try{data=type.includes('application/json')?await r.json():await r.text();}catch(_){data=null;}if(!r.ok){const detail=data&&typeof data==='object'?(data.error||data.detail||data.message):data;throw new Error(detail?String(detail):'Request failed ('+r.status+')');}return data;}
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function render(data){
