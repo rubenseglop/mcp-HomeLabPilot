@@ -188,12 +188,22 @@ function runClaude(conversation, prompt, job) {
 
 
 function runGemini(conversation, prompt, job) {
-  const args = ["--prompt", "", "--output-format", "json", "--approval-mode", "plan"];
+  const guardedPrompt = [
+    "Eres Gemini integrado en HomeLabPilot. Responde en el idioma del usuario.",
+    "Puedes consultar servicios únicamente mediante las herramientas MCP de HomeLabPilot.",
+    "MODO DE SEGURIDAD: SOLO LECTURA. Usa exclusivamente herramientas de consulta disponibles a través del MCP.",
+    "No ejecutes comandos de shell ni uses herramientas para crear, editar, borrar, descargar, importar, mover, pausar, reanudar, reiniciar o modificar recursos o configuración.",
+    "No afirmes haber realizado cambios. Nunca reveles tokens, contraseñas, claves API ni datos de autenticación.",
+    "",
+    "SOLICITUD DEL USUARIO:",
+    prompt
+  ].join("\n");
+  const args = ["--prompt", guardedPrompt, "--output-format", "json", "--approval-mode", "plan"];
   if (conversation.session_id) args.push("--resume", conversation.session_id);
   const child = spawn("gemini", args, {
     cwd: "/workspace",
     env: { ...process.env, GEMINI_HOME, HOME: "/home/node", NO_COLOR: "1", GEMINI_TELEMETRY_ENABLED: "false" },
-    stdio: ["pipe", "pipe", "pipe"]
+    stdio: ["ignore", "pipe", "pipe"]
   });
   job.pid = child.pid;
   let stdout = "", stderrTail = "";
@@ -221,17 +231,6 @@ function runGemini(conversation, prompt, job) {
     job.updated_at = now();
     await saveStore();
   });
-  const guardedPrompt = [
-    "Eres Gemini integrado en HomeLabPilot. Responde en el idioma del usuario.",
-    "Puedes consultar servicios únicamente mediante las herramientas MCP de HomeLabPilot.",
-    "MODO DE SEGURIDAD: SOLO LECTURA. Usa exclusivamente herramientas de consulta disponibles a través del MCP.",
-    "No ejecutes comandos de shell ni uses herramientas para crear, editar, borrar, descargar, importar, mover, pausar, reanudar, reiniciar o modificar recursos o configuración.",
-    "No afirmes haber realizado cambios. Nunca reveles tokens, contraseñas, claves API ni datos de autenticación.",
-    "",
-    "SOLICITUD DEL USUARIO:",
-    prompt
-  ].join("\n");
-  child.stdin.end(guardedPrompt);
 }
 
 await fs.mkdir(CODEX_HOME, { recursive: true });
