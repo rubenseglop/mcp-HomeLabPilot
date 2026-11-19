@@ -1670,7 +1670,7 @@ async def _web_api_request_inner(
                     response = await client.get(f"{gateway_url}/health", headers=headers)
                 elif method == "GET" and path == "/web-api/agents/conversations":
                     agent = (query.get("agent") or ["codex"])[0]
-                    if agent not in {"codex", "claude"}:
+                    if agent not in {"codex", "claude", "gemini"}:
                         raise ValueError("Unknown agent")
                     response = await client.get(f"{gateway_url}/conversations", headers=headers, params={"agent": agent})
                 elif method == "GET" and path == "/web-api/agents/conversation":
@@ -1683,7 +1683,7 @@ async def _web_api_request_inner(
                     if not prompt or len(prompt) > 20000:
                         raise ValueError("The message must contain between 1 and 20,000 characters")
                     agent = str(payload.get("agent", "codex"))
-                    if agent not in {"codex", "claude"}:
+                    if agent not in {"codex", "claude", "gemini"}:
                         raise ValueError("Unknown agent")
                     body = {"prompt": prompt, "agent": agent}
                     if payload.get("conversation_id"):
