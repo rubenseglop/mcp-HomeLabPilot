@@ -82,6 +82,8 @@ services:
       AGENT_STATE_DIR: /state
       CODEX_HOME: /home/node/.codex
       CLAUDE_CONFIG_DIR: /home/node/.claude
+      GEMINI_HOME: /home/node/.gemini
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
     extra_hosts:
       - "auth.openai.com:172.64.146.15"
     volumes:
