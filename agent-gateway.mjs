@@ -204,7 +204,7 @@ function runGemini(conversation, prompt, job) {
   const args = ["--prompt", guardedPrompt, "--output-format", "json", "--approval-mode", "plan"];
   const child = spawn("gemini", args, {
     cwd: "/workspace",
-    env: { ...process.env, GEMINI_HOME, HOME: "/home/node", NO_COLOR: "1", GEMINI_TELEMETRY_ENABLED: "false" },
+    env: { ...process.env, GEMINI_HOME, GEMINI_CLI_TRUST_WORKSPACE: "true", HOME: "/home/node", NO_COLOR: "1", GEMINI_TELEMETRY_ENABLED: "false" },
     stdio: ["ignore", "pipe", "pipe"]
   });
   job.pid = child.pid;
