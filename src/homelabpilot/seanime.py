@@ -85,7 +85,7 @@ def register_seanime_tools(mcp: Any, timeout: float = 15) -> None:
     @mcp.tool()
     async def seanime_get_status() -> dict:
         """Check Seanime server availability, version and password protection."""
-        payload = await request("/api/v1/status")
+        payload = data_of(await request("/api/v1/status"))
         if not isinstance(payload, dict):
             return {"response": payload}
         return {
@@ -100,13 +100,27 @@ def register_seanime_tools(mcp: Any, timeout: float = 15) -> None:
         if not 1 <= limit <= 500:
             raise ValueError("limit must be between 1 and 500")
         payload = await library_payload()
-        raw_lists = payload.get("lists", {})
-        lists: dict[str, Any] = {}
-        if isinstance(raw_lists, dict):
-            for name, entries in raw_lists.items():
-                lists[name] = [compact_entry(item) for item in entries[:limit]] if isinstance(entries, list) else entries
-        elif isinstance(raw_lists, list):
-            lists = {"items": [compact_entry(item) for item in raw_lists[:limit]]}
+        raw_lists = payload.get("lists", [])
+        lists: Any = []
+        if isinstance(raw_lists, list):
+            for library_list in raw_lists:
+                if not isinstance(library_list, dict):
+                    continue
+                entries = library_list.get("entries", [])
+                lists.append({
+                    "type": library_list.get("type"),
+                    "status": library_list.get("status"),
+                    "entries": [
+                        compact_entry(item) for item in entries[:limit]
+                    ] if isinstance(entries, list) else [],
+                })
+        elif isinstance(raw_lists, dict):
+            # Compatibility with older Seanime responses that grouped entries by key.
+            lists = {
+                name: [compact_entry(item) for item in entries[:limit]]
+                if isinstance(entries, list) else []
+                for name, entries in raw_lists.items()
+            }
         return {
             "stats": payload.get("stats"),
             "lists": lists,
@@ -144,8 +158,12 @@ def register_seanime_tools(mcp: Any, timeout: float = 15) -> None:
     @mcp.tool()
     async def seanime_get_downloader() -> dict:
         """Read Seanime automatic downloader rules, queue and profiles; does not start downloads."""
+        def as_list(value: Any) -> Any:
+            # Seanime may serialize an empty Go slice as JSON null.
+            return [] if value is None else value
+
         return {
-            "rules": data_of(await request("/api/v1/auto-downloader/rules")),
-            "queue": data_of(await request("/api/v1/auto-downloader/items")),
-            "profiles": data_of(await request("/api/v1/auto-downloader/profiles")),
+            "rules": as_list(data_of(await request("/api/v1/auto-downloader/rules"))),
+            "queue": as_list(data_of(await request("/api/v1/auto-downloader/items"))),
+            "profiles": as_list(data_of(await request("/api/v1/auto-downloader/profiles"))),
         }
