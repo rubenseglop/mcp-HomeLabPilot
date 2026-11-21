@@ -17,6 +17,7 @@ import httpx
 
 
 HTTP_INTEGRATIONS = {
+    "seanime": ("SEANIME_URL", "SEANIME_PASSWORD", "seanime-token", "/api/v1/status"),
     "plex": ("PLEX_URL", "PLEX_TOKEN", "plex", "/identity"),
     "jellyfin": ("JELLYFIN_URL", "JELLYFIN_API_KEY", "emby", "/System/Info/Public"),
     "seerr": ("SEERR_URL", "SEERR_API_KEY", "x-api-key", "/api/v1/status"),
@@ -95,7 +96,10 @@ def register_integration_tools(
         headers = {"Accept": "application/json"}
         if not credential:
             return headers
-        if mode == "emby":
+        if mode == "seanime-token":
+            import hashlib
+            headers["X-Seanime-Token"] = hashlib.sha256(credential.encode("utf-8")).hexdigest()
+        elif mode == "emby":
             headers["X-Emby-Token"] = credential
         elif mode == "x-api-key":
             headers["X-Api-Key"] = credential
@@ -226,6 +230,12 @@ def register_integration_tools(
             return await request(service, verb, path, params, body)
         if verb != "GET":
             raise PermissionError("This tool is read-only; preview non-GET requests first")
+        if service == "seanime":
+            allowed = {"/api/v1/status", "/api/v1/library/collection",
+                       "/api/v1/anilist/collection", "/api/v1/anilist/collection/raw",
+                       "/api/v1/library/local-files"}
+            if path not in allowed and not path.startswith("/api/v1/library/anime-entry/"):
+                raise PermissionError("Seanime generic reads are restricted to known read-only status/library endpoints")
         return await request(service, verb, path, params, body)
 
     @mcp.tool()
