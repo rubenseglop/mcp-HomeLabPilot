@@ -292,6 +292,9 @@ def register_seanime_tools(mcp: Any, timeout: float = 15, audit: Any = None) -> 
                 for item in selected
             ],
             "safeToProceed": len(selected) > 0 and not wrong and not any(item.get("ignored") for item in selected),
+            "willLockFiles": True,
+            "willClearIgnored": True,
+            "warning": "Seanime's match action sets Locked=true and Ignored=false for every selected file.",
             "note": "Preview only. No file content or filesystem path is moved, renamed, or deleted.",
         }
 
