@@ -129,6 +129,110 @@ def register_seanime_tools(mcp: Any, timeout: float = 15) -> None:
         }
 
     @mcp.tool()
+    async def seanime_audit_library(limit: int = 500) -> dict:
+        """Audit local Seanime library for shared folders and suspicious file/episode counts; read-only."""
+        if not 1 <= limit <= 500:
+            raise ValueError("limit must be between 1 and 500")
+
+        payload = await library_payload()
+        raw_lists = payload.get("lists", [])
+        entries: list[dict[str, Any]] = []
+        if isinstance(raw_lists, list):
+            for library_list in raw_lists:
+                if not isinstance(library_list, dict):
+                    continue
+                raw_entries = library_list.get("entries", [])
+                if isinstance(raw_entries, list):
+                    for entry in raw_entries:
+                        if isinstance(entry, dict):
+                            entries.append(entry)
+        elif isinstance(raw_lists, dict):
+            for raw_entries in raw_lists.values():
+                if isinstance(raw_entries, list):
+                    entries.extend(entry for entry in raw_entries if isinstance(entry, dict))
+
+        entries = entries[:limit]
+        by_path: dict[str, list[dict[str, Any]]] = {}
+        count_warnings: list[dict[str, Any]] = []
+        missing_path: list[dict[str, Any]] = []
+
+        for entry in entries:
+            media = entry.get("media") if isinstance(entry.get("media"), dict) else {}
+            library = entry.get("libraryData") if isinstance(entry.get("libraryData"), dict) else {}
+            title_data = media.get("title")
+            if isinstance(title_data, dict):
+                title = title_data.get("userPreferred") or title_data.get("romaji") or title_data.get("english") or "Sin título"
+            else:
+                title = title_data or "Sin título"
+
+            path = library.get("sharedPath")
+            item = {
+                "title": title,
+                "mediaId": media.get("id") or entry.get("mediaId"),
+                "format": media.get("format"),
+                "episodes": media.get("episodes"),
+                "mainFileCount": library.get("mainFileCount"),
+                "unwatchedCount": library.get("unwatchedCount"),
+                "sharedPath": path,
+            }
+
+            if isinstance(path, str) and path.strip():
+                normalized = path.strip().rstrip("/\\").casefold()
+                by_path.setdefault(normalized, []).append(item)
+            else:
+                missing_path.append({"title": title, "mediaId": item["mediaId"]})
+
+            episodes = item["episodes"]
+            files = item["mainFileCount"]
+            if isinstance(episodes, (int, float)) and episodes > 0 and isinstance(files, (int, float)) and files > 0:
+                ratio = files / episodes
+                fmt = str(item["format"] or "").upper()
+                if ratio >= 2:
+                    count_warnings.append({
+                        **item,
+                        "reason": "Hay bastantes más archivos principales que episodios declarados.",
+                        "filesPerEpisode": round(ratio, 2),
+                        "severity": "review",
+                    })
+                elif ratio <= 0.25 and episodes >= 4:
+                    count_warnings.append({
+                        **item,
+                        "reason": "Hay muchos menos archivos principales que episodios declarados.",
+                        "filesPerEpisode": round(ratio, 2),
+                        "severity": "review",
+                    })
+                if fmt in {"OVA", "SPECIAL"} and episodes <= 2 and files >= 5:
+                    count_warnings.append({
+                        **item,
+                        "reason": "OVA/especial de pocos episodios asociado a muchos archivos locales; comprobar posible emparejamiento incorrecto.",
+                        "filesPerEpisode": round(ratio, 2),
+                        "severity": "high",
+                    })
+
+        shared_paths = []
+        for group in by_path.values():
+            if len(group) > 1:
+                shared_paths.append({
+                    "sharedPath": group[0]["sharedPath"],
+                    "entries": group,
+                    "severity": "high",
+                    "reason": "Varias entradas de AniList apuntan a la misma carpeta local.",
+                })
+
+        return {
+            "summary": {
+                "entriesAudited": len(entries),
+                "sharedFolderGroups": len(shared_paths),
+                "fileEpisodeCountWarnings": len(count_warnings),
+                "entriesWithoutSharedPath": len(missing_path),
+            },
+            "sharedFolders": shared_paths,
+            "countWarnings": count_warnings,
+            "entriesWithoutSharedPath": missing_path,
+            "note": "Las diferencias entre archivos y episodios son indicios, no pruebas: pueden existir especiales, versiones, extras o episodios divididos. Esta auditoría no modifica archivos ni asociaciones.",
+        }
+
+    @mcp.tool()
     async def seanime_get_continue_watching(limit: int = 50) -> dict:
         """Read Seanime's continue-watching list with bounded results."""
         if not 1 <= limit <= 200:
