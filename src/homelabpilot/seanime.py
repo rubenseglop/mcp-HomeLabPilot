@@ -1,6 +1,7 @@
 """Read-only native integration for Seanime."""
 from __future__ import annotations
 
+import hashlib
 import os
 from typing import Any
 
@@ -19,7 +20,7 @@ def register_seanime_tools(mcp: Any, timeout: float = 15) -> None:
         password = os.getenv("SEANIME_PASSWORD", "")
         headers = {"Accept": "application/json"}
         if password:
-            headers["X-Seanime-Token"] = password
+            headers["X-Seanime-Token"] = hashlib.sha256(password.encode("utf-8")).hexdigest()
         async with httpx.AsyncClient(
             timeout=timeout, headers=headers, follow_redirects=False
         ) as client:
