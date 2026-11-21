@@ -185,7 +185,7 @@ def register_seanime_tools(mcp: Any, timeout: float = 15) -> None:
                  "locked": item.get("locked"), "ignored": item.get("ignored")}
                 for item in selected
             ],
-            "safeToProceed": len(selected) > 0 and not wrong,
+            "safeToProceed": len(selected) > 0 and not wrong and not any(item.get("ignored") for item in selected),
             "note": "Preview only. No file content or filesystem path is moved, renamed, or deleted.",
         }
 
@@ -208,6 +208,9 @@ def register_seanime_tools(mcp: Any, timeout: float = 15) -> None:
         unexpected = [item.get("path") for item in selected if item.get("mediaId") != source_media_id]
         if unexpected:
             raise ValueError(f"Folder contains files not all assigned to source media {source_media_id}; nothing changed: {unexpected[:10]}")
+        ignored_paths = [item.get("path") for item in selected if item.get("ignored")]
+        if ignored_paths:
+            raise ValueError(f"Folder contains ignored files; refusing to change their status: {ignored_paths[:10]}")
         collection = data_of(await request("/api/v1/anilist/collection/raw"))
         if not collection_has_media_id(collection, target_media_id):
             raise ValueError("Target media is not in the AniList collection. Add it first with seanime_add_to_anilist.")
