@@ -8,7 +8,7 @@ from typing import Any
 import httpx
 
 
-def register_seanime_tools(mcp: Any, timeout: float = 15) -> None:
+def register_seanime_tools(mcp: Any, timeout: float = 15, audit: Any = None) -> None:
     """Register read-only Seanime MCP tools."""
 
     async def request(path: str, method: str = "GET", json_body: dict | None = None) -> Any:
@@ -79,8 +79,82 @@ def register_seanime_tools(mcp: Any, timeout: float = 15) -> None:
         }
 
     async def library_payload() -> dict:
+        """Reconcile Seanime's cached collection with local files and AniList membership."""
         payload = data_of(await request("/api/v1/library/collection"))
-        return payload if isinstance(payload, dict) else {}
+        if not isinstance(payload, dict):
+            return {}
+        raw_lists = payload.get("lists", [])
+        if isinstance(raw_lists, dict):
+            lists = [{"status": status, "entries": entries}
+                     for status, entries in raw_lists.items() if isinstance(entries, list)]
+        elif isinstance(raw_lists, list):
+            lists = raw_lists
+        else:
+            lists = []
+        present_ids: set[int] = set()
+        for group in lists:
+            if not isinstance(group, dict):
+                continue
+            for entry in group.get("entries", []) if isinstance(group.get("entries"), list) else []:
+                if isinstance(entry, dict):
+                    media = entry.get("media") if isinstance(entry.get("media"), dict) else {}
+                    try:
+                        mid = int(media.get("id") or entry.get("mediaId") or 0)
+                    except (TypeError, ValueError):
+                        mid = 0
+                    if mid:
+                        present_ids.add(mid)
+        raw_collection = data_of(await request("/api/v1/anilist/collection/raw"))
+        collection_ids: set[int] = set()
+        def collect_ids(value: Any) -> None:
+            if isinstance(value, dict):
+                media = value.get("media")
+                if isinstance(media, dict):
+                    try:
+                        mid = int(media.get("id") or 0)
+                    except (TypeError, ValueError):
+                        mid = 0
+                    if mid:
+                        collection_ids.add(mid)
+                for child in value.values():
+                    collect_ids(child)
+            elif isinstance(value, list):
+                for child in value:
+                    collect_ids(child)
+        collect_ids(raw_collection)
+        local_files = local_files_from(await request("/api/v1/library/local-files"))
+        local_ids: set[int] = set()
+        for item in local_files:
+            try:
+                mid = int(item.get("mediaId") or 0)
+            except (TypeError, ValueError):
+                mid = 0
+            if mid > 0:
+                local_ids.add(mid)
+        recovered: list[int] = []
+        for media_id in sorted((local_ids & collection_ids) - present_ids):
+            try:
+                entry = data_of(await request(f"/api/v1/library/anime-entry/{media_id}"))
+            except Exception:
+                continue
+            if not isinstance(entry, dict) or not isinstance(entry.get("media"), dict):
+                continue
+            entry_files = entry.get("localFiles")
+            if not isinstance(entry_files, list) or not entry_files:
+                continue
+            list_data = entry.get("listData") if isinstance(entry.get("listData"), dict) else {}
+            status = list_data.get("status") or "PLANNING"
+            target = next((group for group in lists if isinstance(group, dict)
+                           and str(group.get("status", "")).upper() == str(status).upper()), None)
+            if target is None:
+                target = {"type": "ANIME", "status": status, "entries": []}
+                lists.append(target)
+            target.setdefault("entries", []).append(entry)
+            present_ids.add(media_id)
+            recovered.append(media_id)
+        payload["lists"] = lists
+        payload["reconciledMissingMediaIds"] = recovered
+        return payload
 
     @mcp.tool()
     async def seanime_search_anime(query: str, media_format: str = "TV", limit: int = 10) -> dict:
@@ -94,8 +168,24 @@ def register_seanime_tools(mcp: Any, timeout: float = 15) -> None:
         if media_format.strip():
             body["format"] = media_format.strip().upper()
         payload = data_of(await request("/api/v1/anilist/list-anime", "POST", body))
-        page = payload.get("page", {}) if isinstance(payload, dict) else {}
-        media_items = page.get("media", []) if isinstance(page, dict) else []
+        def find_media_list(value: Any) -> list:
+            if isinstance(value, dict):
+                page = value.get("page")
+                if isinstance(page, dict) and isinstance(page.get("media"), list):
+                    return page["media"]
+                if isinstance(value.get("media"), list):
+                    return value["media"]
+                for child in value.values():
+                    found = find_media_list(child)
+                    if found:
+                        return found
+            elif isinstance(value, list):
+                for child in value:
+                    found = find_media_list(child)
+                    if found:
+                        return found
+            return []
+        media_items = find_media_list(payload)
         results = []
         for media in media_items if isinstance(media_items, list) else []:
             if not isinstance(media, dict):
@@ -142,11 +232,27 @@ def register_seanime_tools(mcp: Any, timeout: float = 15) -> None:
         if collection_has_media_id(collection, media_id):
             return {"mediaId": media_id, "alreadyInCollection": True, "changed": False}
         await request("/api/v1/library/unknown-media", "POST", {"mediaIds": [media_id]})
+        if audit:
+            audit("ADD_TO_ANILIST", "seanime", str(media_id))
         return {"mediaId": media_id, "status": "PLANNING", "changed": True}
 
     def local_files_from(payload: Any) -> list[dict[str, Any]]:
         data = data_of(payload)
         return [item for item in data if isinstance(item, dict)] if isinstance(data, list) else []
+
+    @mcp.tool()
+    async def seanime_get_unmatched_files(limit: int = 200) -> dict:
+        """List scanned local files with no AniList match (mediaId=0), read-only."""
+        if not 1 <= limit <= 1000:
+            raise ValueError("limit must be between 1 and 1000")
+        files = local_files_from(await request("/api/v1/library/local-files"))
+        unmatched = [
+            {"path": item.get("path"), "name": item.get("name"),
+             "locked": item.get("locked"), "ignored": item.get("ignored")}
+            for item in files if not item.get("mediaId")
+        ]
+        return {"count": len(unmatched), "returned": min(len(unmatched), limit),
+                "files": unmatched[:limit], "truncated": len(unmatched) > limit}
 
     def files_in_folder(folder_path: str, files: list[dict[str, Any]]) -> list[dict[str, Any]]:
         normalized_folder = folder_path.strip().rstrip("/\\")
@@ -220,10 +326,12 @@ def register_seanime_tools(mcp: Any, timeout: float = 15) -> None:
         await request("/api/v1/library/local-files", "PATCH", {
             "paths": paths, "action": "match", "mediaId": target_media_id
         })
+        if audit:
+            audit("REASSIGN_FILES", "seanime", f"{source_media_id}->{target_media_id} ({len(paths)} files)")
         return {
             "changed": True, "sourceMediaId": source_media_id, "targetMediaId": target_media_id,
             "folder": folder_path, "filesReassigned": len(paths),
-            "note": "Seanime updated local-file database associations only. Physical files were not moved, renamed, or deleted.",
+            "note": "Seanime updated database associations only; physical files were not moved, renamed, or deleted. IMPORTANT: Seanime's match action also sets Locked=true and Ignored=false on every selected file.",
         }
 
     @mcp.tool()
@@ -516,7 +624,13 @@ def register_seanime_tools(mcp: Any, timeout: float = 15) -> None:
             ],
             "localFiles": files_to_return,
             "episodes": episodes,
-            "note": "Inspección de solo lectura. No modifica asociaciones, archivos ni el progreso de AniList.",
+            "episodeFileCandidates": [
+                {"episodeNumber": (item.get("metadata") or {}).get("episode"),
+                 "path": item.get("path"), "name": item.get("name")}
+                for item in files_to_return
+                if (item.get("metadata") or {}).get("episode") is not None
+            ],
+            "note": "Inspección de solo lectura. localFiles muestra los archivos devueltos; episodes es la vista de Seanime y puede mostrar un único archivo representativo si varios comparten episodio. episodeFileCandidates conserva todos los candidatos visibles.",
         }
 
     @mcp.tool()
