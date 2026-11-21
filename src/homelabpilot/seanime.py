@@ -231,7 +231,12 @@ def register_seanime_tools(mcp: Any, timeout: float = 15, audit: Any = None) -> 
         collection = data_of(await request("/api/v1/anilist/collection/raw"))
         if collection_has_media_id(collection, media_id):
             return {"mediaId": media_id, "alreadyInCollection": True, "changed": False}
-        await request("/api/v1/library/unknown-media", "POST", {"mediaIds": [media_id]})
+        try:
+            await request("/api/v1/library/unknown-media", "POST", {"mediaIds": [media_id]})
+        except Exception:
+            if audit:
+                audit("ADD_TO_ANILIST", "seanime", str(media_id), "failed")
+            raise
         if audit:
             audit("ADD_TO_ANILIST", "seanime", str(media_id))
         return {"mediaId": media_id, "status": "PLANNING", "changed": True}
@@ -326,9 +331,14 @@ def register_seanime_tools(mcp: Any, timeout: float = 15, audit: Any = None) -> 
         paths = [str(item.get("path")) for item in selected]
         if any(not path or path == "None" for path in paths):
             raise ValueError("One or more selected files have no valid path; nothing changed")
-        await request("/api/v1/library/local-files", "PATCH", {
-            "paths": paths, "action": "match", "mediaId": target_media_id
-        })
+        try:
+            await request("/api/v1/library/local-files", "PATCH", {
+                "paths": paths, "action": "match", "mediaId": target_media_id
+            })
+        except Exception:
+            if audit:
+                audit("REASSIGN_FILES", "seanime", f"{source_media_id}->{target_media_id} ({len(paths)} files)", "failed")
+            raise
         if audit:
             audit("REASSIGN_FILES", "seanime", f"{source_media_id}->{target_media_id} ({len(paths)} files)")
         return {
