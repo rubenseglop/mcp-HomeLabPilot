@@ -116,6 +116,19 @@ def register_seanime_tools(mcp: Any, timeout: float = 15) -> None:
         return {"count": len(results), "results": results}
 
     @mcp.tool()
+    def collection_has_media_id(value: Any, media_id: int) -> bool:
+        if isinstance(value, dict):
+            media = value.get("media")
+            if isinstance(media, dict) and media.get("id") == media_id:
+                return True
+            if value.get("id") == media_id and ("title" in value or "format" in value):
+                return True
+            return any(collection_has_media_id(child, media_id) for child in value.values())
+        if isinstance(value, list):
+            return any(collection_has_media_id(child, media_id) for child in value)
+        return False
+
+    @mcp.tool()
     async def seanime_add_to_anilist(media_id: int, confirm: bool = False) -> dict:
         """Add an anime to the user's AniList Planning list. Requires confirm=true; never changes progress."""
         if media_id <= 0:
@@ -126,8 +139,7 @@ def register_seanime_tools(mcp: Any, timeout: float = 15) -> None:
         if not isinstance(details, dict) or not details:
             raise ValueError(f"AniList media {media_id} could not be verified")
         collection = data_of(await request("/api/v1/anilist/collection/raw"))
-        serialized = str(collection)
-        if f"'id': {media_id}" in serialized or f'"id": {media_id}' in serialized:
+        if collection_has_media_id(collection, media_id):
             return {"mediaId": media_id, "alreadyInCollection": True, "changed": False}
         await request("/api/v1/library/unknown-media", "POST", {"mediaIds": [media_id]})
         return {"mediaId": media_id, "status": "PLANNING", "changed": True}
@@ -197,8 +209,7 @@ def register_seanime_tools(mcp: Any, timeout: float = 15) -> None:
         if unexpected:
             raise ValueError(f"Folder contains files not all assigned to source media {source_media_id}; nothing changed: {unexpected[:10]}")
         collection = data_of(await request("/api/v1/anilist/collection/raw"))
-        collection_text = str(collection)
-        if f"'id': {target_media_id}" not in collection_text and f'"id": {target_media_id}' not in collection_text:
+        if not collection_has_media_id(collection, target_media_id):
             raise ValueError("Target media is not in the AniList collection. Add it first with seanime_add_to_anilist.")
         paths = [str(item.get("path")) for item in selected]
         if any(not path or path == "None" for path in paths):
