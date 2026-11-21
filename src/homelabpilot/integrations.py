@@ -176,6 +176,7 @@ def register_integration_tools(
             "prowlarr": {"configured": bool(os.getenv("PROWLARR_URL", "").strip()), "mode": "ARR REST"},
             "bazarr": {"configured": bool(os.getenv("BAZARR_URL", "").strip()), "mode": "ARR REST"},
             "scryer": {"configured": bool(os.getenv("SCRYER_URL", "").strip()), "mode": "GraphQL"},
+            "seanime": {"configured": bool(os.getenv("SEANIME_URL", "").strip()), "mode": "native API"},
             "qbittorrent": {"configured": bool(os.getenv("QBITTORRENT_URL", "").strip()), "mode": "Web API"},
         }
         services.update({

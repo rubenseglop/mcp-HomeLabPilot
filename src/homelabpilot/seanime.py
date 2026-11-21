@@ -1,0 +1,150 @@
+"""Read-only native integration for Seanime."""
+from __future__ import annotations
+
+import os
+from typing import Any
+
+import httpx
+
+
+def register_seanime_tools(mcp: Any, timeout: float = 15) -> None:
+    """Register read-only Seanime MCP tools."""
+
+    async def request(path: str) -> Any:
+        base_url = os.getenv("SEANIME_URL", "").strip().rstrip("/")
+        if not base_url:
+            raise ValueError("Seanime is not configured: set SEANIME_URL")
+        if not base_url.startswith(("http://", "https://")):
+            raise ValueError("SEANIME_URL must start with http:// or https://")
+        password = os.getenv("SEANIME_PASSWORD", "")
+        headers = {"Accept": "application/json"}
+        if password:
+            headers["X-Seanime-Token"] = password
+        async with httpx.AsyncClient(
+            timeout=timeout, headers=headers, follow_redirects=False
+        ) as client:
+            response = await client.get(f"{base_url}{path}")
+            response.raise_for_status()
+            try:
+                return response.json()
+            except ValueError:
+                return {"text": response.text[:12000]}
+
+    def data_of(payload: Any) -> Any:
+        return payload.get("data", payload) if isinstance(payload, dict) else payload
+
+    def compact_entry(entry: Any) -> Any:
+        if not isinstance(entry, dict):
+            return entry
+        media = entry.get("media")
+        if not isinstance(media, dict):
+            return {
+                key: entry[key] for key in ("id", "mediaId", "status", "progress")
+                if key in entry
+            }
+        title = media.get("title")
+        if isinstance(title, dict):
+            title = title.get("userPreferred") or title.get("romaji") or title.get("english")
+        library = entry.get("libraryData") or {}
+        list_data = entry.get("listData") or {}
+        return {
+            "media": {
+                key: value for key, value in {
+                    "id": media.get("id"),
+                    "idMal": media.get("idMal"),
+                    "title": title,
+                    "siteUrl": media.get("siteUrl"),
+                    "type": media.get("type"),
+                    "format": media.get("format"),
+                    "season": media.get("season"),
+                    "seasonYear": media.get("seasonYear"),
+                    "episodes": media.get("episodes"),
+                    "meanScore": media.get("meanScore"),
+                    "genres": media.get("genres"),
+                    "coverImage": media.get("coverImage"),
+                }.items() if value is not None
+            },
+            "mediaId": entry.get("mediaId"),
+            "libraryData": {
+                key: library.get(key) for key in
+                ("allFilesLocked", "sharedPath", "unwatchedCount", "mainFileCount")
+                if key in library
+            } if isinstance(library, dict) else {},
+            "listData": {
+                key: list_data.get(key) for key in
+                ("status", "progress", "score", "createdAt", "updatedAt")
+                if key in list_data
+            } if isinstance(list_data, dict) else {},
+        }
+
+    async def library_payload() -> dict:
+        payload = data_of(await request("/api/v1/library/collection"))
+        return payload if isinstance(payload, dict) else {}
+
+    @mcp.tool()
+    async def seanime_get_status() -> dict:
+        """Check Seanime server availability, version and password protection."""
+        payload = await request("/api/v1/status")
+        if not isinstance(payload, dict):
+            return {"response": payload}
+        return {
+            key: payload.get(key) for key in
+            ("version", "serverReady", "isOffline", "serverHasPassword")
+            if key in payload
+        }
+
+    @mcp.tool()
+    async def seanime_get_library(limit: int = 100) -> dict:
+        """Read Seanime's local anime library with compact AniList and local-file metadata."""
+        if not 1 <= limit <= 500:
+            raise ValueError("limit must be between 1 and 500")
+        payload = await library_payload()
+        raw_lists = payload.get("lists", {})
+        lists: dict[str, Any] = {}
+        if isinstance(raw_lists, dict):
+            for name, entries in raw_lists.items():
+                lists[name] = [compact_entry(item) for item in entries[:limit]] if isinstance(entries, list) else entries
+        elif isinstance(raw_lists, list):
+            lists = {"items": [compact_entry(item) for item in raw_lists[:limit]]}
+        return {
+            "stats": payload.get("stats"),
+            "lists": lists,
+            "continueWatchingCount": len(payload.get("continueWatchingList", []))
+            if isinstance(payload.get("continueWatchingList"), list) else None,
+        }
+
+    @mcp.tool()
+    async def seanime_get_continue_watching(limit: int = 50) -> dict:
+        """Read Seanime's continue-watching list with bounded results."""
+        if not 1 <= limit <= 200:
+            raise ValueError("limit must be between 1 and 200")
+        payload = await library_payload()
+        items = payload.get("continueWatchingList", [])
+        if not isinstance(items, list):
+            return {"count": 0, "items": []}
+        return {"count": len(items), "items": [compact_entry(item) for item in items[:limit]]}
+
+    @mcp.tool()
+    async def seanime_get_anilist_collection(limit: int = 100) -> Any:
+        """Read Seanime's AniList collection and list progress."""
+        if not 1 <= limit <= 500:
+            raise ValueError("limit must be between 1 and 500")
+        payload = data_of(await request("/api/v1/anilist/collection/raw"))
+        if isinstance(payload, list):
+            return {"count": len(payload), "items": [compact_entry(item) for item in payload[:limit]]}
+        if isinstance(payload, dict):
+            result = dict(payload)
+            for key, value in result.items():
+                if isinstance(value, list):
+                    result[key] = [compact_entry(item) for item in value[:limit]]
+            return result
+        return payload
+
+    @mcp.tool()
+    async def seanime_get_downloader() -> dict:
+        """Read Seanime automatic downloader rules, queue and profiles; does not start downloads."""
+        return {
+            "rules": data_of(await request("/api/v1/auto-downloader/rules")),
+            "queue": data_of(await request("/api/v1/auto-downloader/items")),
+            "profiles": data_of(await request("/api/v1/auto-downloader/profiles")),
+        }

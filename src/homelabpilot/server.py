@@ -26,6 +26,7 @@ import uvicorn
 from homelabpilot.audit import list_events as list_audit_events, record_event
 from homelabpilot.web import HomeLabPilotWebMiddleware
 from homelabpilot.integrations import register_integration_tools
+from homelabpilot.seanime import register_seanime_tools
 from homelabpilot.config_store import get_app_config, load_saved_config, save_app_config
 
 load_saved_config()
@@ -331,6 +332,8 @@ integration_status = register_integration_tools(
     audit=_audit,
     timeout=TIMEOUT,
 )
+
+register_seanime_tools(mcp=mcp, timeout=TIMEOUT)
 
 @mcp.tool()
 async def stack_status() -> dict[str, Any]:

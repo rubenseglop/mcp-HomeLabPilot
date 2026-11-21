@@ -25,6 +25,7 @@ APP_CONFIG_FIELDS: dict[str, tuple[str, ...]] = {
     "bazarr": ("BAZARR_URL", "BAZARR_API_KEY"),
     "lidarr": ("LIDARR_URL", "LIDARR_API_KEY"),
     "scryer": ("SCRYER_URL", "SCRYER_API_KEY"),
+    "seanime": ("SEANIME_URL", "SEANIME_PASSWORD"),
     "qbittorrent": ("QBITTORRENT_URL", "QBITTORRENT_USERNAME", "QBITTORRENT_PASSWORD"),
     "plex": ("PLEX_URL", "PLEX_TOKEN"),
     "jellyfin": ("JELLYFIN_URL", "JELLYFIN_API_KEY"),
