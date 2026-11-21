@@ -296,9 +296,10 @@ def register_seanime_tools(mcp: Any, timeout: float = 15) -> None:
         raw_files = raw_files if isinstance(raw_files, list) else []
         files = [compact_local_file(item) for item in raw_files if isinstance(item, dict)]
         files.sort(key=lambda item: str(item.get("path") or "").casefold())
+        files_to_return = files[:file_limit]
 
         folders: dict[str, list[str]] = {}
-        for item in files:
+        for item in files_to_return:
             path = str(item.get("path") or "")
             folder = path.rsplit("/", 1)[0] if "/" in path else "(sin carpeta)"
             folders.setdefault(folder, []).append(str(item.get("name") or path))
@@ -341,7 +342,7 @@ def register_seanime_tools(mcp: Any, timeout: float = 15) -> None:
                 if key in library
             },
             "summary": {
-                "localFilesReturned": len(files),
+                "localFilesReturned": len(files_to_return),
                 "localFilesTotal": len(raw_files),
                 "episodesReturned": len(episodes),
                 "episodesTotal": len(raw_episodes),
@@ -351,7 +352,7 @@ def register_seanime_tools(mcp: Any, timeout: float = 15) -> None:
                 {"path": path, "fileCount": len(names), "files": names}
                 for path, names in sorted(folders.items())
             ],
-            "localFiles": files[:file_limit],
+            "localFiles": files_to_return,
             "episodes": episodes,
             "note": "Inspección de solo lectura. No modifica asociaciones, archivos ni el progreso de AniList.",
         }
