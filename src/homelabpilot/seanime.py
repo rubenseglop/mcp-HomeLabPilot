@@ -11,7 +11,7 @@ import httpx
 def register_seanime_tools(mcp: Any, timeout: float = 15) -> None:
     """Register read-only Seanime MCP tools."""
 
-    async def request(path: str) -> Any:
+    async def request(path: str, method: str = "GET", json_body: dict | None = None) -> Any:
         base_url = os.getenv("SEANIME_URL", "").strip().rstrip("/")
         if not base_url:
             raise ValueError("Seanime is not configured: set SEANIME_URL")
@@ -24,7 +24,7 @@ def register_seanime_tools(mcp: Any, timeout: float = 15) -> None:
         async with httpx.AsyncClient(
             timeout=timeout, headers=headers, follow_redirects=False
         ) as client:
-            response = await client.get(f"{base_url}{path}")
+            response = await client.request(method, f"{base_url}{path}", json=json_body)
             response.raise_for_status()
             try:
                 return response.json()
@@ -81,6 +81,154 @@ def register_seanime_tools(mcp: Any, timeout: float = 15) -> None:
     async def library_payload() -> dict:
         payload = data_of(await request("/api/v1/library/collection"))
         return payload if isinstance(payload, dict) else {}
+
+    @mcp.tool()
+    async def seanime_search_anime(query: str, media_format: str = "TV", limit: int = 10) -> dict:
+        """Search AniList from Seanime; read-only. media_format may be TV, OVA, MOVIE, SPECIAL, or empty."""
+        query = query.strip()
+        if not query:
+            raise ValueError("query cannot be empty")
+        if not 1 <= limit <= 25:
+            raise ValueError("limit must be between 1 and 25")
+        body: dict[str, Any] = {"page": 1, "perPage": limit, "search": query}
+        if media_format.strip():
+            body["format"] = media_format.strip().upper()
+        payload = data_of(await request("/api/v1/anilist/list-anime", "POST", body))
+        page = payload.get("page", {}) if isinstance(payload, dict) else {}
+        media_items = page.get("media", []) if isinstance(page, dict) else []
+        results = []
+        for media in media_items if isinstance(media_items, list) else []:
+            if not isinstance(media, dict):
+                continue
+            title = media.get("title") if isinstance(media.get("title"), dict) else {}
+            results.append({
+                "id": media.get("id"),
+                "idMal": media.get("idMal"),
+                "title": title.get("userPreferred") or title.get("romaji") or title.get("english"),
+                "english": title.get("english"),
+                "romaji": title.get("romaji"),
+                "format": media.get("format"),
+                "episodes": media.get("episodes"),
+                "season": media.get("season"),
+                "seasonYear": media.get("seasonYear"),
+                "siteUrl": media.get("siteUrl"),
+            })
+        return {"count": len(results), "results": results}
+
+    @mcp.tool()
+    async def seanime_add_to_anilist(media_id: int, confirm: bool = False) -> dict:
+        """Add an anime to the user's AniList Planning list. Requires confirm=true; never changes progress."""
+        if media_id <= 0:
+            raise ValueError("media_id must be a positive AniList ID")
+        if confirm is not True:
+            raise ValueError("Confirmation required: call again with confirm=true to add this AniList entry as PLANNING")
+        details = data_of(await request(f"/api/v1/anilist/media-details/{media_id}"))
+        if not isinstance(details, dict) or not details:
+            raise ValueError(f"AniList media {media_id} could not be verified")
+        collection = data_of(await request("/api/v1/anilist/collection/raw"))
+        serialized = str(collection)
+        if f"'id': {media_id}" in serialized or f'"id": {media_id}' in serialized:
+            return {"mediaId": media_id, "alreadyInCollection": True, "changed": False}
+        await request("/api/v1/library/unknown-media", "POST", {"mediaIds": [media_id]})
+        return {"mediaId": media_id, "status": "PLANNING", "changed": True}
+
+    def local_files_from(payload: Any) -> list[dict[str, Any]]:
+        data = data_of(payload)
+        return [item for item in data if isinstance(item, dict)] if isinstance(data, list) else []
+
+    def files_in_folder(folder_path: str, files: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        normalized_folder = folder_path.strip().rstrip("/\\")
+        if not normalized_folder.startswith("/"):
+            raise ValueError("folder_path must be an absolute Linux path inside Seanime's library")
+        return [
+            item for item in files
+            if str(item.get("path") or "").rsplit("/", 1)[0].rstrip("/\\") == normalized_folder
+        ]
+
+    @mcp.tool()
+    async def seanime_preview_reassignment(
+        folder_path: str, source_media_id: int, target_media_id: int
+    ) -> dict:
+        """Preview an exact-folder reassignment without changing anything."""
+        if source_media_id <= 0 or target_media_id <= 0 or source_media_id == target_media_id:
+            raise ValueError("source_media_id and target_media_id must be distinct positive IDs")
+        files = local_files_from(await request("/api/v1/library/local-files"))
+        selected = files_in_folder(folder_path, files)
+        if not selected:
+            raise ValueError("No scanned local files found directly inside folder_path")
+        wrong = [
+            {"path": item.get("path"), "mediaId": item.get("mediaId")}
+            for item in selected if item.get("mediaId") != source_media_id
+        ]
+        return {
+            "folder": folder_path,
+            "sourceMediaId": source_media_id,
+            "targetMediaId": target_media_id,
+            "fileCount": len(selected),
+            "filesAlreadyAtTarget": sum(1 for item in selected if item.get("mediaId") == target_media_id),
+            "filesMatchingExpectedSource": len(selected) - len(wrong),
+            "unexpectedFiles": wrong,
+            "files": [
+                {"path": item.get("path"), "name": item.get("name"), "mediaId": item.get("mediaId"),
+                 "locked": item.get("locked"), "ignored": item.get("ignored")}
+                for item in selected
+            ],
+            "safeToProceed": len(selected) > 0 and not wrong,
+            "note": "Preview only. No file content or filesystem path is moved, renamed, or deleted.",
+        }
+
+    @mcp.tool()
+    async def seanime_reassign_files(
+        folder_path: str, source_media_id: int, target_media_id: int,
+        expected_file_count: int, confirm: bool = False
+    ) -> dict:
+        """Reassign every scanned file directly in one folder to another AniList entry. Requires exact count and confirm=true."""
+        if confirm is not True:
+            raise ValueError("Confirmation required: call again with confirm=true after reviewing seanime_preview_reassignment")
+        if source_media_id <= 0 or target_media_id <= 0 or source_media_id == target_media_id:
+            raise ValueError("source_media_id and target_media_id must be distinct positive IDs")
+        if not 1 <= expected_file_count <= 1000:
+            raise ValueError("expected_file_count must be between 1 and 1000")
+        files = local_files_from(await request("/api/v1/library/local-files"))
+        selected = files_in_folder(folder_path, files)
+        if len(selected) != expected_file_count:
+            raise ValueError(f"File count changed: expected {expected_file_count}, found {len(selected)}; nothing changed")
+        unexpected = [item.get("path") for item in selected if item.get("mediaId") != source_media_id]
+        if unexpected:
+            raise ValueError(f"Folder contains files not all assigned to source media {source_media_id}; nothing changed: {unexpected[:10]}")
+        collection = data_of(await request("/api/v1/anilist/collection/raw"))
+        collection_text = str(collection)
+        if f"'id': {target_media_id}" not in collection_text and f'"id": {target_media_id}' not in collection_text:
+            raise ValueError("Target media is not in the AniList collection. Add it first with seanime_add_to_anilist.")
+        paths = [str(item.get("path")) for item in selected]
+        if any(not path or path == "None" for path in paths):
+            raise ValueError("One or more selected files have no valid path; nothing changed")
+        await request("/api/v1/library/local-files", "PATCH", {
+            "paths": paths, "action": "match", "mediaId": target_media_id
+        })
+        return {
+            "changed": True, "sourceMediaId": source_media_id, "targetMediaId": target_media_id,
+            "folder": folder_path, "filesReassigned": len(paths),
+            "note": "Seanime updated local-file database associations only. Physical files were not moved, renamed, or deleted.",
+        }
+
+    @mcp.tool()
+    async def seanime_verify_reassignment(folder_path: str, target_media_id: int) -> dict:
+        """Verify the current mediaId assignment of every scanned file directly in a folder."""
+        if target_media_id <= 0:
+            raise ValueError("target_media_id must be a positive AniList ID")
+        files = local_files_from(await request("/api/v1/library/local-files"))
+        selected = files_in_folder(folder_path, files)
+        assigned = sum(1 for item in selected if item.get("mediaId") == target_media_id)
+        other = [
+            {"path": item.get("path"), "mediaId": item.get("mediaId")}
+            for item in selected if item.get("mediaId") != target_media_id
+        ]
+        return {
+            "folder": folder_path, "targetMediaId": target_media_id,
+            "fileCount": len(selected), "filesAssignedToTarget": assigned,
+            "allAssignedToTarget": bool(selected) and not other, "otherAssignments": other,
+        }
 
     @mcp.tool()
     async def seanime_get_status() -> dict:
