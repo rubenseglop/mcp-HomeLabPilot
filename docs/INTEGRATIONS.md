@@ -11,6 +11,8 @@ HomeLabPilot conecta con las API nativas de los servicios configurados. La dispo
 - **Tdarr:** estado, nodos, búsqueda de archivos e informes; algunas operaciones específicas requieren previsualización y confirmación.
 - **Plex y Jellyfin:** bibliotecas, actividad y sesiones de reproducción.
 - **Seerr, Immich y RomM:** solicitudes multimedia, biblioteca fotográfica y catálogo de juegos.
+- **Questarr:** estado de la API y lectura de biblioteca mediante clave de integración con scope `read`; las operaciones de escritura no se exponen en este bloque.
+- **Frigate:** estadísticas, eventos y elementos de revisión mediante token JWT de usuario `viewer` o superior; las herramientas implementadas son de solo lectura.
 - **Home Assistant:** estados, entidades, historial y catálogo de servicios; ejecutar servicios requiere permiso admin y confirmación.
 - **Transmission, Cloudflare, Youtarr, FlareSolverr, Cleanuparr, Maintainerr, Tidarr, BookOrbit, Tracearr, Agregarr, Pulsarr y TinyMediaManager:** herramientas específicas según la API disponible y la configuración.
 
@@ -42,6 +44,8 @@ Referencias habituales:
 | Scryer | GraphQL en `/graphql` |
 | qBittorrent | Web API en `/api/v2` |
 | Home Assistant | REST API en `/api` |
+| Questarr | API de integración `/api/integration` (clave `read`) |
+| Frigate | REST API `/api` (token bearer de usuario viewer) |
 
 Postgres y Redis disponen de comprobaciones de conectividad TCP. Recyclarr se identifica como integración de contenedor/CLI; no implica que exista una API MCP específica.
 
