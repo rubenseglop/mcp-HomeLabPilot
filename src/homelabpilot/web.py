@@ -344,7 +344,7 @@ async function openView(view){const target=$('workspace');target.textContent='Lo
     jellyfin:[['server_info','Server info'],['libraries','Libraries'],['sessions','Active playback']],
     seerr:[['status','Service status'],['requests','Request queue'],['application_data','Application data status']],
     immich:[['statistics','Server statistics'],['albums','Albums']],
-    romm:[['platforms','Platforms'],['roms','Recent games'],['collections','Collections']],
+    romm:[['platforms','Platforms'],['roms','Recent games'],['search','Search games'],['rom','Game details'],['collections','Collections']],
     homeassistant:[['config','Configuration'],['states','Entity states'],['state','Entity details'],['history','Entity history'],['services','Service catalogue']],
     tdarr:[['status','Server status'],['nodes','Nodes'],['job_reports','Recent job reports']],
     bookorbit:[['health','Service status'],['libraries','Libraries'],['statistics','Statistics']],
@@ -390,6 +390,18 @@ async function openView(view){const target=$('workspace');target.textContent='Lo
       const result=await request('/web-api/recyclarr/status');output.textContent=JSON.stringify(result,null,2);
      }else{
       let args=service==='questarr'&&operation==='library'?{limit:50,include_hidden:false}:service==='frigate'&&operation==='events'?{limit:20,offset:0}:service==='frigate'&&operation==='review'?{limit:20}:service==='seerr'&&operation==='requests'?{take:20,skip:0}:service==='romm'&&operation==='roms'?{limit:30,offset:0}:service==='homeassistant'&&operation==='states'?{limit:100}:service==='tdarr'&&operation==='job_reports'?{page_size:10}:{};
+      if(service==='romm'&&operation==='search'){
+       const searchTerm=window.prompt('Search RomM games (at least 2 characters)');
+       if(!searchTerm||searchTerm.trim().length<2){output.textContent='Search cancelled or too short.';return;}
+       args={search_term:searchTerm.trim(),limit:30,offset:0};
+      }
+      if(service==='romm'&&operation==='rom'){
+       const rawId=window.prompt('RomM game ID');
+       if(!rawId){output.textContent='Cancelled.';return;}
+       const romId=Number(rawId);
+       if(!Number.isInteger(romId)||romId<1){output.textContent='A positive numeric game ID is required.';return;}
+       args={rom_id:romId};
+      }
       if(service==='homeassistant'&&operation==='state'){
        const entityId=window.prompt('Home Assistant entity ID (for example: sensor.temperature)');
        if(!entityId){output.textContent='Cancelled.';return;}
