@@ -827,7 +827,7 @@ def test_stack_status_lists_tools_for_connected_services_only(monkeypatch):
     ]
     sonarr = result["services"]["sonarr"]
     assert sonarr["ok"] is True
-    assert sonarr["tool_count"] == 3
+    assert sonarr["tool_count"] == 4
     assert [tool["name"] for tool in sonarr["tools"]] == [
         "arr_add_series", "arr_api_request", "arr_list_library", "sonarr_get_series"
     ]
