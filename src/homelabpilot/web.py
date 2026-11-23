@@ -320,7 +320,15 @@ async function openView(view){const target=$('workspace');target.textContent='Lo
   $('apps-categories').addEventListener('click',e=>{const b=e.target.closest('[data-app-filter]');if(!b)return;active=b.dataset.appFilter;$('apps-categories').querySelectorAll('button').forEach(x=>x.style.borderColor=x===b?'#647cf6':'#34435d');filterApps();});
   const renderAppDetails=(app,panel)=>{
    const check=statuses[app.id]||{},config=appConfigs[app.id],connection=check.ok===true?'Connection successful':check.configured===true?'Configured but not reachable':'Not configured';
-   if(!config){panel.innerHTML='<strong>'+esc(app.name)+' · integration details</strong><p>'+esc(app.desc)+'</p><p class="muted">This service does not expose editable connection settings in HomeLabPilot.</p>';return;}
+   const dashboards={
+    questarr:[['status','Connection status'],['library','Game library']],
+    frigate:[['status','NVR statistics'],['events','Recent detection events'],['review','Review queue'],['review_summary','Review summary']],
+    recyclarr:[['status','Container status'],['preview','Preview sync']]
+   };
+   const dashboard=(dashboards[app.id]||[]).length
+    ? '<section class="info" style="margin:12px 0"><strong>Dashboard</strong><div class="actions" style="flex-wrap:wrap;margin-top:8px">'+dashboards[app.id].map(([op,label])=>'<button type="button" data-app-read="'+esc(app.id)+'" data-app-operation="'+esc(op)+'">'+esc(label)+'</button>').join('')+'</div><div data-app-read-output class="muted" style="white-space:pre-wrap;overflow-wrap:anywhere;margin-top:10px"></div></section>'
+    : '';
+   if(!config){panel.innerHTML='<strong>'+esc(app.name)+' · integration details</strong><p class="muted">'+esc(app.mode)+' · '+esc(connection)+'</p><p>'+esc(app.desc)+'</p>'+dashboard+'<p class="muted">Connection credentials are managed in the service itself or its environment variables.</p>';return;}
    const fields=config.fields||[];
    const controls=fields.map(field=>{
     const secret=field.kind==='secret',inputType=secret?'password':field.kind==='port'?'number':'text';
@@ -330,14 +338,46 @@ async function openView(view){const target=$('workspace');target.textContent='Lo
     const clear=secret&&field.secret_set?'<label class="muted" style="display:flex;align-items:center;gap:7px;margin-top:5px"><input type="checkbox" data-app-clear-secret="'+esc(field.key)+'" style="width:auto;margin:0">Remove saved credential</label>':'';
     return '<label style="display:block;padding:7px 0"><span class="muted">'+esc(field.label||field.key)+saved+'</span>'+input+clear+'</label>';
    }).join('');
-   panel.innerHTML='<strong>'+esc(app.name)+' · connection settings</strong><p class="muted">'+esc(app.mode)+' · '+esc(connection)+'</p><p>'+esc(app.desc)+'</p><form data-app-config-form="'+esc(app.id)+'">'+(fields.length?controls:'<p class="muted">No connection fields are defined.</p>')+'<p class="muted">Credentials are encrypted in persistent /data storage and are never returned to this browser. Leave password fields blank to keep existing credentials.</p><div class="actions"><button type="submit" '+(!fields.length?'disabled':'')+'>Save connection</button></div><div class="muted" data-app-config-status style="margin-top:9px"></div></form>';
+   panel.innerHTML='<strong>'+esc(app.name)+' · connection settings</strong><p class="muted">'+esc(app.mode)+' · '+esc(connection)+'</p><p>'+esc(app.desc)+'</p>'+dashboard+'<form data-app-config-form="'+esc(app.id)+'">'+(fields.length?controls:'<p class="muted">No connection fields are defined.</p>')+'<p class="muted">Credentials are encrypted in persistent /data storage and are never returned to this browser. Leave password fields blank to keep existing credentials.</p><div class="actions"><button type="submit" '+(!fields.length?'disabled':'')+'>Save connection</button></div><div class="muted" data-app-config-status style="margin-top:9px"></div></form>';
   };
-  $('apps-grid').addEventListener('click',e=>{
+  $('apps-grid').addEventListener('click',async e=>{
+   const readButton=e.target.closest('[data-app-read]');
+   if(readButton){
+    const service=readButton.dataset.appRead,operation=readButton.dataset.appOperation,output=readButton.closest('[data-app-card]').querySelector('[data-app-read-output]');
+    readButton.disabled=true;output.textContent='Loading…';
+    try{
+     if(service==='recyclarr'&&operation==='preview'){
+      const preview=await request('/web-api/recyclarr/preview',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+      output.textContent='Preview prepared. Type the phrase below to run the fixed sync command.';
+      output.innerHTML='<form data-recyclarr-confirm data-preview-token="'+esc(preview.preview_token)+'" style="margin-top:8px"><p class="muted">'+esc(preview.warning)+'</p><label>'+esc(preview.typed_confirmation)+'<input name="typed_confirmation" required autocomplete="off" style="width:100%;margin-top:6px;background:#0b1322;color:#e8edf5;border:1px solid #34435d;border-radius:8px;padding:9px"></label><button type="submit" style="margin-top:8px">Run Recyclarr sync</button><div data-recyclarr-status class="muted" style="margin-top:8px"></div></form>';
+     }else if(service==='recyclarr'&&operation==='status'){
+      const result=await request('/web-api/recyclarr/status');output.textContent=JSON.stringify(result,null,2);
+     }else{
+      const args=service==='questarr'&&operation==='library'?{limit:50,include_hidden:false}:service==='frigate'&&operation==='events'?{limit:20,offset:0}:service==='frigate'&&operation==='review'?{limit:20}: {};
+      const result=await request('/web-api/integration/read',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({service,operation,arguments:args})});
+      output.textContent=JSON.stringify(result,null,2);
+     }
+    }catch(err){output.textContent='Error: '+err.message;}
+    finally{readButton.disabled=false;}
+    return;
+   }
    const b=e.target.closest('[data-app-details]');if(!b)return;
    const app=APP_CATALOG.find(x=>x.id===b.dataset.appDetails);if(!app)return;
    const panel=$('app-detail-'+app.id);panel.hidden=!panel.hidden;if(!panel.hidden)renderAppDetails(app,panel);
   });
   $('apps-grid').addEventListener('submit',async e=>{
+   const confirmForm=e.target.closest('[data-recyclarr-confirm]');
+   if(confirmForm){
+    e.preventDefault();
+    const button=confirmForm.querySelector('button[type="submit"]'),status=confirmForm.querySelector('[data-recyclarr-status]');
+    button.disabled=true;status.textContent='Running fixed Recyclarr sync…';
+    try{
+     const result=await request('/web-api/recyclarr/confirm',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({preview_token:confirmForm.dataset.previewToken,typed_confirmation:confirmForm.querySelector('[name="typed_confirmation"]').value})});
+     status.textContent=result.ok?'Sync completed successfully (exit code 0).':'Sync finished with an error. Exit code: '+result.exit_code+'. '+(result.output||'');
+    }catch(err){status.textContent='Sync refused or failed: '+err.message;}
+    finally{button.disabled=false;}
+    return;
+   }
    const form=e.target.closest('[data-app-config-form]');if(!form)return;e.preventDefault();
    const appId=form.dataset.appConfigForm,values={},clearSecrets=[];
    form.querySelectorAll('[data-app-config-key]').forEach(input=>{values[input.dataset.appConfigKey]=input.value;});
