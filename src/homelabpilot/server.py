@@ -1448,7 +1448,7 @@ async def docker_control_allowlisted_container(
 
 
 def _recyclarr_container_name() -> str:
-    container = os.getenv("RECYCLARR_CONTAINER", "").strip().lstrip("/")
+    container = os.getenv("RECYCLARR_CONTAINER", "").strip()
     if not container or len(container) > 128 or "/" in container or ".." in container:
         raise ValueError("Set RECYCLARR_CONTAINER to the exact Recyclarr container name")
     return container
@@ -1478,8 +1478,14 @@ async def recyclarr_preview_sync() -> dict[str, str]:
     _require_docker_permission("operations")
     container = _recyclarr_container_name()
     entries = await _docker_gateway_request("GET", "/v1/containers")
-    if not isinstance(entries, list) or not any(item.get("name") == container for item in entries):
+    match = next(
+        (item for item in entries if item.get("name") == container),
+        None,
+    ) if isinstance(entries, list) else None
+    if match is None:
         raise PermissionError("Recyclarr container is not visible in the Docker allowlist")
+    if match.get("state") != "running":
+        raise RuntimeError("Recyclarr container must be running before sync")
     snapshot = {"service": "recyclarr", "container": container, "command": "recyclarr sync"}
     phrase = f"CONFIRM RECYCLARR SYNC {container}"
     return {
