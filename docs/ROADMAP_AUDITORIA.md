@@ -62,8 +62,8 @@ flowchart TD
 |---|---|---|
 | Ejecutar `tools/list` | COMPLETADO | Respuesta JSON-RPC correcta |
 | Registrar recuento real | COMPLETADO | **187 herramientas** publicadas |
-| Aclarar diferencia respecto a las 189 previstas | COMPLETADO | 189 declaraciones `@mcp.tool`, 187 nombres únicos por dos nombres duplicados; coincide con `tools/list` (187) |
-| Revisar herramientas duplicadas, ausentes o inesperadas | PARCIAL | Confirmados dos nombres duplicados (`cleanuparr_get_health`, `maintainerr_get_health`); las dos versiones consultan el mismo endpoint GET. Clasificación estática del proxy: 133 nombres permitidos y 54 bloqueados; entre los bloqueados hay lecturas legítimas de Seanime (`seanime_search_anime`, `seanime_verify_reassignment`, `seanime_audit_library`, `seanime_inspect_entry`) y el helper puro `collection_has_media_id`. Pendiente comparar el inventario completo con la lista runtime y cerrar clasificación de efectos |
+| Aclarar diferencia respecto a las 189 previstas | COMPLETADO | En el checkout desplegado entonces: 189 declaraciones `@mcp.tool`, 187 nombres únicos por dos duplicados; coincide con `tools/list` (187). En la rama feature actual: 199 declaraciones, 197 nombres únicos; los mismos dos duplicados. |
+| Revisar herramientas duplicadas, ausentes o inesperadas | PARCIAL | Confirmados dos nombres duplicados (`cleanuparr_get_health`, `maintainerr_get_health`); las dos versiones consultan el mismo endpoint GET. Clasificación estática del proxy: 133 nombres permitidos y 54 bloqueados; entre los bloqueados hay lecturas legítimas de Seanime (`seanime_search_anime`, `seanime_verify_reassignment`, `seanime_audit_library`, `seanime_inspect_entry`) y el helper puro `collection_has_media_id`. Comparación estática feature completada: 197 nombres únicos frente a 147 permitidos; los 50 restantes están clasificados y permanecen denegados. Pendiente comparar con inventario runtime actualizado y validar semántica individual antes de ampliar la allowlist |
 
 ### 1.3 Integraciones
 
@@ -191,7 +191,7 @@ flowchart TD
 | 2026-11-23 | Versionado del paquete inconsistente | CORREGIDO EN FEATURE: `src/homelabpilot/__init__.py` alineado con `pyproject.toml` en `0.5.0` (commit `63804d6`). Pendiente ampliar la estrategia de versionado al completar desarrollo |
 | 2026-11-23 | Proxy read-only | CORREGIDO EN FEATURE: sustituida la regex por allowlist exacta de 147 nombres revisados; las nuevas herramientas quedan denegadas por defecto. Incluye lecturas Seanime, Questarr, Frigate y estado Recyclarr; las operaciones de escritura/preview/confirmación siguen excluidas. |
 | 2026-11-23 | Cobertura CI | Workflow 337 de GitHub Actions para `main`/`a5ddc62`: `success`; la rama de desarrollo aún no ha ejecutado CI |
-| 2026-11-23 | Revisión estática del inventario MCP y proxy | 189 decoradores, 187 nombres únicos. El proxy anterior mostraba 137 herramientas por patrón. `flaresolverr_request_get` no se aprueba: aunque el nombre termina en GET, realiza POST y no debe habilitarse por convención. Los duplicados `cleanuparr_get_health` y `maintainerr_get_health` se conservan como nombres publicados; su semántica está documentada en el inventario. |
+| 2026-11-23 | Revisión estática del inventario MCP y proxy | Feature actual: 199 declaraciones `@mcp.tool`, 197 nombres únicos. La allowlist read-only contiene 147; los 50 nombres restantes quedan bloqueados. De esos 50, 45 son mutaciones/acciones o previews/confirmaciones, 3 son APIs genéricas que pueden escribir (`arr_api_request`, `integration_api_request`, `scryer_graphql`), uno es helper puro (`collection_has_media_id`) y `flaresolverr_request_get` ejecuta POST pese al nombre. El proxy anterior mostraba 137 herramientas por patrón. `flaresolverr_request_get` no se aprueba: aunque el nombre termina en GET, realiza POST y no debe habilitarse por convención. Los duplicados `cleanuparr_get_health` y `maintainerr_get_health` se conservan como nombres publicados; su semántica está documentada en el inventario. |
 
 ## 8. Desarrollo iniciado — proxy MCP read-only
 
@@ -220,4 +220,4 @@ flowchart TD
 
 **Estados permitidos:** PENDIENTE · EN CURSO · COMPLETADO · PARCIAL · BLOQUEADO.
 
-**Siguiente paso:** retomar la auditoría de Prioridad 1.2: contrastar el inventario completo de herramientas MCP con la allowlist del proxy y cerrar la clasificación de efectos (lectura, escritura, preview/confirmación y helpers). Después completar la prueba de lectura y el rechazo seguro de escritura a través del proxy. No desplegar ni pedir al usuario pruebas repetitivas hasta tener el bloque de cambios preparado.
+**Siguiente paso:** auditar la semántica de las 147 herramientas permitidas, buscando efectos indirectos o endpoints mutantes; después preparar pruebas de lectura permitida y escritura bloqueada del proxy. La comparación estática de inventario ya está registrada. No desplegar ni pedir al usuario pruebas repetitivas hasta tener el bloque de cambios preparado.
