@@ -69,6 +69,12 @@ class FakeAsyncClient:
             return FakeResponse([[{"entity_id": "sensor.temperature", "state": "20.0"}]])
         if url.endswith("/library/sections/1/recentlyAdded"):
             return FakeResponse([{"ratingKey": "101", "title": "Alien"}])
+        if url.endswith("/api/v1/missing-items"):
+            return FakeResponse({"items": [{"id": 12, "title": "Dune"}], "total": 1})
+        if url.endswith("/api/v1/missing-items/stats"):
+            return FakeResponse({"pending": 2, "available": 5})
+        if url.endswith("/api/v1/dashboard/activity"):
+            return FakeResponse({"days": 7, "topMedia": [{"title": "Dune"}]})
         if url.endswith("/api/queue/status"):
             return FakeResponse({"paused": False, "rateLimited": False, "pending": 4})
         if url.endswith("/external-api/v1/videos/abcdefghijk"):
@@ -122,6 +128,8 @@ def registered(monkeypatch):
     monkeypatch.setenv("YOUTARR_API_KEY", "youtarr-read-key")
     monkeypatch.setenv("TIDARR_URL", "http://tidarr:8080")
     monkeypatch.setenv("TIDARR_API_KEY", "tidarr-read-key")
+    monkeypatch.setenv("AGREGARR_URL", "http://agregarr:7171")
+    monkeypatch.setenv("AGREGARR_API_KEY", "agregarr-read-key")
     FakeAsyncClient.calls = []
     monkeypatch.setattr(integrations.httpx, "AsyncClient", FakeAsyncClient)
 
@@ -385,3 +393,27 @@ def test_tidarr_dashboard_exposes_queue_pause_and_rate_limit_status(registered):
     call = FakeAsyncClient.calls[-1]
     assert call["url"] == "http://tidarr:8080/api/queue/status"
     assert call["headers"]["X-Api-Key"] == "tidarr-read-key"
+
+
+
+def test_agregarr_dashboard_lists_missing_items_with_bounded_pagination(registered):
+    status = integrations_status(registered)
+    result = asyncio.run(status.dashboard_read(
+        "agregarr", "missing_items", limit=20, offset=10, status="pending", media_type="movie"
+    ))
+    assert result == {"items": [{"id": 12, "title": "Dune"}], "total": 1}
+    call = FakeAsyncClient.calls[-1]
+    assert call["url"] == "http://agregarr:7171/api/v1/missing-items"
+    assert call["params"] == {
+        "limit": 20, "offset": 10, "status": "pending", "mediaType": "movie"
+    }
+    assert call["headers"]["X-Api-Key"] == "agregarr-read-key"
+
+
+def test_agregarr_dashboard_reads_missing_stats_and_activity(registered):
+    status = integrations_status(registered)
+    stats = asyncio.run(status.dashboard_read("agregarr", "missing_item_stats"))
+    assert stats == {"pending": 2, "available": 5}
+    activity = asyncio.run(status.dashboard_read("agregarr", "activity", days=7, limit=10))
+    assert activity == {"days": 7, "topMedia": [{"title": "Dune"}]}
+    assert FakeAsyncClient.calls[-1]["params"] == {"days": 7, "limit": 10}
