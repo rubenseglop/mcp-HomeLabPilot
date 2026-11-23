@@ -2093,6 +2093,7 @@ def register_integration_tools(
                 "session": transmission_get_session,
                 "statistics": transmission_get_statistics,
                 "torrents": transmission_list_torrents,
+                "torrent_details": transmission_list_torrents,
             },
             "flaresolverr": {
                 "sessions": flaresolverr_list_sessions,
