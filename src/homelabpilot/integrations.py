@@ -184,8 +184,6 @@ def register_integration_tools(
             "scryer": {"configured": bool(os.getenv("SCRYER_URL", "").strip()), "mode": "GraphQL"},
             "seanime": {"configured": bool(os.getenv("SEANIME_URL", "").strip()), "mode": "native API"},
             "qbittorrent": {"configured": bool(os.getenv("QBITTORRENT_URL", "").strip()), "mode": "Web API"},
-            "questarr": {"configured": _is_configured(HTTP_INTEGRATIONS["questarr"]), "mode": "native HTTP API (read-only integration key)"},
-            "frigate": {"configured": _is_configured(HTTP_INTEGRATIONS["frigate"]), "mode": "native HTTP API (bearer token)"},
         }
         services.update({
             service: {
