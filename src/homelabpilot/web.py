@@ -223,7 +223,7 @@ const APP_CATALOG=[
 {id:'docker',name:'Docker gateway',category:'Infrastructure',mode:'Restricted Docker Gateway',desc:'Allowlisted container status and controlled lifecycle operations.',support:'Docker view · preview and confirmation'},
 {id:'cloudflare',name:'Cloudflare',category:'Infrastructure',mode:'API integration',desc:'DNS zones and record discovery.',support:'MCP tools · dedicated dashboard planned'},
 {id:'homeassistant',name:'Home Assistant',category:'Smart home',mode:'API integration',desc:'Smart home entities, history and service catalogue.',support:'Read-only dashboard'},
-{id:'frigate',name:'Frigate',category:'Smart home',mode:'API integration',desc:'Local NVR statistics, detection events and review queue.',support:'Read-only MCP tools'}
+{id:'frigate',name:'Frigate',category:'Smart home',mode:'API integration',desc:'Local NVR statistics, detection events and review queue.',support:'Read-only dashboard'}
 ];
 const APP_ENV_KEYS={
 radarr:['RADARR_URL','RADARR_API_KEY'],sonarr:['SONARR_URL','SONARR_API_KEY'],lidarr:['LIDARR_URL','LIDARR_API_KEY'],prowlarr:['PROWLARR_URL','PROWLARR_API_KEY'],bazarr:['BAZARR_URL','BAZARR_API_KEY'],scryer:['SCRYER_URL','SCRYER_API_KEY'],qbittorrent:['QBITTORRENT_URL','QBITTORRENT_USERNAME','QBITTORRENT_PASSWORD'],
