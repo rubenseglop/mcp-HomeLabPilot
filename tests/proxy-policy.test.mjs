@@ -15,7 +15,15 @@ test("read-only policy is an explicit, bounded inventory", () => {
   assert.equal(isReadOnlyTool("seanime_audit_library"), true);
   assert.equal(isReadOnlyTool("seanime_get_settings"), true);
   assert.equal(isReadOnlyTool("seanime_confirm_update_setting"), false);
-  assert.equal(isReadOnlyTool("seanime_preview_update_setting"), false);\n  assert.equal(isReadOnlyTool("seanime_preview_add_to_anilist"), false);\n  assert.equal(isReadOnlyTool("seanime_add_to_anilist"), false);\n  assert.equal(isReadOnlyTool("seanime_preview_reassignment"), false);\n  assert.equal(isReadOnlyTool("seanime_reassign_files"), false);\n  assert.equal(isReadOnlyTool("tdarr_preview_requeue_files"), false);\n  assert.equal(isReadOnlyTool("tdarr_confirm_requeue_files"), false);\n  assert.equal(isReadOnlyTool("tdarr_preview_rescan_file"), false);\n  assert.equal(isReadOnlyTool("tdarr_confirm_rescan_file"), false);
+  assert.equal(isReadOnlyTool("seanime_preview_update_setting"), false);
+  assert.equal(isReadOnlyTool("seanime_preview_add_to_anilist"), false);
+  assert.equal(isReadOnlyTool("seanime_add_to_anilist"), false);
+  assert.equal(isReadOnlyTool("seanime_preview_reassignment"), false);
+  assert.equal(isReadOnlyTool("seanime_reassign_files"), false);
+  assert.equal(isReadOnlyTool("tdarr_preview_requeue_files"), false);
+  assert.equal(isReadOnlyTool("tdarr_confirm_requeue_files"), false);
+  assert.equal(isReadOnlyTool("tdarr_preview_rescan_file"), false);
+  assert.equal(isReadOnlyTool("tdarr_confirm_rescan_file"), false);
   assert.equal(isReadOnlyTool("flaresolverr_request_get"), false);
   assert.equal(isReadOnlyTool("arr_add_movie"), false);
   assert.equal(isReadOnlyTool("a_new_tool_get"), false);
