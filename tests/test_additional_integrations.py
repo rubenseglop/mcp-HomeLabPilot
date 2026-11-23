@@ -63,6 +63,10 @@ class FakeAsyncClient:
             return FakeResponse([{"id": "review-1"}])
         if url.endswith("/api/review/summary"):
             return FakeResponse({"last24Hours": {"total_alert": 2}})
+        if url.endswith("/api/states/sensor.temperature"):
+            return FakeResponse({"entity_id": "sensor.temperature", "state": "21.5"})
+        if "/api/history/period/" in url:
+            return FakeResponse([[{"entity_id": "sensor.temperature", "state": "20.0"}]])
         if url.endswith("/library/sections"):
             return FakeResponse([{"id": 1, "title": "Movies"}])
         raise AssertionError(f"Unexpected endpoint: {url}")
@@ -76,6 +80,8 @@ def registered(monkeypatch):
     monkeypatch.setenv("QUESTARR_API_KEY", "questarr-read-key")
     monkeypatch.setenv("FRIGATE_URL", "http://frigate:8971")
     monkeypatch.setenv("FRIGATE_API_TOKEN", "frigate-viewer-token")
+    monkeypatch.setenv("HOMEASSISTANT_URL", "http://homeassistant:8123")
+    monkeypatch.setenv("HOMEASSISTANT_TOKEN", "homeassistant-read-token")
     FakeAsyncClient.calls = []
     monkeypatch.setattr(integrations.httpx, "AsyncClient", FakeAsyncClient)
 
@@ -165,3 +171,39 @@ def test_dashboard_read_exposes_only_registered_read_operations(monkeypatch):
     assert result == [{"id": 1, "title": "Movies"}]
     with pytest.raises(ValueError, match="Unsupported dashboard read operation"):
         asyncio.run(status_checks.dashboard_read("plex", "delete_library"))
+
+
+
+def test_homeassistant_entity_state_accepts_domain_dot_object_id(registered):
+    result = asyncio.run(registered["homeassistant_get_state"]("sensor.temperature"))
+    assert result == {"entity_id": "sensor.temperature", "state": "21.5"}
+    call = FakeAsyncClient.calls[-1]
+    assert call["method"] == "GET"
+    assert call["url"] == "http://homeassistant:8123/api/states/sensor.temperature"
+    assert call["headers"]["Authorization"] == "Bearer homeassistant-read-token"
+
+
+def test_homeassistant_entity_state_rejects_invalid_entity_id(registered):
+    with pytest.raises(ValueError, match="domain.entity_id"):
+        asyncio.run(registered["homeassistant_get_state"]("sensor/temperature"))
+
+
+def test_homeassistant_history_accepts_timezone_aware_timestamps(registered):
+    result = asyncio.run(registered["homeassistant_get_history"](
+        "sensor.temperature",
+        "2026-11-23T00:00:00+01:00",
+        "2026-11-23T12:00:00+01:00",
+    ))
+    assert result == [[{"entity_id": "sensor.temperature", "state": "20.0"}]]
+    call = FakeAsyncClient.calls[-1]
+    assert call["method"] == "GET"
+    assert call["url"].startswith("http://homeassistant:8123/api/history/period/")
+    assert call["params"]["filter_entity_id"] == "sensor.temperature"
+    assert call["params"]["end_time"] == "2026-11-23T12:00:00+01:00"
+
+
+def test_homeassistant_history_rejects_timezone_naive_timestamps(registered):
+    with pytest.raises(ValueError, match="include a timezone"):
+        asyncio.run(registered["homeassistant_get_history"](
+            "sensor.temperature", "2026-11-23T00:00:00"
+        ))
