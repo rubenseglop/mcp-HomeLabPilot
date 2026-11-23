@@ -1036,7 +1036,6 @@ def test_recyclarr_sync_requires_preview_and_exact_confirmation(monkeypatch):
     assert result["ok"] is True
     assert calls == [
         ("GET", "/v1/containers"),
-        ("GET", "/v1/containers"),
         ("POST", "/v1/recyclarr/sync"),
     ]
 
