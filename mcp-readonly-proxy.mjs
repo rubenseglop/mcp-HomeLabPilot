@@ -2,11 +2,11 @@ import http from "node:http";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { timingSafeEqual } from "node:crypto";
+import { isReadOnlyTool, filterToolsListPayload } from "./mcp-readonly-policy.mjs";
 
 const PORT = Number(process.env.MCP_PROXY_PORT || 8001);
 const TARGET = (process.env.HOMELABPILOT_MCP_URL || "http://homelabpilot:8000/mcp").replace(/\/$/, "");
 const TOKEN = process.env.MCP_AUTH_TOKEN || "";
-const READ_ONLY_TOOLS = /^(stack_status|integration_catalog|scryer_introspect|arr_search_catalog|[a-z0-9]+_(get|list|search|status|schema|introspect|catalog)(_|$))/;
 
 function safeEqual(a,b){const x=Buffer.from(String(a)),y=Buffer.from(String(b));return x.length===y.length&&timingSafeEqual(x,y);}
 function json(res,status,body){const data=Buffer.from(JSON.stringify(body));res.writeHead(status,{"content-type":"application/json","content-length":data.length,"cache-control":"no-store"});res.end(data);}
@@ -21,14 +21,20 @@ const server=http.createServer(async(req,res)=>{
     if(req.method==="POST"&&body.length){
       try{rpc=JSON.parse(body.toString("utf8"));}catch{}
       const calls=Array.isArray(rpc)?rpc:[rpc];
-      for(const call of calls){
-        if(call?.method==="tools/call"){
-          const name=String(call.params?.name||"");
-          if(!READ_ONLY_TOOLS.test(name)){
-            json(res,200,{jsonrpc:"2.0",id:call.id??null,error:{code:-32003,message:"This HomeLabPilot Codex connection is read-only. Mutating tools are not exposed."}});
-            return;
+      const denied=calls.filter(call=>call?.method==="tools/call"&&!isReadOnlyTool(call.params?.name));
+      if(denied.length){
+        const rejected=calls.map(call=>({
+          jsonrpc:"2.0",
+          id:call?.id??null,
+          error:{
+            code:-32003,
+            message:call?.method==="tools/call"&&!isReadOnlyTool(call.params?.name)
+              ? "This HomeLabPilot connection is read-only. The requested tool is not explicitly approved."
+              : "The JSON-RPC batch was rejected because it contains a non-approved tool call."
           }
-        }
+        }));
+        json(res,200,Array.isArray(rpc)?rejected:rejected[0]);
+        return;
       }
     }
     const headers={};
@@ -48,12 +54,12 @@ const server=http.createServer(async(req,res)=>{
       if(["transfer-encoding","connection","content-length"].includes(key.toLowerCase()))continue;
       responseHeaders[key]=value;
     }
-    if(req.method==="POST"&&rpc&&!Array.isArray(rpc)&&rpc.method==="tools/list"){
+    if(req.method==="POST"&&rpc&&(rpc.method==="tools/list"||(Array.isArray(rpc)&&rpc.some(call=>call?.method==="tools/list")))){
       const contentType=upstream.headers.get("content-type")||"";
       if(contentType.includes("application/json")){
         const data=await upstream.json();
-        if(Array.isArray(data.result?.tools))data.result.tools=data.result.tools.filter(tool=>READ_ONLY_TOOLS.test(String(tool.name||"")));
-        const out=Buffer.from(JSON.stringify(data));
+        const filtered=filterToolsListPayload(data);
+        const out=Buffer.from(JSON.stringify(filtered));
         res.writeHead(upstream.status,{...responseHeaders,"content-length":out.length,"cache-control":"no-store"});res.end(out);return;
       }
       if(contentType.includes("text/event-stream")){
@@ -66,9 +72,9 @@ const server=http.createServer(async(req,res)=>{
           if(!dataIndexes.length)return event;
           try{
             const payload=JSON.parse(dataIndexes.map(i=>lines[i].slice(5).trimStart()).join("\n"));
-            if(Array.isArray(payload.result?.tools)){
-              payload.result.tools=payload.result.tools.filter(tool=>READ_ONLY_TOOLS.test(String(tool.name||"")));
-              lines[dataIndexes[0]]="data: "+JSON.stringify(payload);
+            const filtered=filterToolsListPayload(payload);
+            if(filtered!==payload){
+              lines[dataIndexes[0]]="data: "+JSON.stringify(filtered);
               for(const index of dataIndexes.slice(1).reverse())lines.splice(index,1);
             }
             return lines.join("\n");
