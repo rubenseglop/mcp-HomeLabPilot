@@ -345,7 +345,7 @@ async function openView(view){const target=$('workspace');target.textContent='Lo
     seerr:[['status','Service status'],['requests','Request queue'],['application_data','Application data status']],
     immich:[['statistics','Server statistics'],['albums','Albums']],
     romm:[['platforms','Platforms'],['roms','Recent games'],['collections','Collections']],
-    homeassistant:[['config','Configuration'],['states','Entity states'],['services','Service catalogue']],
+    homeassistant:[['config','Configuration'],['states','Entity states'],['state','Entity details'],['history','Entity history'],['services','Service catalogue']],
     tdarr:[['status','Server status'],['nodes','Nodes'],['job_reports','Recent job reports']],
     bookorbit:[['health','Service status'],['libraries','Libraries'],['statistics','Statistics']],
     tidarr:[['status','Authentication status'],['queue','Download queue'],['history','Download history'],['sync_list','Auto-sync list']],
@@ -389,7 +389,21 @@ async function openView(view){const target=$('workspace');target.textContent='Lo
      }else if(service==='recyclarr'&&operation==='status'){
       const result=await request('/web-api/recyclarr/status');output.textContent=JSON.stringify(result,null,2);
      }else{
-      const args=service==='questarr'&&operation==='library'?{limit:50,include_hidden:false}:service==='frigate'&&operation==='events'?{limit:20,offset:0}:service==='frigate'&&operation==='review'?{limit:20}:service==='seerr'&&operation==='requests'?{take:20,skip:0}:service==='romm'&&operation==='roms'?{limit:30,offset:0}:service==='homeassistant'&&operation==='states'?{limit:100}:service==='tdarr'&&operation==='job_reports'?{page_size:10}:{};
+      let args=service==='questarr'&&operation==='library'?{limit:50,include_hidden:false}:service==='frigate'&&operation==='events'?{limit:20,offset:0}:service==='frigate'&&operation==='review'?{limit:20}:service==='seerr'&&operation==='requests'?{take:20,skip:0}:service==='romm'&&operation==='roms'?{limit:30,offset:0}:service==='homeassistant'&&operation==='states'?{limit:100}:service==='tdarr'&&operation==='job_reports'?{page_size:10}:{};
+      if(service==='homeassistant'&&operation==='state'){
+       const entityId=window.prompt('Home Assistant entity ID (for example: sensor.temperature)');
+       if(!entityId){output.textContent='Cancelled.';return;}
+       args={entity_id:entityId.trim()};
+      }
+      if(service==='homeassistant'&&operation==='history'){
+       const entityId=window.prompt('Home Assistant entity ID (for example: sensor.temperature)');
+       if(!entityId){output.textContent='Cancelled.';return;}
+       const startTime=window.prompt('Start time (ISO-8601 with timezone, for example 2026-11-23T00:00:00+01:00)');
+       if(!startTime){output.textContent='Cancelled.';return;}
+       const endTime=window.prompt('End time (ISO-8601 with timezone); leave blank for now','');
+       args={entity_id:entityId.trim(),start_time:startTime.trim()};
+       if(endTime&&endTime.trim())args.end_time=endTime.trim();
+      }
       const result=await request('/web-api/integration/read',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({service,operation,arguments:args})});
       output.textContent=JSON.stringify(result,null,2);
      }
