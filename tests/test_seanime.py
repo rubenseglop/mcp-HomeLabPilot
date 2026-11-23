@@ -35,6 +35,8 @@ class FakeResponse:
 class FakeAsyncClient:
     calls = []
     settings = {}
+    local_files = []
+    collection = []
 
     def __init__(self, *args, **kwargs):
         self.headers = kwargs.get("headers", {})
@@ -51,6 +53,23 @@ class FakeAsyncClient:
         })
         if url.endswith("/api/v1/settings") and method == "GET":
             return FakeResponse({"data": self.settings})
+        if url.endswith("/api/v1/anilist/collection/raw"):
+            return FakeResponse({"data": self.collection})
+        if "/api/v1/anilist/media-details/" in url:
+            media_id = int(url.rsplit("/", 1)[-1])
+            return FakeResponse({"data": {"id": media_id, "title": {"userPreferred": f"Anime {media_id}"}}})
+        if url.endswith("/api/v1/library/local-files") and method == "GET":
+            return FakeResponse({"data": self.local_files})
+        if url.endswith("/api/v1/library/local-files") and method == "PATCH":
+            for item in self.local_files:
+                if item["path"] in json["paths"]:
+                    item["mediaId"] = json["mediaId"]
+                    item["locked"] = True
+                    item["ignored"] = False
+            return FakeResponse({"data": {"updated": len(json["paths"])}})
+        if url.endswith("/api/v1/library/unknown-media") and method == "POST":
+            self.collection.append({"media": {"id": json["mediaIds"][0]}})
+            return FakeResponse({"data": {"ok": True}})
         if url.endswith("/api/v1/settings/path") and method == "PATCH":
             path = json["path"].split(".")
             current = self.settings
@@ -174,6 +193,65 @@ def test_setting_confirm_rechecks_current_value_before_patch(registered):
     with pytest.raises(PermissionError, match="stale"):
         asyncio.run(tools["seanime_confirm_update_setting"](
             "library.enableManga", True, preview["preview_token"],
+            preview["typed_confirmation"],
+        ))
+    assert not any(call["method"] == "PATCH" for call in FakeAsyncClient.calls)
+
+
+
+def test_add_to_anilist_requires_preview_and_typed_confirmation(registered):
+    tools, permissions, _ = registered
+    preview = asyncio.run(tools["seanime_preview_add_to_anilist"](456))
+    assert preview["media_id"] == 456
+    assert preview["already_in_collection"] is False
+    assert permissions == ["operations"]
+    with pytest.raises(PermissionError):
+        asyncio.run(tools["seanime_add_to_anilist"](
+            456, "bad-token", preview["typed_confirmation"]
+        ))
+    result = asyncio.run(tools["seanime_add_to_anilist"](
+        456, preview["preview_token"], preview["typed_confirmation"]
+    ))
+    assert result["changed"] is True
+    assert result["status"] == "PLANNING"
+    assert any(call["url"].endswith("/api/v1/library/unknown-media") for call in FakeAsyncClient.calls)
+
+
+def test_reassignment_requires_fresh_signed_preview_and_exact_confirmation(registered):
+    tools, permissions, _ = registered
+    preview = asyncio.run(tools["seanime_preview_reassignment"](
+        "/media/anime/show", 10, 123
+    ))
+    assert preview["safeToProceed"] is True
+    assert preview["fileCount"] == 1
+    assert permissions == ["operations"]
+    with pytest.raises(PermissionError):
+        asyncio.run(tools["seanime_reassign_files"](
+            "/media/anime/show", 10, 123, 1, "wrong-token",
+            preview["typed_confirmation"],
+        ))
+    assert not any(call["method"] == "PATCH" for call in FakeAsyncClient.calls)
+    result = asyncio.run(tools["seanime_reassign_files"](
+        "/media/anime/show", 10, 123, 1, preview["preview_token"],
+        preview["typed_confirmation"],
+    ))
+    assert result["changed"] is True
+    assert result["filesReassigned"] == 1
+    assert FakeAsyncClient.local_files[0]["mediaId"] == 123
+
+
+def test_reassignment_preview_is_stale_when_file_set_changes(registered):
+    tools, _, _ = registered
+    preview = asyncio.run(tools["seanime_preview_reassignment"](
+        "/media/anime/show", 10, 123
+    ))
+    FakeAsyncClient.local_files.append({
+        "path": "/media/anime/show/episode-02.mkv", "name": "episode-02.mkv",
+        "mediaId": 10, "locked": False, "ignored": False,
+    })
+    with pytest.raises(ValueError, match="File count changed"):
+        asyncio.run(tools["seanime_reassign_files"](
+            "/media/anime/show", 10, 123, 1, preview["preview_token"],
             preview["typed_confirmation"],
         ))
     assert not any(call["method"] == "PATCH" for call in FakeAsyncClient.calls)
