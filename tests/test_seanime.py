@@ -88,7 +88,7 @@ def registered(monkeypatch):
 
     def make_token(snapshot):
         snapshots.append(snapshot)
-        return "signed-preview"
+        return "signed-preview:" + json.dumps(snapshot, sort_keys=True)
 
     mcp = FakeMCP()
     seanime.register_seanime_tools(
@@ -124,7 +124,7 @@ def test_setting_preview_is_admin_only_and_signed(registered):
 def test_setting_confirm_requires_exact_preview_and_confirmation(registered):
     tools, permissions, _ = registered
     result = asyncio.run(tools["seanime_confirm_update_setting"](
-        "library.enableManga", True, "signed-preview",
+        "library.enableManga", True, "signed-preview:" + json.dumps({\n            "service": "seanime", "operation": "update-setting",\n            "path": "library.enableManga", "current_value": False, "new_value": True,\n        }, sort_keys=True),
         "CONFIRM SEANIME SETTING library.enableManga = true",
     ))
     assert result["changed"] is True
@@ -137,7 +137,7 @@ def test_setting_confirm_requires_exact_preview_and_confirmation(registered):
 
 @pytest.mark.parametrize("token,phrase", [
     ("wrong-token", "CONFIRM SEANIME SETTING library.enableManga = true"),
-    ("signed-preview", "wrong phrase"),
+    ("signed-preview:" + json.dumps({\n        "service": "seanime", "operation": "update-setting",\n        "path": "library.enableManga", "current_value": False, "new_value": True,\n    }, sort_keys=True), "wrong phrase"),
 ])
 def test_setting_confirm_rejects_stale_or_inexact_confirmation(registered, token, phrase):
     tools, _, _ = registered
