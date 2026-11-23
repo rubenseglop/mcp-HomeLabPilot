@@ -2079,8 +2079,10 @@ def register_integration_tools(
                 "activity": tracearr_get_activity,
                 "active_streams": tracearr_get_active_streams,
                 "servers": tracearr_list_servers,
+                "libraries": tracearr_list_libraries,
                 "recently_added": tracearr_get_recently_added,
                 "watch_history": tracearr_get_watch_history,
+                "top_media": tracearr_get_top_media,
             },
             "cloudflare": {
                 "zones": cloudflare_list_zones,
