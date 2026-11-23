@@ -55,11 +55,12 @@ def visible_containers() -> list[dict[str, str]]:
             continue
         names = [str(name).lstrip("/") for name in item.get("Names", [])]
         identifier = str(item.get("Id", ""))
-        if not any(name in ALLOWED for name in names) and identifier not in ALLOWED:
+        matched_name = next((name for name in names if name in ALLOWED), None)
+        if matched_name is None and identifier not in ALLOWED:
             continue
         result.append({
             "id": identifier,
-            "name": names[0] if names else identifier[:12],
+            "name": matched_name or (names[0] if names else identifier[:12]),
             "image": str(item.get("Image", "")),
             "state": str(item.get("State", "unknown")),
             "status": str(item.get("Status", "")),
