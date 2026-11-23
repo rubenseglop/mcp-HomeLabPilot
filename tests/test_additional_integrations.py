@@ -67,6 +67,10 @@ class FakeAsyncClient:
             return FakeResponse({"entity_id": "sensor.temperature", "state": "21.5"})
         if "/api/history/period/" in url:
             return FakeResponse([[{"entity_id": "sensor.temperature", "state": "20.0"}]])
+        if url.endswith("/api/roms/42"):
+            return FakeResponse({"id": 42, "name": "Sonic"})
+        if url.endswith("/api/roms"):
+            return FakeResponse([{"id": 42, "name": "Sonic"}])
         if url.endswith("/library/sections"):
             return FakeResponse([{"id": 1, "title": "Movies"}])
         raise AssertionError(f"Unexpected endpoint: {url}")
@@ -82,6 +86,8 @@ def registered(monkeypatch):
     monkeypatch.setenv("FRIGATE_API_TOKEN", "frigate-viewer-token")
     monkeypatch.setenv("HOMEASSISTANT_URL", "http://homeassistant:8123")
     monkeypatch.setenv("HOMEASSISTANT_TOKEN", "homeassistant-read-token")
+    monkeypatch.setenv("ROMM_URL", "http://romm:8080")
+    monkeypatch.setenv("ROMM_API_TOKEN", "romm-read-token")
     FakeAsyncClient.calls = []
     monkeypatch.setattr(integrations.httpx, "AsyncClient", FakeAsyncClient)
 
@@ -207,3 +213,24 @@ def test_homeassistant_history_rejects_timezone_naive_timestamps(registered):
         asyncio.run(registered["homeassistant_get_history"](
             "sensor.temperature", "2026-11-23T00:00:00"
         ))
+
+
+
+def test_romm_search_uses_bounded_query_and_bearer_token(registered):
+    result = asyncio.run(registered["romm_search_roms"]("Sonic", limit=15, offset=5))
+    assert result == [{"id": 42, "name": "Sonic"}]
+    call = FakeAsyncClient.calls[-1]
+    assert call["url"] == "http://romm:8080/api/roms"
+    assert call["params"] == {"search_term": "Sonic", "limit": 15, "offset": 5}
+    assert call["headers"]["Authorization"] == "Bearer romm-read-token"
+
+
+def test_romm_get_rom_returns_game_details(registered):
+    result = asyncio.run(registered["romm_get_rom"](42))
+    assert result == {"id": 42, "name": "Sonic"}
+    assert FakeAsyncClient.calls[-1]["url"] == "http://romm:8080/api/roms/42"
+
+
+def test_romm_search_rejects_short_terms(registered):
+    with pytest.raises(ValueError, match="search_term"):
+        asyncio.run(registered["romm_search_roms"]("S"))
