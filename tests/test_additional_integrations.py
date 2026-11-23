@@ -71,6 +71,8 @@ class FakeAsyncClient:
             return FakeResponse([[{"entity_id": "sensor.temperature", "state": "20.0"}]])
         if url.endswith("/library/sections/1/recentlyAdded"):
             return FakeResponse([{"ratingKey": "101", "title": "Alien"}])
+        if url.endswith("/api/tasks/Collection%20Handler"):
+            return FakeResponse({"name": "Collection Handler", "running": False, "lastRun": "2026-11-23T20:00:00Z"})
         if url.endswith("/api/v2/public/servers"):
             return FakeResponse({"servers": [{"id": "server-1", "name": "Plex", "healthy": True}]})
         if url.endswith("/api/v2/public/recently-added"):
@@ -154,6 +156,7 @@ def registered(monkeypatch):
     monkeypatch.setenv("CLEANUPARR_API_KEY", "cleanuparr-read-token")
     monkeypatch.setenv("TRACEARR_URL", "http://tracearr:3000")
     monkeypatch.setenv("TRACEARR_API_KEY", "tracearr-read-token")
+    monkeypatch.setenv("MAINTAINERR_URL", "http://maintainerr:6246")
     FakeAsyncClient.calls = []
     monkeypatch.setattr(integrations.httpx, "AsyncClient", FakeAsyncClient)
 
@@ -521,3 +524,20 @@ def test_tracearr_dashboard_reads_watch_history_with_bounded_page_size(registere
     call = FakeAsyncClient.calls[-1]
     assert call["url"] == "http://tracearr:3000/api/v2/public/history"
     assert call["params"] == {"pageSize": 20}
+
+
+
+def test_maintainerr_dashboard_reads_allowlisted_scheduled_task_status(registered):
+    status = integrations_status(registered)
+    result = asyncio.run(status.dashboard_read(
+        "maintainerr", "task_status", task_name="Collection Handler"
+    ))
+    assert result == {
+        "name": "Collection Handler", "running": False,
+        "lastRun": "2026-11-23T20:00:00Z",
+    }
+    assert FakeAsyncClient.calls[-1]["url"] == (
+        "http://maintainerr:6246/api/tasks/Collection%20Handler"
+    )
+    with pytest.raises(ValueError, match="task_name"):
+        asyncio.run(status.dashboard_read("maintainerr", "task_status", task_name="arbitrary"))
