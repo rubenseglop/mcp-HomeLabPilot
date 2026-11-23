@@ -71,6 +71,16 @@ class FakeAsyncClient:
             return FakeResponse([[{"entity_id": "sensor.temperature", "state": "20.0"}]])
         if url.endswith("/library/sections/1/recentlyAdded"):
             return FakeResponse([{"ratingKey": "101", "title": "Alien"}])
+        if url.endswith("/api/events/timeline"):
+            return FakeResponse({"hours": 168, "series": [{"hour": "2026-11-23T12:00:00Z", "count": 3}]})
+        if url.endswith("/api/strikes/recent"):
+            return FakeResponse([{"id": 9, "reason": "low seeders"}])
+        if url.endswith("/api/strikes"):
+            return FakeResponse({"items": [{"id": 8, "type": "warning"}], "total": 1})
+        if url.endswith("/api/jobs"):
+            return FakeResponse([{"name": "cleanup", "state": "idle"}])
+        if url.endswith("/api/manualevents/stats"):
+            return FakeResponse({"unresolved": 2, "critical": 1})
         if url.endswith("/api/v1/missing-items"):
             return FakeResponse({"items": [{"id": 12, "title": "Dune"}], "total": 1})
         if url.endswith("/api/v1/missing-items/stats"):
@@ -134,6 +144,8 @@ def registered(monkeypatch):
     monkeypatch.setenv("AGREGARR_API_KEY", "agregarr-read-key")
     monkeypatch.setenv("CLOUDFLARE_API_URL", "https://api.cloudflare.com/client/v4")
     monkeypatch.setenv("CLOUDFLARE_API_TOKEN", "cloudflare-read-token")
+    monkeypatch.setenv("CLEANUPARR_URL", "http://cleanuparr:11011")
+    monkeypatch.setenv("CLEANUPARR_API_KEY", "cleanuparr-read-token")
     FakeAsyncClient.calls = []
     monkeypatch.setattr(integrations.httpx, "AsyncClient", FakeAsyncClient)
 
@@ -445,3 +457,35 @@ def test_cloudflare_dashboard_dns_records_rejects_invalid_zone_id(registered):
     status = integrations_status(registered)
     with pytest.raises(ValueError, match="32-character Cloudflare zone ID"):
         asyncio.run(status.dashboard_read("cloudflare", "dns_records", zone_id="invalid"))
+
+
+
+def test_cleanuparr_dashboard_exposes_event_timeline_and_strikes(registered):
+    status = integrations_status(registered)
+    timeline = asyncio.run(status.dashboard_read("cleanuparr", "event_timeline", hours=72))
+    assert timeline["hours"] == 168
+    assert FakeAsyncClient.calls[-1]["url"] == "http://cleanuparr:11011/api/events/timeline"
+    assert FakeAsyncClient.calls[-1]["params"] == {"hours": 72}
+
+    recent = asyncio.run(status.dashboard_read("cleanuparr", "recent_strikes", count=5))
+    assert recent == [{"id": 9, "reason": "low seeders"}]
+    assert FakeAsyncClient.calls[-1]["params"] == {"count": 5}
+
+    strikes = asyncio.run(status.dashboard_read(
+        "cleanuparr", "strikes", page=2, page_size=10, search="Ubuntu", strike_type="warning"
+    ))
+    assert strikes == {"items": [{"id": 8, "type": "warning"}], "total": 1}
+    assert FakeAsyncClient.calls[-1]["params"] == {
+        "page": 2, "pageSize": 10, "search": "Ubuntu", "type": "warning"
+    }
+
+
+def test_cleanuparr_dashboard_exposes_jobs_and_manual_event_statistics(registered):
+    status = integrations_status(registered)
+    jobs = asyncio.run(status.dashboard_read("cleanuparr", "jobs"))
+    assert jobs == [{"name": "cleanup", "state": "idle"}]
+    assert FakeAsyncClient.calls[-1]["url"] == "http://cleanuparr:11011/api/jobs"
+
+    stats = asyncio.run(status.dashboard_read("cleanuparr", "manual_event_stats"))
+    assert stats == {"unresolved": 2, "critical": 1}
+    assert FakeAsyncClient.calls[-1]["url"] == "http://cleanuparr:11011/api/manualevents/stats"
