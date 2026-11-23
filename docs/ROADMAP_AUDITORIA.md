@@ -3,7 +3,7 @@
 > **Documento de referencia único para continuar el proyecto.** Antes de cada sesión de trabajo hay que leer este archivo y continuar desde el primer nodo pendiente. Después de cada tarea completada, actualizar aquí el estado y el registro.
 
 - **Repositorio:** `rubenseglop/mcp-HomeLabPilot`
-- **Rama:** `main`
+- **Rama de trabajo:** `feature/complete-homelabpilot` (base `main` en `a5ddc62`)
 - **Última actualización:** 2026-11-23
 - **Fase activa:** Prioridad 1 — Comprobar todo lo existente
 - **Estado global:** EN CURSO
@@ -53,7 +53,7 @@ flowchart TD
 | Comprobar repositorio y rama `main` | COMPLETADO | Repositorio `rubenseglop/mcp-HomeLabPilot` |
 | Comprobar árbol de trabajo limpio | COMPLETADO | Sin cambios pendientes en la comprobación del 23-11-2026 |
 | Contrastar commit del servidor con GitHub | COMPLETADO | `44985e1` (comprobación previa del 23-11-2026) |
-| Confirmar que el contenedor ejecuta exactamente ese código | PENDIENTE | La coincidencia del repositorio no demuestra por sí sola qué código está ejecutando la imagen |
+| Confirmar que el contenedor ejecuta exactamente ese código | COMPLETADO | Cinco hashes SHA-256 idénticos entre checkout local y `/app` en el contenedor; ejecuta el código del checkout `44985e1` |
 
 ### 1.2 Herramientas MCP
 
@@ -62,7 +62,7 @@ flowchart TD
 | Ejecutar `tools/list` | COMPLETADO | Respuesta JSON-RPC correcta |
 | Registrar recuento real | COMPLETADO | **187 herramientas** publicadas |
 | Aclarar diferencia respecto a las 189 previstas | COMPLETADO | 189 declaraciones `@mcp.tool`, 187 nombres únicos por dos nombres duplicados; coincide con `tools/list` (187) |
-| Revisar herramientas duplicadas, ausentes o inesperadas | EN CURSO | Detectadas duplicaciones de `cleanuparr_get_health` y `maintainerr_get_health`; falta cotejar los 187 nombres exactos con el inventario remoto |
+| Revisar herramientas duplicadas, ausentes o inesperadas | EN CURSO | Dos duplicaciones explican el recuento: 189 decoradores y 187 nombres únicos. Pendiente comparar nombres y clasificar capacidades/efectos |
 
 ### 1.3 Integraciones
 
@@ -164,7 +164,7 @@ flowchart TD
 
 | Fecha | Comprobación | Resultado |
 |---|---|---|
-| 2026-11-23 | Repositorio, rama y commit | `main`; commit comprobado `44985e1`; árbol limpio |
+| 2026-11-23 | Repositorio, rama y commit | Checkout del servidor `44985e1`; GitHub `main` `a5ddc62`; rama de trabajo creada desde GitHub `main` |
 | 2026-11-23 | `stack_status` | 10/10 servicios configurados responden correctamente |
 | 2026-11-23 | MCP `tools/list` | 187 herramientas; sin error JSON-RPC |
 | 2026-11-23 | Proxy `/health` | HTTP 200; modo `read-only` |
@@ -176,11 +176,11 @@ flowchart TD
 |---|---|---|
 | 2026-11-23 | Rama `feature/complete-homelabpilot` creada desde `main` (`a5ddc62`) | COMPLETADO; `main` permanece intacta |
 | 2026-11-23 | Servidor local en `44985e1`; GitHub `main` en `a5ddc62` | CONFIRMADO; no sincronizar ni desplegar hasta completar auditoría |
-| 2026-11-23 | Hash de archivos del contenedor | COMPLETADO: cinco hashes SHA-256 coinciden entre host y contenedor; el primer `Permission denied` se debía al usuario no privilegiado `10001` |
+| 2026-11-23 | Hash de archivos del contenedor | COMPLETADO: cinco hashes SHA-256 coinciden entre host y contenedor; el usuario no privilegiado `10001` no podía leer los archivos, root sí |
 | 2026-11-23 | Diferencia 189/187 herramientas | RESUELTO: 189 decoradores, 187 nombres únicos; dos herramientas registradas dos veces |
 | 2026-11-23 | Versionado del paquete inconsistente | ABIERTO: `pyproject.toml` declara `0.5.0`; `src/homelabpilot/__init__.py` declara `0.1.0` |
 | 2026-11-23 | Proxy read-only | ABIERTO: regex actual deja fuera consultas Seanime de verificación/auditoría; revisar semántica antes de ampliar allowlist |
-| 2026-11-23 | Cobertura CI | Último workflow de `main` para `a5ddc62`: ejecución 337, `success`; aún no hay ejecución de la rama de desarrollo |
+| 2026-11-23 | Cobertura CI | Workflow 337 de GitHub Actions para `main`/`a5ddc62`: `success`; la rama de desarrollo aún no ha ejecutado CI |
 
 ## 8. Protocolo obligatorio de trabajo
 
@@ -197,4 +197,4 @@ flowchart TD
 
 **Estados permitidos:** PENDIENTE · EN CURSO · COMPLETADO · PARCIAL · BLOQUEADO.
 
-**Siguiente paso:** continuar en Prioridad 1, apartado 1.2: cerrar inventario y clasificación de herramientas MCP, y después revisar catálogo y permisos del proxy. No repetir comprobaciones ya registradas.
+**Siguiente paso:** completar el inventario de herramientas, después ejecutar `integration_catalog` y revisar el proxy MCP. No repetir comprobaciones ya registradas.
