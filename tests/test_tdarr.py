@@ -164,3 +164,12 @@ def test_tdarr_bulk_actions_reject_unbounded_or_empty_file_lists(registered):
         with pytest.raises(ValueError):
             asyncio.run(tools["tdarr_preview_requeue_files"](ids))
     assert FakeAsyncClient.calls == []
+
+
+
+def test_tdarr_dashboard_exposes_only_fixed_read_operations(registered):
+    _, _, status = registered
+    result = asyncio.run(status.dashboard_read("tdarr", "status"))
+    assert result["status"] == "ok"
+    with pytest.raises(ValueError, match="Unsupported dashboard read operation"):
+        asyncio.run(status.dashboard_read("tdarr", "requeue_files"))
