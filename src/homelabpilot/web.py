@@ -41,6 +41,16 @@ h2{font-size:20px;margin:0 0 6px}.muted{color:#91a0b8;font-size:13px}.summary{di
 .status{font-size:11px;border-radius:999px;padding:5px 8px;background:#263246;color:#b8c5d8}
 .status.ok{background:#10382f;color:#70e0bb}.status.bad{background:#44232c;color:#ff9ca8}
 .version{font-size:13px;color:#a8b6cb;margin-top:13px}.error{font-size:12px;color:#ffabb3;margin-top:10px;overflow-wrap:anywhere}
+.tool-list{margin-top:13px;border-top:1px solid #293750;padding-top:10px;font-size:12px;color:#b8c5d8}
+.tool-list summary{cursor:pointer;list-style:none;font-weight:650;color:#9fb4ff}
+.tool-list summary::-webkit-details-marker{display:none}
+.tool-list summary:after{content:'＋';float:right;color:#91a0b8}
+.tool-list[open] summary:after{content:'−'}
+.tool-list ul{list-style:none;margin:9px 0 0;padding:0;display:grid;gap:9px}
+.tool-list li{display:grid;gap:3px;padding:8px 9px;background:#0d1728;border:1px solid #25344d;border-radius:8px;overflow-wrap:anywhere}
+.tool-list code{color:#9fb4ff;font-size:11px}
+.tool-list li span{color:#91a0b8;font-size:11px;line-height:1.4}
+
 .section{margin-top:30px}.sectionhead{font-size:14px;font-weight:650;margin-bottom:12px}
 .info{border:1px solid #25344d;background:#111a2a;border-radius:14px;padding:17px;color:#aebbd0;font-size:13px;line-height:1.6}
 #login{max-width:390px;margin:12vh auto;padding:26px;border:1px solid #2b3a53;background:#121c2e;border-radius:18px}
@@ -165,7 +175,11 @@ function render(data){
  const entries=Object.entries(data.services||{});const good=entries.filter(([,v])=>v.ok).length;
  $('healthy').textContent=good+' / '+entries.length+' services online';
  $('updated').textContent='Updated '+new Date().toLocaleTimeString();
- $('services').innerHTML=entries.map(([name,v])=>'<article class="card"><div class="cardtop"><div class="name">'+esc(name[0].toUpperCase()+name.slice(1))+'</div><span class="status '+(v.ok?'ok':'bad')+'">'+(v.ok?'Online':'Attention')+'</span></div><div class="version">'+(v.version?'Version '+esc(v.version):v.app_name?esc(v.app_name):v.ok?'Connected':'Not connected')+'</div>'+(v.error?'<div class="error">'+esc(v.error)+'</div>':'')+'</article>').join('');
+ $('services').innerHTML=entries.map(([name,v])=>{
+  const tools=Array.isArray(v.tools)?v.tools:[];
+  const toolList=v.ok?'<details class="tool-list"><summary>'+tools.length+' '+(getLanguage()==='es'?'herramientas disponibles':'tools available')+'</summary>'+(tools.length?'<ul>'+tools.map(tool=>'<li><code>'+esc(tool.name)+'</code>'+(tool.description?'<span>'+esc(tool.description)+'</span>':'')+'</li>').join('')+'</ul>':'<div class="muted">'+(getLanguage()==='es'?'No hay herramientas registradas para este servicio.':'No tools registered for this service.')+'</div>')+'</details>':'';
+  return '<article class="card"><div class="cardtop"><div class="name">'+esc(name[0].toUpperCase()+name.slice(1))+'</div><span class="status '+(v.ok?'ok':'bad')+'">'+(v.ok?'Online':'Attention')+'</span></div><div class="version">'+(v.version?'Version '+esc(v.version):v.app_name?esc(v.app_name):v.ok?'Connected':'Not connected')+'</div>'+toolList+(v.error?'<div class="error">'+esc(v.error)+'</div>':'')+'</article>';
+ }).join('');
 }
 async function refresh(){ $('refresh').disabled=true;$('refresh').textContent='Loading…';try{render(await request('/web-api/status'));}catch(e){if(e.message==='unauthorized')showLogin();else $('healthy').textContent=e.message;}finally{$('refresh').disabled=false;$('refresh').textContent='Refresh';}}
 $('login-form').addEventListener('submit',async e=>{e.preventDefault();$('login-error').textContent='';try{await request('/web-login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:$('username').value,password:$('password').value})});$('password').value='';showApp();await refresh();}catch(e){$('login-error').textContent='Login failed. Check your username and password.';}});
