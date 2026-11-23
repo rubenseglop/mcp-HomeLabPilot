@@ -2008,6 +2008,8 @@ def register_integration_tools(
             "homeassistant": {
                 "config": homeassistant_get_config,
                 "states": homeassistant_list_states,
+                "state": homeassistant_get_state,
+                "history": homeassistant_get_history,
                 "services": homeassistant_list_services,
             },
             "bookorbit": {
