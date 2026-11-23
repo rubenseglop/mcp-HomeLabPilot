@@ -308,3 +308,17 @@ flowchart TD
 | Validación real | PENDIENTE | Requiere despliegue autorizado y servicios configurados. | 
 
 | 2026-11-23 | Paneles Cloudflare, Cleanuparr y Tracearr | CI runs 480–488 `success`; paneles ampliados y pruebas unitarias superadas. |
+
+
+## 14. Ampliación de paneles Maintainerr y analítica Tracearr
+
+| Aplicación | Cambio | Estado | Detalle |
+|---|---|---|---|
+| Maintainerr | Estado de tareas programadas | COMPLETADO EN FEATURE | El panel permite consultar el estado de las tareas conocidas (Collection Handler, Collection Log Cleaner, Rule Maintenance, Overlay Handler, Notification Timer, Version Notification y Telemetry Ping). La herramienta valida el nombre contra la lista permitida; solo lectura. |
+| Tracearr | Estadísticas de bibliotecas | COMPLETADO EN FEATURE | Se exponen en el panel los recuentos, tamaños y resúmenes por biblioteca. |
+| Tracearr | Contenido más visto | COMPLETADO EN FEATURE | Se añade ranking de películas más vistas con ventana temporal, orden y paginación acotados; la API permite cambiar a series desde la herramienta MCP. |
+| Pruebas | Lectores Maintainerr y Tracearr | COMPLETADO EN FEATURE | Pruebas cubren tareas permitidas/no permitidas, endpoints, parámetros, paginación y autenticación Bearer. |
+| CI | Runs 490–495 | COMPLETADO EN FEATURE | Todos los runs 490–495 completados con `success`; suite Python, compilación y comprobación JavaScript superadas. |
+| Validación real | PENDIENTE | Requiere despliegue autorizado en el mediacenter y comprobar servicios configurados. |
+
+| 2026-11-23 | Paneles Maintainerr y Tracearr | CI runs 490–495 `success`; tareas programadas, estadísticas de bibliotecas y ranking de contenido incorporados. |
