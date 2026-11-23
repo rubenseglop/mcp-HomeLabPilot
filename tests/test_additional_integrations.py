@@ -180,7 +180,7 @@ def registered(monkeypatch):
     monkeypatch.setenv("TRACEARR_URL", "http://tracearr:3000")
     monkeypatch.setenv("TRACEARR_API_KEY", "tracearr-read-token")
     monkeypatch.setenv("MAINTAINERR_URL", "http://maintainerr:6246")
-    monkeypatch.setenv("TRANSMISSION_URL", "http://transmission:9091")
+    monkeypatch.setenv("TRANSMISSION_URL", "http://transmission:9091/transmission/rpc")
     monkeypatch.setenv("TRANSMISSION_USERNAME", "transmission-user")
     monkeypatch.setenv("TRANSMISSION_PASSWORD", "transmission-password")
     FakeAsyncClient.calls = []
