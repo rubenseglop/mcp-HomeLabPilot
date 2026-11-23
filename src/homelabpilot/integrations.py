@@ -1970,6 +1970,16 @@ def register_integration_tools(
                 "job_reports": tdarr_list_job_reports,
                 "job_report": tdarr_get_job_report,
             },
+            "questarr": {
+                "status": questarr_get_status,
+                "library": questarr_get_library,
+            },
+            "frigate": {
+                "status": frigate_get_status,
+                "events": frigate_list_events,
+                "review": frigate_list_review_items,
+                "review_summary": frigate_get_review_summary,
+            },
         }
         service_readers = readers.get(service)
         if service_readers is None or operation not in service_readers:
