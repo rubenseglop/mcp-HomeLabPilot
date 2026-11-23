@@ -128,10 +128,10 @@ flowchart TD
 
 | Aplicación | Estado |
 |---|---|
-| Plex | PARCIAL | Panel de bibliotecas, añadidos recientes, reproducción activa y On Deck; pendiente CI y validación real. |
-| Jellyfin | PARCIAL | Panel de servidor, bibliotecas y sesiones; pendiente CI y validación real. |
-| Seerr | PARCIAL | Panel de estado, cola de solicitudes y datos de aplicación; pendiente CI y validación real. |
-| Immich | PARCIAL | Panel de estadísticas del servidor y álbumes; pendiente CI y validación real. |
+| Plex | PARCIAL | Panel de bibliotecas, añadidos recientes globales y por sección, reproducción activa y On Deck; pendiente validación real. |
+| Jellyfin | PARCIAL | Panel de servidor, bibliotecas, sesiones y búsqueda de elementos; pendiente validación real. |
+| Seerr | PARCIAL | Panel de estado, cola de solicitudes, datos de aplicación y búsqueda de películas/series; pendiente validación real. |
+| Immich | PARCIAL | Panel de estadísticas, álbumes y búsqueda de fotos/vídeos por metadatos; búsqueda usa POST de consulta sin mutación; pendiente validación real. |
 | Tdarr | COMPLETADO EN FEATURE | Cinco herramientas de lectura (estado, nodos, búsqueda, informes paginados y detalle de informe) y dos flujos de escritura (reencolar hasta 50 archivos y reescanear un archivo) con permiso `operations`, preview firmado y confirmación exacta. Pruebas unitarias específicas añadidas; CI run 434 superado (suite completa; fallos intermedios 431–433 corregidos y sustituidos); validación real pendiente de despliegue autorizado tras autorización de despliegue. |
 | Home Assistant | PARCIAL | Panel de configuración, estados, catálogo de servicios, consulta individual de entidades e historial por intervalo ISO-8601; operaciones del panel exclusivamente de lectura. Corregida la validación del formato `domain.object_id`. CI run 455 superado; pendiente validación visual y funcional en la instalación real. |
 | RomM | PARCIAL | Panel de plataformas, listado de juegos y colecciones ampliado con búsqueda por nombre y consulta de metadatos de un juego por ID; solo lectura y paginación acotada. CI run 458 superado; pendiente validación real en la instalación. |
@@ -247,3 +247,18 @@ flowchart TD
 | 2026-11-23 | Correcciones de inventario y presentación del panel | CI run 450 (`c4c6bf7`) `success`: 148 tests Python, validación de JavaScript y pruebas del proxy superadas. |
 | 2026-11-23 | Panel Home Assistant: detalle e historial de entidades | CI run 455 (`64da436`) `success`: suite Python, compilación y comprobación JavaScript superadas; incluye pruebas de entidad válida/inválida e historial con zona horaria. |
 | 2026-11-23 | Panel RomM: búsqueda y detalle de juegos | CI run 458 (`3f0d1a8`) `success`: suite Python, compilación y comprobación JavaScript superadas; pruebas de búsqueda acotada, autenticación Bearer y detalle por ID. |
+
+
+## 10. Ampliación de paneles multimedia — búsqueda y navegación
+
+| Cambio | Estado | Detalle |
+|---|---|---|
+| Plex: añadidos recientes por biblioteca | COMPLETADO EN FEATURE | El panel permite consultar los elementos recientes de una sección concreta con ID positivo y límite 25; reutiliza el lector existente plex_get_recently_added y mantiene el token en servidor. |
+| Jellyfin: búsqueda desde el panel | COMPLETADO EN FEATURE | Se expone jellyfin_search_items en el lector de solo lectura del panel; búsqueda limitada a 200 caracteres y 25 resultados por defecto. |
+| Seerr: búsqueda desde el panel | COMPLETADO EN FEATURE | Se expone seerr_search_media en el lector del panel; consulta de metadatos sin solicitar ni modificar contenido. |
+| Immich: búsqueda desde el panel | COMPLETADO EN FEATURE | Se expone immich_search_assets; búsqueda por metadatos con página y tamaño acotados. El POST es una consulta de búsqueda, no una mutación. |
+| Pruebas de lectores y autenticación | COMPLETADO EN FEATURE | Nuevas pruebas verifican endpoints, parámetros, límites y credenciales de los cuatro flujos. |
+| CI | COMPLETADO EN FEATURE | Runs 461 y 462 superados; run 462 incluye la suite de pruebas ampliada. |
+| Validación visual/funcional real | PENDIENTE | Requiere desplegar esta versión en el mediacenter y probar cada panel con servicios configurados. |
+
+| 2026-11-23 | Ampliación paneles multimedia | CI runs 461 (20c1f4c) y 462 (d7d46d3) success; se añadieron navegación por sección Plex y búsquedas de Jellyfin, Seerr e Immich. |
