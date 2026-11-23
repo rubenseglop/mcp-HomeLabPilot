@@ -102,10 +102,10 @@ flowchart TD
 
 | Tarea | Estado | Alcance |
 |---|---|---|
-| Questarr | PARCIAL | Implementadas lectura de estado y biblioteca con clave de integración `read`, límites y pruebas unitarias. Pendiente CI y validación en instancia real. |
-| Frigate | PARCIAL | Implementadas estadísticas, eventos, revisión y resumen con bearer JWT; solo lectura y paginación acotada. Pendiente CI y validación en instancia real. |
+| Questarr | PARCIAL | Implementadas lectura de estado y biblioteca con clave de integración `read`, límites y pruebas unitarias. CI del bloque inicial pasó; validar en instancia real cuando esté instalada. |
+| Frigate | PARCIAL | Implementadas estadísticas, eventos, revisión y resumen con bearer JWT; solo lectura y paginación acotada. CI del bloque inicial pasó; validar en instancia real cuando esté instalada. |
 | Recyclarr | PENDIENTE | Evaluar estado actual y diseñar integración útil, con pruebas |
-| Docker Gateway | PENDIENTE | Revisar allowlist, permisos, herramientas y representación en catálogo |
+| Docker Gateway | PARCIAL | Gateway limitado a lista explícita y start/stop/restart. Ahora las acciones MCP requieren preview firmado y confirmación escrita; añadidas pruebas unitarias. Pendiente CI y revisar catálogo/alias de contenedor. |
 
 ## 4. Prioridad 3 — Paneles propios
 
