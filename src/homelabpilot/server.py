@@ -401,13 +401,38 @@ async def stack_status() -> dict[str, Any]:
         if not status.get("configured") or not status.get("ok"):
             continue
         prefix = service.lower() + "_"
+        # Many *arr tools are intentionally shared and accept the target
+        # service as an argument, so their names do not carry a service prefix.
+        shared_arr_tools = {
+            "arr_api_request": set(ARR_SERVICES),
+            "arr_get_configuration": {"radarr", "sonarr", "prowlarr", "lidarr"},
+            "arr_update_configuration": {"radarr", "sonarr", "prowlarr", "lidarr"},
+            "arr_create_configuration": {"radarr", "sonarr", "prowlarr", "lidarr"},
+            "arr_preview_delete_configuration": {"radarr", "sonarr", "prowlarr", "lidarr"},
+            "arr_delete_configuration": {"radarr", "sonarr", "prowlarr", "lidarr"},
+            "arr_list_library": {"radarr", "sonarr", "lidarr"},
+            "arr_update_library_item": {"radarr", "sonarr", "lidarr"},
+            "arr_search_catalog": {"radarr", "sonarr", "lidarr"},
+            "arr_get_history": {"radarr", "sonarr", "lidarr"},
+            "arr_get_missing_items": {"radarr", "sonarr", "lidarr"},
+            "arr_get_queue": {"radarr", "sonarr", "lidarr"},
+            "arr_get_setup_options": {"radarr", "sonarr", "lidarr"},
+            "arr_add_movie": {"radarr"},
+            "arr_add_series": {"sonarr"},
+            "arr_add_artist": {"lidarr"},
+            "arr_search_releases": {"radarr", "sonarr", "lidarr"},
+            "arr_grab_release": {"radarr", "sonarr", "lidarr"},
+        }
         service_tools = [
             {
                 "name": tool.name,
                 "description": getattr(tool, "description", "") or "",
             }
             for tool in registered_tools
-            if getattr(tool, "name", "").startswith(prefix)
+            if (
+                getattr(tool, "name", "").startswith(prefix)
+                or service in shared_arr_tools.get(getattr(tool, "name", ""), set())
+            )
         ]
         service_tools.sort(key=lambda item: item["name"])
         status["tools"] = service_tools
