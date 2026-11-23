@@ -83,7 +83,9 @@ def run_recyclarr_sync() -> dict[str, object]:
         None,
     )
     if item is None:
-        raise PermissionError("Configured Recyclarr container is not in the Docker allowlist or is not running")
+        raise PermissionError("Configured Recyclarr container is not in the Docker allowlist")
+    if item.get("state") != "running":
+        raise RuntimeError("Configured Recyclarr container must be running before sync")
     container_id = quote(item["id"], safe="")
     status, created = daemon_request(
         "POST",
