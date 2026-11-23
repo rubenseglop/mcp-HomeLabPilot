@@ -1,5 +1,7 @@
 """Unit tests for the restricted Docker Engine gateway."""
 
+import pytest
+
 from homelabpilot import docker_gateway
 
 
