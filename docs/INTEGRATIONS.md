@@ -48,6 +48,6 @@ Referencias habituales:
 | Questarr | API de integración `/api/integration` (clave `read`) |
 | Frigate | REST API `/api` (token bearer de usuario viewer) |
 
-Postgres y Redis disponen de comprobaciones de conectividad TCP. Recyclarr se identifica como integración de contenedor/CLI; no implica que exista una API MCP específica.
+Postgres y Redis disponen de comprobaciones de conectividad TCP. Recyclarr se ejecuta mediante el Docker Gateway restringido: solo lanza el comando fijo `recyclarr sync` dentro del contenedor exacto configurado en `RECYCLARR_CONTAINER`, que además debe estar en la allowlist Docker. La ejecución requiere permiso Docker `operations`, preview firmado y confirmación escrita; no se admite ejecutar comandos arbitrarios.
 
 Consulta el archivo `.env.example` para conocer las variables de configuración disponibles.
