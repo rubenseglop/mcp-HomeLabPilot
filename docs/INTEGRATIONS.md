@@ -8,7 +8,7 @@ HomeLabPilot conecta con las API nativas de los servicios configurados. La dispo
 - **Prowlarr y Bazarr:** configuración e integración con sus API.
 - **qBittorrent:** torrents, categorías, colas, control de transferencias y flujos de previsualización/confirmación para operaciones sensibles.
 - **Scryer:** API GraphQL, biblioteca, solicitudes, auditoría y papelera.
-- **Tdarr:** estado, nodos, búsqueda de archivos e informes; algunas operaciones específicas requieren previsualización y confirmación.
+- **Tdarr:** estado del servidor, nodos/workers, búsqueda acotada de archivos, informes paginados y detalle de logs. El reencolado de hasta 50 archivos y el reescaneo de un archivo requieren permiso `operations`, preview firmado vigente y confirmación escrita exacta; nunca se exponen por el proxy read-only.\n- **Seanime:** estado, búsqueda AniList, biblioteca local, seguimiento, auditoría de asignaciones, archivos sin correspondencia, inspección de entradas y cola/ajustes del auto-downloader. Los ajustes consultados ocultan contraseñas/tokens. Cambios permitidos: solo preferencias booleanas de bajo riesgo incluidas en allowlist, con permiso `admin`, preview firmado y confirmación exacta. Añadir títulos a AniList y reasignar archivos también requieren preview firmado y confirmación; la reasignación no mueve archivos físicos y advierte de los cambios de `Locked`/`Ignored` que aplica Seanime.
 - **Plex y Jellyfin:** bibliotecas, actividad y sesiones de reproducción.
 - **Seerr, Immich y RomM:** solicitudes multimedia, biblioteca fotográfica y catálogo de juegos.
 - **Questarr:** estado de la API y lectura de biblioteca mediante clave de integración con scope `read`; el catálogo de aplicaciones ofrece un panel de estado y biblioteca.
@@ -49,7 +49,7 @@ Referencias habituales:
 | Bazarr | `/api` |
 | Scryer | GraphQL en `/graphql` |
 | qBittorrent | Web API en `/api/v2` |
-| Home Assistant | REST API en `/api` |
+| Home Assistant | REST API en `/api` |\n| Seanime | REST API `/api/v1`; ajustes `GET /settings` y cambio individual `PATCH /settings/path` |\n| Tdarr | REST API `/api/v2`; búsquedas/listados POST read-only, acciones protegidas por preview |
 | Questarr | API de integración `/api/integration` (clave `read`) |
 | Frigate | REST API `/api` (token bearer de usuario viewer) |
 
