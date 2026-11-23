@@ -1350,7 +1350,7 @@ def register_integration_tools(
     async def homeassistant_get_state(entity_id: str) -> Any:
         """Read the current state and attributes for one Home Assistant entity."""
         import re
-        if not re.fullmatch(r"[a-z_][a-z0-9_]*\\.[a-z0-9_]+", entity_id):
+        if not re.fullmatch(r"[a-z_][a-z0-9_]*\.[a-z0-9_]+", entity_id):
             raise ValueError("entity_id must use the domain.entity_id format")
         return await request("homeassistant", "GET", f"/api/states/{entity_id}")
 
@@ -1362,7 +1362,7 @@ def register_integration_tools(
         """Read historical state changes for one Home Assistant entity over a time range."""
         import re
         from datetime import datetime
-        if not re.fullmatch(r"[a-z_][a-z0-9_]*\\.[a-z0-9_]+", entity_id):
+        if not re.fullmatch(r"[a-z_][a-z0-9_]*\.[a-z0-9_]+", entity_id):
             raise ValueError("entity_id must use the domain.entity_id format")
         def validate_timestamp(value: str, label: str) -> None:
             try:
@@ -1413,7 +1413,7 @@ def register_integration_tools(
         import re
         if not 1 <= len(entity_ids) <= 50:
             raise ValueError("entity_ids must contain 1..50 entities")
-        if any(not isinstance(x, str) or not re.fullmatch(r"[a-z_][a-z0-9_]*\\.[a-z0-9_]+", x) for x in entity_ids):
+        if any(not isinstance(x, str) or not re.fullmatch(r"[a-z_][a-z0-9_]*\.[a-z0-9_]+", x) for x in entity_ids):
             raise ValueError("Every entity_id must use the domain.entity_id format")
         if len(set(entity_ids)) != len(entity_ids):
             raise ValueError("entity_ids must be unique")
