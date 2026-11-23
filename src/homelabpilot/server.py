@@ -387,6 +387,29 @@ async def stack_status() -> dict[str, Any]:
                 "error": "qBittorrent is configured but its status check failed; verify its URL and credentials",
             }
     checks.update(await integration_status())
+
+    # Attach the registered MCP tools to the service they operate on. Only
+    # tools belonging to configured, healthy services are exposed in the UI.
+    tool_manager = getattr(mcp, "_tool_manager", None)
+    list_tools = getattr(tool_manager, "list_tools", None)
+    registered_tools = list_tools() if callable(list_tools) else []
+    service_names = set(checks)
+    for service, status in checks.items():
+        if not status.get("configured") or not status.get("ok"):
+            continue
+        prefix = service.lower() + "_"
+        service_tools = [
+            {
+                "name": tool.name,
+                "description": getattr(tool, "description", "") or "",
+            }
+            for tool in registered_tools
+            if getattr(tool, "name", "").startswith(prefix)
+        ]
+        service_tools.sort(key=lambda item: item["name"])
+        status["tools"] = service_tools
+        status["tool_count"] = len(service_tools)
+
     return {"services": checks}
 
 
