@@ -353,7 +353,7 @@ async function openView(view){const target=$('workspace');target.textContent='Lo
     pulsarr:[['health','Service status'],['approval_requests','Approval queue'],['content_router_rules','Content router rules']],
     cleanuparr:[['health','Readiness'],['system','System status'],['events','Recent events'],['statistics','Statistics']],
     maintainerr:[['health','Readiness'],['app_status','Application status'],['timezone','Timezone']],
-    agregarr:[['status','Service status'],['collections','Collections'],['dashboard_stats','Dashboard statistics'],['logs','Logs']],
+    agregarr:[['status','Service status'],['collections','Collections'],['dashboard_stats','Dashboard statistics'],['activity','Recent activity'],['missing_items','Missing items'],['missing_item_stats','Missing-item statistics'],['scheduled_jobs','Scheduled jobs'],['logs','Logs']],
     tracearr:[['health','Service status'],['stats','Statistics'],['activity','Activity'],['active_streams','Active streams']],
     cloudflare:[['zones','DNS zones']],
     transmission:[['session','Session status'],['statistics','Transfer statistics'],['torrents','Torrent list']],
@@ -389,7 +389,7 @@ async function openView(view){const target=$('workspace');target.textContent='Lo
      }else if(service==='recyclarr'&&operation==='status'){
       const result=await request('/web-api/recyclarr/status');output.textContent=JSON.stringify(result,null,2);
      }else{
-      let args=service==='questarr'&&operation==='library'?{limit:50,include_hidden:false}:service==='frigate'&&operation==='events'?{limit:20,offset:0}:service==='frigate'&&operation==='review'?{limit:20}:service==='seerr'&&operation==='requests'?{take:20,skip:0}:service==='romm'&&operation==='roms'?{limit:30,offset:0}:service==='homeassistant'&&operation==='states'?{limit:100}:service==='tdarr'&&operation==='job_reports'?{page_size:10}:{};
+      let args=service==='questarr'&&operation==='library'?{limit:50,include_hidden:false}:service==='frigate'&&operation==='events'?{limit:20,offset:0}:service==='frigate'&&operation==='review'?{limit:20}:service==='seerr'&&operation==='requests'?{take:20,skip:0}:service==='romm'&&operation==='roms'?{limit:30,offset:0}:service==='homeassistant'&&operation==='states'?{limit:100}:service==='agregarr'&&operation==='missing_items'?{limit:25,offset:0}:service==='agregarr'&&operation==='activity'?{days:7,limit:10}:service==='tdarr'&&operation==='job_reports'?{page_size:10}:{};
       if(service==='plex'&&operation==='recent_section'){
        const rawId=window.prompt('Plex library section ID (see Libraries)');
        if(!rawId){output.textContent='Cancelled.';return;}
