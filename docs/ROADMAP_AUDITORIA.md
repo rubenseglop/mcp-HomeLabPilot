@@ -63,7 +63,7 @@ flowchart TD
 | Ejecutar `tools/list` | COMPLETADO | Respuesta JSON-RPC correcta |
 | Registrar recuento real | COMPLETADO | **187 herramientas** publicadas |
 | Aclarar diferencia respecto a las 189 previstas | COMPLETADO | En el checkout desplegado entonces: 189 declaraciones `@mcp.tool`, 187 nombres únicos por dos duplicados; coincide con `tools/list` (187). En la rama feature actual: 199 declaraciones, 197 nombres únicos; los mismos dos duplicados. |
-| Revisar herramientas duplicadas, ausentes o inesperadas | PARCIAL | Confirmados dos nombres duplicados (`cleanuparr_get_health`, `maintainerr_get_health`); las dos versiones consultan el mismo endpoint GET. Clasificación estática del proxy: 133 nombres permitidos y 54 bloqueados; entre los bloqueados hay lecturas legítimas de Seanime (`seanime_search_anime`, `seanime_verify_reassignment`, `seanime_audit_library`, `seanime_inspect_entry`) y el helper puro `collection_has_media_id`. Comparación estática feature completada: 197 nombres únicos frente a 147 permitidos; los 50 restantes están clasificados y permanecen denegados. Pendiente comparar con inventario runtime actualizado y validar semántica individual antes de ampliar la allowlist |
+| Revisar herramientas duplicadas, ausentes o inesperadas | PARCIAL | Confirmados dos nombres duplicados (`cleanuparr_get_health`, `maintainerr_get_health`); las dos versiones consultan el mismo endpoint GET. Clasificación estática del proxy: 133 nombres permitidos y 54 bloqueados; entre los bloqueados hay lecturas legítimas de Seanime (`seanime_search_anime`, `seanime_verify_reassignment`, `seanime_audit_library`, `seanime_inspect_entry`) y el helper puro `collection_has_media_id`. Comparación estática feature completada: 197 nombres únicos frente a 148 permitidos; los 49 restantes permanecen denegados por defecto y están clasificados. Pendiente comparar con inventario runtime actualizado y validar semántica individual antes de ampliar la allowlist |
 
 ### 1.3 Integraciones
 
@@ -81,7 +81,7 @@ flowchart TD
 | Comprobar salud del gateway de agentes | COMPLETADO | HTTP 200 |
 | Verificar autenticación/configuración MCP de Codex | PARCIAL | Gateway informó `authenticated=true` y `mcp_configured=true`; falta probar una llamada real a través del proxy |
 | Revisar autenticación Bearer del MCP principal | COMPLETADO EN FEATURE | `_BearerAuthMiddleware` exige el token completo con comparación constante; se añadieron pruebas para token ausente, incorrecto y correcto. CI pendiente. |
-| Ejecutar `tools/list` a través del proxy | COMPLETADO | 23-11-2026: initialize HTTP 200, sesión creada, tools/list HTTP 200, 137 herramientas visibles con la política anterior, sin error JSON-RPC. La nueva allowlist explícita contiene 147 herramientas (lecturas aprobadas de forma exacta, incluidas Questarr, Frigate y Recyclarr status); pendiente desplegar y verificar el nuevo resultado. |
+| Ejecutar `tools/list` a través del proxy | COMPLETADO | 23-11-2026: initialize HTTP 200, sesión creada, tools/list HTTP 200, 137 herramientas visibles con la política anterior, sin error JSON-RPC. La nueva allowlist explícita contiene 148 herramientas (lecturas aprobadas de forma exacta, incluidas Questarr, Frigate, Seanime settings y Recyclarr status); pendiente desplegar y verificar el nuevo resultado. |
 | Ejecutar una herramienta de lectura a través del proxy | PENDIENTE | |
 | Verificar bloqueo de herramientas de escritura en el proxy | PENDIENTE | Prueba negativa segura; no ejecutar ninguna escritura en servicios reales |
 | Verificar que las lecturas siguen permitidas | PENDIENTE | |
@@ -107,7 +107,7 @@ flowchart TD
 | Frigate | PARCIAL | API de estadísticas/eventos/revisión y panel en catálogo; bearer JWT, solo lectura y paginación acotada. Pendiente CI del panel y validación real. |
 | Recyclarr | PARCIAL | Estado del contenedor y ejecución fija `recyclarr sync` mediante Docker Gateway, limitada a contenedor configurado/allowlist y preview firmado con confirmación exacta. Panel en catálogo y CI de la rama superado (run 410); pendiente prueba real. |
 | Docker Gateway | PARCIAL | Gateway limitado a lista explícita y start/stop/restart más comando fijo Recyclarr sync. Las acciones MCP y el panel web requieren preview firmado, comprobación previa de allowlist y confirmación escrita. CI de la rama superado hasta `a6e3b60` (run 410); pendiente validación real con el perfil Docker habilitado. |
-| Seanime — gestión de configuración | PENDIENTE | La API actual ofrece `GET /api/v1/settings`, `PATCH /api/v1/settings` y `PATCH /api/v1/settings/path`, además de endpoints específicos para auto-downloader y reproductor. Diseñar herramientas de lectura y cambio individual con preview firmado y confirmación escrita; nunca incluir estas mutaciones en el proxy read-only. |
+| Seanime — gestión de configuración | COMPLETADO EN FEATURE | `seanime_get_settings` lee `/api/v1/settings` con redacción de passwords/tokens/API keys. `seanime_preview_update_setting` y `seanime_confirm_update_setting` permiten únicamente preferencias booleanas de bajo riesgo con permiso `admin`, preview firmado, revalidación del valor actual y confirmación exacta. Los cambios usan el endpoint oficial `PATCH /api/v1/settings/path`; las credenciales, rutas, clientes y ajustes sensibles quedan fuera de la allowlist. CI run 426 superado; pendiente validar en la instalación real tras autorización de despliegue. |
 
 ## 4. Prioridad 3 — Paneles propios
 
@@ -132,10 +132,10 @@ flowchart TD
 | Jellyfin | PARCIAL | Panel de servidor, bibliotecas y sesiones; pendiente CI y validación real. |
 | Seerr | PARCIAL | Panel de estado, cola de solicitudes y datos de aplicación; pendiente CI y validación real. |
 | Immich | PARCIAL | Panel de estadísticas del servidor y álbumes; pendiente CI y validación real. |
-| Tdarr | PARCIAL | Panel de estado, nodos e informes de trabajos; pendiente CI y validación real. |
+| Tdarr | COMPLETADO EN FEATURE | Cinco herramientas de lectura (estado, nodos, búsqueda, informes paginados y detalle de informe) y dos flujos de escritura (reencolar hasta 50 archivos y reescanear un archivo) con permiso `operations`, preview firmado y confirmación exacta. Pruebas unitarias específicas añadidas; pendiente CI final y validación real tras autorización de despliegue. |
 | Home Assistant | PARCIAL | Panel de configuración, estados de entidades y catálogo de servicios; solo lectura; pendiente CI y validación real. |
 | RomM | PARCIAL | Panel de plataformas, juegos y colecciones; pendiente CI y validación real. |
-| Resto de aplicaciones, priorizadas por utilidad | PARCIAL | Añadidos paneles de solo lectura para BookOrbit, Tidarr, Youtarr, Pulsarr, Cleanuparr, Maintainerr, Agregarr, Tracearr, Cloudflare, Transmission, FlareSolverr y tinyMediaManager; pendiente CI, revisión de cobertura y validación real. |
+| Seanime | COMPLETADO EN FEATURE | Biblioteca, AniList, seguimiento, auditoría, inspección, archivos sin match y auto-downloader; ajustes booleanos seguros, añadir a AniList y reasignar archivos con preview firmado/confirmación exacta. Pruebas de redacción de secretos, permisos, token obsoleto, confirmación exacta y cambios concurrentes. Pendiente validación real tras despliegue autorizado. |\n| Resto de aplicaciones, priorizadas por utilidad | PARCIAL | Añadidos paneles de solo lectura para BookOrbit, Tidarr, Youtarr, Pulsarr, Cleanuparr, Maintainerr, Agregarr, Tracearr, Cloudflare, Transmission, FlareSolverr y tinyMediaManager; pendiente CI, revisión de cobertura y validación real. |
 
 ## 5. Prioridad 4 — Calidad y validación final
 
@@ -193,14 +193,14 @@ flowchart TD
 | 2026-11-23 | Versionado del paquete inconsistente | CORREGIDO EN FEATURE: `src/homelabpilot/__init__.py` alineado con `pyproject.toml` en `0.5.0` (commit `63804d6`). Pendiente ampliar la estrategia de versionado al completar desarrollo |
 | 2026-11-23 | Proxy read-only | CORREGIDO EN FEATURE: sustituida la regex por allowlist exacta de 147 nombres revisados; las nuevas herramientas quedan denegadas por defecto. Incluye lecturas Seanime, Questarr, Frigate y estado Recyclarr; las operaciones de escritura/preview/confirmación siguen excluidas. |
 | 2026-11-23 | Cobertura CI | Workflow 337 de GitHub Actions para `main`/`a5ddc62`: `success`; la rama de desarrollo aún no ha ejecutado CI |
-| 2026-11-23 | Revisión estática del inventario MCP y proxy | Feature actual: 199 declaraciones `@mcp.tool`, 197 nombres únicos. La allowlist read-only contiene 147; los 50 nombres restantes quedan bloqueados. De esos 50, 45 son mutaciones/acciones o previews/confirmaciones, 3 son APIs genéricas que pueden escribir (`arr_api_request`, `integration_api_request`, `scryer_graphql`), uno es helper puro (`collection_has_media_id`) y `flaresolverr_request_get` ejecuta POST pese al nombre. El proxy anterior mostraba 137 herramientas por patrón. `flaresolverr_request_get` no se aprueba: aunque el nombre termina en GET, realiza POST y no debe habilitarse por convención. Los duplicados `cleanuparr_get_health` y `maintainerr_get_health` se conservan como nombres publicados; su semántica está documentada en el inventario. |
+| 2026-11-23 | Revisión estática del inventario MCP y proxy | Feature actual: 199 declaraciones `@mcp.tool`, 197 nombres únicos. La allowlist read-only contiene 148; los 49 nombres restantes quedan bloqueados. De esos 50, 45 son mutaciones/acciones o previews/confirmaciones, 3 son APIs genéricas que pueden escribir (`arr_api_request`, `integration_api_request`, `scryer_graphql`), uno es helper puro (`collection_has_media_id`) y `flaresolverr_request_get` ejecuta POST pese al nombre. El proxy anterior mostraba 137 herramientas por patrón. `flaresolverr_request_get` no se aprueba: aunque el nombre termina en GET, realiza POST y no debe habilitarse por convención. Los duplicados `cleanuparr_get_health` y `maintainerr_get_health` se conservan como nombres publicados; su semántica está documentada en el inventario. |
 
 ## 8. Desarrollo iniciado — proxy MCP read-only
 
 | Cambio | Estado | Detalle |
 |---|---|---|
 | Sustituir regex de nombres por allowlist exacta | COMPLETADO EN FEATURE | `mcp-readonly-policy.mjs`: 147 herramientas aprobadas explícitamente; las herramientas nuevas quedan denegadas por defecto. |
-| Incorporar lecturas Seanime revisadas | COMPLETADO EN FEATURE | Añadidas `seanime_audit_library`, `seanime_inspect_entry` y `seanime_verify_reassignment`; no se exponen herramientas de preview ni mutación. |
+| Incorporar lecturas Seanime revisadas | COMPLETADO EN FEATURE | Allowlist read-only incluye estado, búsqueda, biblioteca, AniList, seguimiento, auditoría, inspección, unmatched files y lectura de ajustes redactados. `seanime_get_settings` es la nueva lectura añadida. |\n| Proteger todas las escrituras Seanime | COMPLETADO EN FEATURE | Añadidos previews firmados y confirmación exacta para añadir AniList y reasignar archivos; cambios de preferencias booleanas de bajo riesgo protegidos con permiso `admin`, preview firmado y revalidación del valor. Las tres familias de mutación permanecen fuera del proxy read-only. |
 | Revisar semántica de herramientas Seanime permitidas | COMPLETADO EN FEATURE | `seanime_search_anime` usa POST contra un endpoint de búsqueda de AniList sin mutación; `seanime_verify_reassignment` consulta archivos locales; `seanime_audit_library` e `seanime_inspect_entry` solo leen datos. No se detectan efectos de escritura en estas herramientas. |
 | Revisar semántica de herramientas ARR y qBittorrent permitidas | COMPLETADO EN FEATURE | Las 11 herramientas ARR/qBittorrent incluidas en este grupo usan métodos GET; no se detectan mutaciones. |
 | Revisar POST de consulta de Tdarr | COMPLETADO EN FEATURE | `tdarr_search_files` (`/api/v2/search-db`) y `tdarr_list_job_reports` (`/api/v2/client/jobs`) usan POST para búsquedas/listados; no modifican trabajos ni archivos. Las herramientas de requeue/rescan siguen fuera de la allowlist. |
@@ -209,7 +209,7 @@ flowchart TD
 | Verificar herramientas genéricas con capacidad de escritura | COMPLETADO EN FEATURE | `arr_api_request`, `integration_api_request` y `scryer_graphql` permanecen fuera de la allowlist. Las dos primeras admiten controles/métodos mutantes bajo permisos; GraphQL puede ejecutar mutaciones y exige nivel admin. |
 | Filtrar `tools/list` en respuestas JSON-RPC batch | COMPLETADO EN FEATURE | Filtro compartido para respuestas individuales y arrays; incluye transporte JSON y SSE. |
 | Rechazar batches que contengan llamadas no aprobadas | COMPLETADO EN FEATURE | El batch completo se rechaza para evitar ejecución parcial ambigua; las llamadas aprobadas individuales siguen su flujo normal. |
-| Añadir pruebas Node.js de la política | COMPLETADO EN FEATURE | `tests/proxy-policy.test.mjs`; comprueba allowlist, denegación por defecto y filtrado simple/batch. |
+| Añadir pruebas Node.js de la política | COMPLETADO EN FEATURE | `tests/proxy-policy.test.mjs`; comprueba allowlist, denegación por defecto, filtrado simple/batch y que los nuevos cambios Seanime no exponen escrituras. |
 | Incluir módulo en imagen del proxy y CI | COMPLETADO EN FEATURE | Dockerfile copia el módulo; workflow ejecuta `node --test` y se activa también en la rama feature. |
 | Ejecutar CI de la rama y desplegar proxy | PARCIAL | CI run 405 completado con `success`; también pasaron runs 403–405 tras corregir el chequeo de allowlist en previews Docker. Suite pytest, Node policy tests y sintaxis del JavaScript embebido superados. Pendiente E2E, despliegue y validación real; no se ha reiniciado ningún contenedor. |
 
@@ -228,4 +228,4 @@ flowchart TD
 
 **Estados permitidos:** PENDIENTE · EN CURSO · COMPLETADO · PARCIAL · BLOQUEADO.
 
-**Siguiente paso:** comprobar CI del test Bearer recién añadido; después revisar el inventario de herramientas MCP que faltan y sus permisos efectivos, y preparar pruebas de rechazo del proxy sin invocar servicios reales. La configuración de Seanime queda planificada como integración separada con preview y confirmación.
+**Siguiente paso:** cerrar CI de los cambios Seanime/Tdarr; después continuar con las pruebas del handler del proxy que demuestren que una escritura bloqueada nunca llega al upstream y que las lecturas aprobadas sí atraviesan. No desplegar hasta autorización explícita del usuario.
