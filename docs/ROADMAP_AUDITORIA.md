@@ -283,9 +283,9 @@ flowchart TD
 | Aplicación | Cambio | Estado | Detalle |
 |---|---|---|---|
 | Youtarr | Búsqueda y detalle de vídeos y solicitudes | COMPLETADO EN FEATURE | El panel permite buscar/navegar vídeos, consultar su ficha por ID de YouTube y consultar el detalle de una solicitud por ID positivo. Usa la API externa con API key configurada y no crea solicitudes ni modifica su estado. |
-| Tidarr | Estado de cola | COMPLETADO EN FEATURE | Se añade al panel el estado de pausa, rate limit y pendientes; operación de lectura. |
+| Tidarr | Panel de descargas completo en lectura | COMPLETADO EN FEATURE | El panel expone autenticación, estado de cola, cola de descargas paginada (offset/límite acotados), historial y listas de auto-sincronización. Las acciones de escritura siguen fuera del panel; sus operaciones MCP requieren preview firmado y confirmación. |
 | Agregarr | Actividad y missing items | COMPLETADO EN FEATURE | El panel añade actividad reciente, solicitudes de contenido ausente, estadísticas de esas solicitudes y trabajos programados; filtros de missing items validados y paginación acotada. |
-| Pruebas | Lecturas Youtarr, Tidarr y Agregarr | EN CURSO | Se añade cobertura para el detalle de solicitudes Youtarr, incluyendo endpoint, API key e ID positivo; pendiente CI. |
+| Pruebas | Lecturas Youtarr, Tidarr y Agregarr | COMPLETADO EN FEATURE | Cobertura ampliada para detalle de solicitudes Youtarr y para cola paginada, historial y listas de sincronización Tidarr; incluye endpoints, credenciales y validación de límites. |
 | CI | Runs 470–476 | COMPLETADO EN FEATURE | Runs 470–477 superados; la suite de pruebas, compilación Python y validación JavaScript están completadas. |
 | Validación real | PENDIENTE | Requiere despliegue autorizado en el mediacenter. | 
 
