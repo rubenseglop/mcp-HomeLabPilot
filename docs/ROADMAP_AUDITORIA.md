@@ -104,8 +104,8 @@ flowchart TD
 |---|---|---|
 | Questarr | PARCIAL | Implementadas lectura de estado y biblioteca con clave de integración `read`, límites y pruebas unitarias. CI del bloque inicial pasó; validar en instancia real cuando esté instalada. |
 | Frigate | PARCIAL | Implementadas estadísticas, eventos, revisión y resumen con bearer JWT; solo lectura y paginación acotada. CI del bloque inicial pasó; validar en instancia real cuando esté instalada. |
-| Recyclarr | PARCIAL | Implementado estado del contenedor y ejecución fija `recyclarr sync` a través del Docker Gateway, limitada a contenedor configurado y allowlist; requiere permiso operations, preview firmado y confirmación escrita. Pruebas unitarias añadidas; pendiente CI y prueba en servidor real. |
-| Docker Gateway | PARCIAL | Gateway limitado a lista explícita y start/stop/restart más comando fijo Recyclarr sync. Las acciones MCP requieren preview firmado y confirmación escrita; CI runs 353–360 pasaron. Corregido el alias cuando un contenedor tiene varios nombres y añadidas pruebas. Pendiente CI de los últimos cambios y revisión final del catálogo. |
+| Recyclarr | PARCIAL | Implementado estado del contenedor y ejecución fija `recyclarr sync` a través del Docker Gateway, limitada a contenedor configurado y allowlist; requiere permiso operations, preview firmado y confirmación escrita. Pruebas unitarias añadidas; pendiente CI limpio y prueba en servidor real. |
+| Docker Gateway | PARCIAL | Gateway limitado a lista explícita y start/stop/restart más comando fijo Recyclarr sync. Las acciones MCP requieren preview firmado y confirmación escrita; CI runs 353–363 pasaron. Las ejecuciones 364–373 detectaron errores en tests (import de pytest y secuencia esperada de llamadas); ambos corregidos en feature. Pendiente resultado de CI run 374 y revisión final del catálogo. |
 
 ## 4. Prioridad 3 — Paneles propios
 
@@ -195,7 +195,7 @@ flowchart TD
 | Rechazar batches que contengan llamadas no aprobadas | COMPLETADO EN FEATURE | El batch completo se rechaza para evitar ejecución parcial ambigua; las llamadas aprobadas individuales siguen su flujo normal. |
 | Añadir pruebas Node.js de la política | COMPLETADO EN FEATURE | `tests/proxy-policy.test.mjs`; comprueba allowlist, denegación por defecto y filtrado simple/batch. |
 | Incluir módulo en imagen del proxy y CI | COMPLETADO EN FEATURE | Dockerfile copia el módulo; workflow ejecuta `node --test` y se activa también en la rama feature. |
-| Ejecutar CI de la rama y desplegar proxy | PARCIAL | CI runs 352–360 pasaron (incluyen Questarr/Frigate, Docker preview/confirm y primer bloque Recyclarr). Los cambios de tests y Compose posteriores siguen en CI. Pendiente despliegue; no se ha reiniciado ningún contenedor. |
+| Ejecutar CI de la rama y desplegar proxy | PARCIAL | CI runs 352–363 pasaron. Runs 364–373 fallaron por errores de tests detectados y corregidos; run 374 valida las correcciones. Pendiente CI limpio, despliegue y validación real; no se ha reiniciado ningún contenedor. |
 
 ## 9. Protocolo obligatorio de trabajo
 
