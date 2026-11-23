@@ -2029,6 +2029,7 @@ def register_integration_tools(
             },
             "tidarr": {
                 "status": tidarr_get_auth_status,
+                "queue_status": tidarr_get_queue_status,
                 "queue": tidarr_get_download_queue,
                 "history": tidarr_get_download_history,
                 "sync_list": tidarr_get_sync_list,
