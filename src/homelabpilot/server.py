@@ -1447,6 +1447,74 @@ async def docker_control_allowlisted_container(
     return result
 
 
+def _recyclarr_container_name() -> str:
+    container = os.getenv("RECYCLARR_CONTAINER", "").strip().lstrip("/")
+    if not container or len(container) > 128 or "/" in container or ".." in container:
+        raise ValueError("Set RECYCLARR_CONTAINER to the exact Recyclarr container name")
+    return container
+
+
+@mcp.tool()
+async def recyclarr_get_status() -> dict[str, Any]:
+    """Read whether the configured Recyclarr container is present and its current state."""
+    _require_docker_permission("read")
+    container = _recyclarr_container_name()
+    entries = await _docker_gateway_request("GET", "/v1/containers")
+    if not isinstance(entries, list):
+        raise RuntimeError("Docker Gateway returned an invalid container list")
+    match = next((item for item in entries if item.get("name") == container), None)
+    return {
+        "configured": True,
+        "container": container,
+        "allowlisted": match is not None,
+        "state": match.get("state") if match else None,
+        "status": match.get("status") if match else None,
+    }
+
+
+@mcp.tool()
+async def recyclarr_preview_sync() -> dict[str, str]:
+    """Preview a fixed 'recyclarr sync' run in the configured allowlisted container."""
+    _require_docker_permission("operations")
+    container = _recyclarr_container_name()
+    entries = await _docker_gateway_request("GET", "/v1/containers")
+    if not isinstance(entries, list) or not any(item.get("name") == container for item in entries):
+        raise PermissionError("Recyclarr container is not visible in the Docker allowlist")
+    snapshot = {"service": "recyclarr", "container": container, "command": "recyclarr sync"}
+    phrase = f"CONFIRM RECYCLARR SYNC {container}"
+    return {
+        "preview_token": _preview_token(snapshot),
+        "typed_confirmation": phrase,
+        "container": container,
+        "command": "recyclarr sync",
+        "warning": "This runs Recyclarr synchronization and may update quality profiles, custom formats and related ARR configuration.",
+    }
+
+
+@mcp.tool()
+async def recyclarr_confirm_sync(
+    preview_token: str, typed_confirmation: str
+) -> Any:
+    """Run only the exact Recyclarr sync shown in a matching preview."""
+    _require_docker_permission("operations")
+    container = _recyclarr_container_name()
+    snapshot = {"service": "recyclarr", "container": container, "command": "recyclarr sync"}
+    expected_token = _preview_token(snapshot)
+    expected_phrase = f"CONFIRM RECYCLARR SYNC {container}"
+    if not hmac.compare_digest(preview_token, expected_token):
+        raise PermissionError("The Recyclarr sync preview is missing, stale or no longer matches")
+    if not hmac.compare_digest(typed_confirmation, expected_phrase):
+        raise PermissionError(f"Type exactly: {expected_phrase}")
+    try:
+        result = await _docker_gateway_request("POST", "/v1/recyclarr/sync")
+    except Exception:
+        _audit("SYNC", "recyclarr", container, outcome="failed")
+        raise
+    ok = isinstance(result, dict) and result.get("ok") is True
+    _audit("SYNC", "recyclarr", container, outcome="succeeded" if ok else "failed")
+    return result
+
+
 class _BearerAuthMiddleware:
     """Protect the remote MCP endpoint with a constant-time bearer-token check."""
 
