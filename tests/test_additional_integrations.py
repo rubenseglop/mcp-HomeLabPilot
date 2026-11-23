@@ -71,6 +71,12 @@ class FakeAsyncClient:
             return FakeResponse([[{"entity_id": "sensor.temperature", "state": "20.0"}]])
         if url.endswith("/library/sections/1/recentlyAdded"):
             return FakeResponse([{"ratingKey": "101", "title": "Alien"}])
+        if url.endswith("/api/v2/public/servers"):
+            return FakeResponse({"servers": [{"id": "server-1", "name": "Plex", "healthy": True}]})
+        if url.endswith("/api/v2/public/recently-added"):
+            return FakeResponse({"items": [{"id": "media-1", "title": "Alien"}], "nextCursor": None})
+        if url.endswith("/api/v2/public/history"):
+            return FakeResponse({"items": [{"id": "play-1", "title": "Alien", "user": "guest"}], "nextCursor": None})
         if url.endswith("/api/events/timeline"):
             return FakeResponse({"hours": 168, "series": [{"hour": "2026-11-23T12:00:00Z", "count": 3}]})
         if url.endswith("/api/strikes/recent"):
@@ -146,6 +152,8 @@ def registered(monkeypatch):
     monkeypatch.setenv("CLOUDFLARE_API_TOKEN", "cloudflare-read-token")
     monkeypatch.setenv("CLEANUPARR_URL", "http://cleanuparr:11011")
     monkeypatch.setenv("CLEANUPARR_API_KEY", "cleanuparr-read-token")
+    monkeypatch.setenv("TRACEARR_URL", "http://tracearr:3000")
+    monkeypatch.setenv("TRACEARR_API_KEY", "tracearr-read-token")
     FakeAsyncClient.calls = []
     monkeypatch.setattr(integrations.httpx, "AsyncClient", FakeAsyncClient)
 
@@ -489,3 +497,27 @@ def test_cleanuparr_dashboard_exposes_jobs_and_manual_event_statistics(registere
     stats = asyncio.run(status.dashboard_read("cleanuparr", "manual_event_stats"))
     assert stats == {"unresolved": 2, "critical": 1}
     assert FakeAsyncClient.calls[-1]["url"] == "http://cleanuparr:11011/api/manualevents/stats"
+
+
+
+def test_tracearr_dashboard_lists_servers_and_recent_media(registered):
+    status = integrations_status(registered)
+    servers = asyncio.run(status.dashboard_read("tracearr", "servers"))
+    assert servers == {"servers": [{"id": "server-1", "name": "Plex", "healthy": True}]}
+    assert FakeAsyncClient.calls[-1]["url"] == "http://tracearr:3000/api/v2/public/servers"
+
+    recent = asyncio.run(status.dashboard_read("tracearr", "recently_added", page_size=15))
+    assert recent == {"items": [{"id": "media-1", "title": "Alien"}], "nextCursor": None}
+    call = FakeAsyncClient.calls[-1]
+    assert call["url"] == "http://tracearr:3000/api/v2/public/recently-added"
+    assert call["params"] == {"pageSize": 15}
+    assert call["headers"]["Authorization"] == "Bearer tracearr-read-token"
+
+
+def test_tracearr_dashboard_reads_watch_history_with_bounded_page_size(registered):
+    status = integrations_status(registered)
+    result = asyncio.run(status.dashboard_read("tracearr", "watch_history", page_size=20))
+    assert result == {"items": [{"id": "play-1", "title": "Alien", "user": "guest"}], "nextCursor": None}
+    call = FakeAsyncClient.calls[-1]
+    assert call["url"] == "http://tracearr:3000/api/v2/public/history"
+    assert call["params"] == {"pageSize": 20}
