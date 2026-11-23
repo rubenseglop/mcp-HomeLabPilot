@@ -101,6 +101,12 @@ class FakeAsyncClient:
             return FakeResponse({"days": 7, "topMedia": [{"title": "Dune"}]})
         if url.endswith("/api/queue/status"):
             return FakeResponse({"paused": False, "rateLimited": False, "pending": 4})
+        if url.endswith("/api/queue/list"):
+            return FakeResponse({"items": [{"id": 17, "title": "Tidal track", "status": "downloading"}], "total": 1})
+        if url.endswith("/api/history/list"):
+            return FakeResponse({"items": [{"id": 12, "title": "Completed track"}]})
+        if url.endswith("/api/sync/list"):
+            return FakeResponse({"items": [{"id": 3, "name": "Road trip playlist"}]})
         if url.endswith("/external-api/v1/videos/abcdefghijk"):
             return FakeResponse({"id": "abcdefghijk", "title": "Test video", "status": "downloaded"})
         if url.endswith("/external-api/v1/requests/42"):
@@ -437,6 +443,33 @@ def test_tidarr_dashboard_exposes_queue_pause_and_rate_limit_status(registered):
     call = FakeAsyncClient.calls[-1]
     assert call["url"] == "http://tidarr:8080/api/queue/status"
     assert call["headers"]["X-Api-Key"] == "tidarr-read-key"
+
+
+def test_tidarr_dashboard_lists_download_queue_with_bounded_pagination(registered):
+    status = integrations_status(registered)
+    result = asyncio.run(status.dashboard_read("tidarr", "queue", offset=10, limit=25))
+    assert result == {"items": [{"id": 17, "title": "Tidal track", "status": "downloading"}], "total": 1}
+    call = FakeAsyncClient.calls[-1]
+    assert call["url"] == "http://tidarr:8080/api/queue/list"
+    assert call["params"] == {"offset": 10, "limit": 25}
+    assert call["headers"]["X-Api-Key"] == "tidarr-read-key"
+    with pytest.raises(ValueError, match="limit"):
+        asyncio.run(status.dashboard_read("tidarr", "queue", limit=500))
+
+
+def test_tidarr_dashboard_exposes_download_history_and_sync_playlists(registered):
+    status = integrations_status(registered)
+    history = asyncio.run(status.dashboard_read("tidarr", "history"))
+    assert history == {"items": [{"id": 12, "title": "Completed track"}]}
+    history_call = FakeAsyncClient.calls[-1]
+    assert history_call["url"] == "http://tidarr:8080/api/history/list"
+    assert history_call["headers"]["X-Api-Key"] == "tidarr-read-key"
+
+    sync_list = asyncio.run(status.dashboard_read("tidarr", "sync_list"))
+    assert sync_list == {"items": [{"id": 3, "name": "Road trip playlist"}]}
+    sync_call = FakeAsyncClient.calls[-1]
+    assert sync_call["url"] == "http://tidarr:8080/api/sync/list"
+    assert sync_call["headers"]["X-Api-Key"] == "tidarr-read-key"
 
 
 
