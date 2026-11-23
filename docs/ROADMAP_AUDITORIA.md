@@ -80,7 +80,7 @@ flowchart TD
 | Comprobar endpoint de salud del proxy | COMPLETADO | HTTP 200; modo `read-only` |
 | Comprobar salud del gateway de agentes | COMPLETADO | HTTP 200 |
 | Verificar autenticación/configuración MCP de Codex | PARCIAL | Gateway informó `authenticated=true` y `mcp_configured=true`; falta probar una llamada real a través del proxy |
-| Ejecutar `tools/list` a través del proxy | COMPLETADO | 23-11-2026: initialize HTTP 200, sesión creada, tools/list HTTP 200, 137 herramientas visibles, sin error JSON-RPC. La cifra coincide con la antigua política por patrón; la nueva allowlist explícita añade tres lecturas Seanime revisadas (140 permitidas). Pendiente desplegar y verificar el nuevo resultado. |
+| Ejecutar `tools/list` a través del proxy | COMPLETADO | 23-11-2026: initialize HTTP 200, sesión creada, tools/list HTTP 200, 137 herramientas visibles con la política anterior, sin error JSON-RPC. La nueva allowlist explícita contiene 147 herramientas (lecturas aprobadas de forma exacta, incluidas Questarr, Frigate y Recyclarr status); pendiente desplegar y verificar el nuevo resultado. |
 | Ejecutar una herramienta de lectura a través del proxy | PENDIENTE | |
 | Verificar bloqueo de herramientas de escritura en el proxy | PENDIENTE | Prueba negativa segura; no ejecutar ninguna escritura en servicios reales |
 | Verificar que las lecturas siguen permitidas | PENDIENTE | |
@@ -181,7 +181,7 @@ flowchart TD
 | 2026-11-23 | Hash de archivos del contenedor | COMPLETADO: cinco hashes SHA-256 coinciden entre host y contenedor; el usuario no privilegiado `10001` no podía leer los archivos, root sí |
 | 2026-11-23 | Diferencia 189/187 herramientas | RESUELTO: 189 decoradores, 187 nombres únicos; dos herramientas registradas dos veces |
 | 2026-11-23 | Versionado del paquete inconsistente | CORREGIDO EN FEATURE: `src/homelabpilot/__init__.py` alineado con `pyproject.toml` en `0.5.0` (commit `63804d6`). Pendiente ampliar la estrategia de versionado al completar desarrollo |
-| 2026-11-23 | Proxy read-only | ABIERTO: regex actual deja fuera consultas Seanime de verificación/auditoría; revisar semántica antes de ampliar allowlist |
+| 2026-11-23 | Proxy read-only | CORREGIDO EN FEATURE: sustituida la regex por allowlist exacta de 147 nombres revisados; las nuevas herramientas quedan denegadas por defecto. Incluye lecturas Seanime, Questarr, Frigate y estado Recyclarr; las operaciones de escritura/preview/confirmación siguen excluidas. |
 | 2026-11-23 | Cobertura CI | Workflow 337 de GitHub Actions para `main`/`a5ddc62`: `success`; la rama de desarrollo aún no ha ejecutado CI |
 | 2026-11-23 | Revisión estática del inventario MCP y proxy | 189 decoradores, 187 nombres únicos. El proxy anterior mostraba 137 herramientas por patrón. `flaresolverr_request_get` no se aprueba: aunque el nombre termina en GET, realiza POST y no debe habilitarse por convención. Los duplicados `cleanuparr_get_health` y `maintainerr_get_health` se conservan como nombres publicados; su semántica está documentada en el inventario. |
 
@@ -189,7 +189,7 @@ flowchart TD
 
 | Cambio | Estado | Detalle |
 |---|---|---|
-| Sustituir regex de nombres por allowlist exacta | COMPLETADO EN FEATURE | `mcp-readonly-policy.mjs`: 140 herramientas aprobadas explícitamente; las herramientas nuevas quedan denegadas por defecto. |
+| Sustituir regex de nombres por allowlist exacta | COMPLETADO EN FEATURE | `mcp-readonly-policy.mjs`: 147 herramientas aprobadas explícitamente; las herramientas nuevas quedan denegadas por defecto. |
 | Incorporar lecturas Seanime revisadas | COMPLETADO EN FEATURE | Añadidas `seanime_audit_library`, `seanime_inspect_entry` y `seanime_verify_reassignment`; no se exponen herramientas de preview ni mutación. |
 | Filtrar `tools/list` en respuestas JSON-RPC batch | COMPLETADO EN FEATURE | Filtro compartido para respuestas individuales y arrays; incluye transporte JSON y SSE. |
 | Rechazar batches que contengan llamadas no aprobadas | COMPLETADO EN FEATURE | El batch completo se rechaza para evitar ejecución parcial ambigua; las llamadas aprobadas individuales siguen su flujo normal. |
