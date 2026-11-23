@@ -1398,22 +1398,52 @@ async def docker_list_allowlisted_containers() -> Any:
     return await _docker_gateway_request("GET", "/v1/containers")
 
 
-@mcp.tool()
-async def docker_control_allowlisted_container(container: str, action: str) -> Any:
-    """Start, stop or restart an allowlisted container using the separate Docker permission level."""
-    _require_docker_permission("operations")
-    if not container.strip() or "/" in container or ".." in container:
-        raise ValueError("container must be an allowlisted name or ID")
+def _docker_action_snapshot(container: str, action: str) -> dict[str, str]:
+    """Validate and normalize a restricted Docker action before preview or execution."""
+    name = container.strip()
+    if not name or len(name) > 128 or "/" in name or ".." in name or any(ord(ch) < 32 for ch in name):
+        raise ValueError("container must be a valid allowlisted name or ID (1-128 characters)")
     if action not in {"start", "stop", "restart"}:
         raise ValueError("action must be start, stop or restart")
+    return {"service": "docker", "container": name, "action": action}
+
+
+@mcp.tool()
+async def docker_preview_container_action(container: str, action: str) -> dict[str, str]:
+    """Preview starting, stopping or restarting one allowlisted container."""
+    _require_docker_permission("operations")
+    snapshot = _docker_action_snapshot(container, action)
+    phrase = f"CONFIRM DOCKER {action.upper()} {snapshot['container']}"
+    return {
+        "preview_token": _preview_token(snapshot),
+        "typed_confirmation": phrase,
+        "container": snapshot["container"],
+        "action": action,
+        "warning": "This changes container state. stop/restart can interrupt services and active tasks.",
+    }
+
+
+@mcp.tool()
+async def docker_control_allowlisted_container(
+    container: str, action: str, preview_token: str = "", typed_confirmation: str = ""
+) -> Any:
+    """Execute only a matching previewed Docker action after exact typed confirmation."""
+    _require_docker_permission("operations")
+    snapshot = _docker_action_snapshot(container, action)
+    expected_token = _preview_token(snapshot)
+    expected_phrase = f"CONFIRM DOCKER {action.upper()} {snapshot['container']}"
+    if not hmac.compare_digest(preview_token, expected_token):
+        raise PermissionError("The Docker action preview is missing, stale or does not match")
+    if not hmac.compare_digest(typed_confirmation, expected_phrase):
+        raise PermissionError(f"Type exactly: {expected_phrase}")
     try:
         result = await _docker_gateway_request(
-            "POST", f"/v1/containers/{quote(container, safe='')}/{action}"
+            "POST", f"/v1/containers/{quote(snapshot['container'], safe='')}/{action}"
         )
     except Exception:
-        _audit(action, "docker", container, outcome="failed")
+        _audit(action, "docker", snapshot["container"], outcome="failed")
         raise
-    _audit(action, "docker", container)
+    _audit(action, "docker", snapshot["container"])
     return result
 
 
