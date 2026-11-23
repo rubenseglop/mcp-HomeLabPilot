@@ -1,13 +1,18 @@
 # HomeLabPilot
 
-**HomeLabPilot reúne un panel web y un servidor MCP para consultar y operar tu ecosistema multimedia desde un único lugar.**
+**MCP Server & AI Control Center for your Homelab**
+
+Plataforma para conectar modelos de inteligencia artificial con tu homelab mediante **MCP (Model Context Protocol)**. Permite que asistentes compatibles consulten y gestionen los servicios de tu infraestructura desde lenguaje natural, con permisos configurables y controles de seguridad.
+
+HomeLabPilot reúne un panel web y un servidor MCP para interactuar con tu ecosistema multimedia y otros servicios domésticos desde un único lugar.
 
 Conecta servicios como Radarr, Sonarr, Lidarr, Prowlarr, Bazarr y qBittorrent, además de otras aplicaciones compatibles. Puedes utilizar la interfaz web o conectar un cliente MCP. También incluye un espacio de chat con **Codex CLI**.
 
 ## Qué incluye
 
 - Panel web con catálogo de aplicaciones, estado de conexiones y herramientas para los servicios integrados.
-- Servidor MCP con permisos diferenciados para lectura, operaciones y administración.
+- Servidor MCP para conectar asistentes y clientes de IA con tu homelab.
+- Permisos MCP diferenciados para lectura, operaciones y administración.
 - Integraciones con aplicaciones multimedia, automatización, fotografías, juegos y otros servicios.
 - Previsualización y confirmación explícita para operaciones sensibles.
 - Chat con Codex CLI en un contenedor aislado y con acceso MCP de solo lectura.
