@@ -80,7 +80,7 @@ flowchart TD
 | Comprobar endpoint de salud del proxy | COMPLETADO | HTTP 200; modo `read-only` |
 | Comprobar salud del gateway de agentes | COMPLETADO | HTTP 200 |
 | Verificar autenticación/configuración MCP de Codex | PARCIAL | Gateway informó `authenticated=true` y `mcp_configured=true`; falta probar una llamada real a través del proxy |
-| Ejecutar `tools/list` a través del proxy | COMPLETADO | 23-11-2026: initialize HTTP 200, sesión creada, tools/list HTTP 200, 137 herramientas visibles, sin error JSON-RPC. Diferencia pendiente de reconciliar con el filtrado estático. |
+| Ejecutar `tools/list` a través del proxy | COMPLETADO | 23-11-2026: initialize HTTP 200, sesión creada, tools/list HTTP 200, 137 herramientas visibles, sin error JSON-RPC. La cifra coincide con la antigua política por patrón; la nueva allowlist explícita añade tres lecturas Seanime revisadas (140 permitidas). Pendiente desplegar y verificar el nuevo resultado. |
 | Ejecutar una herramienta de lectura a través del proxy | PENDIENTE | |
 | Verificar bloqueo de herramientas de escritura en el proxy | PENDIENTE | Prueba negativa segura; no ejecutar ninguna escritura en servicios reales |
 | Verificar que las lecturas siguen permitidas | PENDIENTE | |
@@ -183,9 +183,21 @@ flowchart TD
 | 2026-11-23 | Versionado del paquete inconsistente | CORREGIDO EN FEATURE: `src/homelabpilot/__init__.py` alineado con `pyproject.toml` en `0.5.0` (commit `63804d6`). Pendiente ampliar la estrategia de versionado al completar desarrollo |
 | 2026-11-23 | Proxy read-only | ABIERTO: regex actual deja fuera consultas Seanime de verificación/auditoría; revisar semántica antes de ampliar allowlist |
 | 2026-11-23 | Cobertura CI | Workflow 337 de GitHub Actions para `main`/`a5ddc62`: `success`; la rama de desarrollo aún no ha ejecutado CI |
-| 2026-11-23 | Revisión estática del inventario MCP y proxy | 189 decoradores, 187 nombres únicos; el proxy permite 133 herramientas por regex y bloquea 54. Entre las lecturas bloqueadas están `seanime_search_anime`, `seanime_verify_reassignment`, `seanime_audit_library` y `seanime_inspect_entry`; `collection_has_media_id` es un helper puro. `flaresolverr_request_get` usa POST y se clasifica como operación, por lo que no debe habilitarse automáticamente. Los dos nombres duplicados consultan el mismo endpoint GET. En JSON-RPC batch, `tools/list` no aplica el filtrado de nombres; las llamadas mutantes sí se comprueban individualmente. Pendiente comparar inventario completo runtime y revisar allowlist semánticamente |
+| 2026-11-23 | Revisión estática del inventario MCP y proxy | 189 decoradores, 187 nombres únicos. El proxy anterior mostraba 137 herramientas por patrón. `flaresolverr_request_get` no se aprueba: aunque el nombre termina en GET, realiza POST y no debe habilitarse por convención. Los duplicados `cleanuparr_get_health` y `maintainerr_get_health` se conservan como nombres publicados; su semántica está documentada en el inventario. |
 
-## 8. Protocolo obligatorio de trabajo
+## 8. Desarrollo iniciado — proxy MCP read-only
+
+| Cambio | Estado | Detalle |
+|---|---|---|
+| Sustituir regex de nombres por allowlist exacta | COMPLETADO EN FEATURE | `mcp-readonly-policy.mjs`: 140 herramientas aprobadas explícitamente; las herramientas nuevas quedan denegadas por defecto. |
+| Incorporar lecturas Seanime revisadas | COMPLETADO EN FEATURE | Añadidas `seanime_audit_library`, `seanime_inspect_entry` y `seanime_verify_reassignment`; no se exponen herramientas de preview ni mutación. |
+| Filtrar `tools/list` en respuestas JSON-RPC batch | COMPLETADO EN FEATURE | Filtro compartido para respuestas individuales y arrays; incluye transporte JSON y SSE. |
+| Rechazar batches que contengan llamadas no aprobadas | COMPLETADO EN FEATURE | El batch completo se rechaza para evitar ejecución parcial ambigua; las llamadas aprobadas individuales siguen su flujo normal. |
+| Añadir pruebas Node.js de la política | COMPLETADO EN FEATURE | `tests/proxy-policy.test.mjs`; comprueba allowlist, denegación por defecto y filtrado simple/batch. |
+| Incluir módulo en imagen del proxy y CI | COMPLETADO EN FEATURE | Dockerfile copia el módulo; workflow ejecuta `node --test` y se activa también en la rama feature. |
+| Ejecutar CI de la rama y desplegar proxy | PENDIENTE | No se ha desplegado ni reiniciado ningún contenedor del servidor. |
+
+## 9. Protocolo obligatorio de trabajo
 
 1. **Al iniciar o retomar:** leer la versión de este archivo en la rama `main` de GitHub. No confiar en una copia antigua de una conversación.
 2. Identificar la primera tarea PENDIENTE de la fase activa y sus dependencias.
@@ -200,4 +212,4 @@ flowchart TD
 
 **Estados permitidos:** PENDIENTE · EN CURSO · COMPLETADO · PARCIAL · BLOQUEADO.
 
-**Siguiente paso:** desarrollo directo. Priorizar la corrección semántica del proxy read-only, completar integraciones pendientes (Questarr, Frigate, Recyclarr y Docker Gateway) y después paneles. No solicitar al usuario pruebas repetitivas; preparar cambios y commits en esta rama.
+**Siguiente paso:** ejecutar CI de la rama feature, corregir cualquier fallo y continuar con la siguiente integración pendiente (Questarr), después Frigate, Recyclarr y Docker Gateway. No desplegar ni pedir al usuario pruebas repetitivas hasta tener el bloque de cambios preparado.
