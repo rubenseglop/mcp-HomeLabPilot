@@ -790,8 +790,9 @@ def test_stack_status_lists_tools_for_connected_services_only(monkeypatch):
     import homelabpilot.server as server
 
     for service, (url_env, key_env, _prefix) in server.ARR_SERVICES.items():
-        monkeypatch.setenv(url_env, "http://example.invalid" if service == "radarr" else "")
-        monkeypatch.setenv(key_env, "test-key" if service == "radarr" else "")
+        enabled = service in {"radarr", "sonarr"}
+        monkeypatch.setenv(url_env, "http://example.invalid" if enabled else "")
+        monkeypatch.setenv(key_env, "test-key" if enabled else "")
     monkeypatch.delenv("SCRYER_URL", raising=False)
     monkeypatch.delenv("SCRYER_API_KEY", raising=False)
     monkeypatch.delenv("QBITTORRENT_URL", raising=False)
@@ -808,8 +809,10 @@ def test_stack_status_lists_tools_for_connected_services_only(monkeypatch):
         server.mcp._tool_manager,
         "list_tools",
         lambda: [
-            SimpleNamespace(name="radarr_get_movies", description="List movies"),
-            SimpleNamespace(name="radarr_get_queue", description="Read queue"),
+            SimpleNamespace(name="arr_api_request", description="Read ARR API"),
+            SimpleNamespace(name="arr_list_library", description="List movie, series or artist library"),
+            SimpleNamespace(name="arr_add_movie", description="Add movie"),
+            SimpleNamespace(name="arr_add_series", description="Add series"),
             SimpleNamespace(name="sonarr_get_series", description="List series"),
         ],
     )
@@ -817,11 +820,17 @@ def test_stack_status_lists_tools_for_connected_services_only(monkeypatch):
     result = asyncio.run(server.stack_status())
     radarr = result["services"]["radarr"]
     assert radarr["ok"] is True
-    assert radarr["tool_count"] == 2
+    assert radarr["tool_count"] == 3
     assert [tool["name"] for tool in radarr["tools"]] == [
-        "radarr_get_movies", "radarr_get_queue"
+        "arr_api_request", "arr_add_movie", "arr_list_library"
     ]
-    assert "tools" not in result["services"]["sonarr"]
+    sonarr = result["services"]["sonarr"]
+    assert sonarr["ok"] is True
+    assert sonarr["tool_count"] == 3
+    assert [tool["name"] for tool in sonarr["tools"]] == [
+        "arr_api_request", "arr_add_series", "arr_list_library"
+    ]
+    assert "tools" not in result["services"]["prowlarr"]
 
 def test_app_config_is_encrypted_and_never_returns_secret(monkeypatch, tmp_path):
     import os
