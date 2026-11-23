@@ -810,6 +810,11 @@ def test_stack_status_lists_tools_for_connected_services_only(monkeypatch):
         "list_tools",
         lambda: [
             SimpleNamespace(name="arr_api_request", description="Read ARR API"),
+            SimpleNamespace(name="arr_get_configuration", description="Read configuration"),
+            SimpleNamespace(name="arr_update_configuration", description="Update configuration"),
+            SimpleNamespace(name="arr_create_configuration", description="Create configuration"),
+            SimpleNamespace(name="arr_preview_delete_configuration", description="Preview configuration deletion"),
+            SimpleNamespace(name="arr_delete_configuration", description="Delete configuration"),
             SimpleNamespace(name="arr_list_library", description="List movie, series or artist library"),
             SimpleNamespace(name="arr_add_movie", description="Add movie"),
             SimpleNamespace(name="arr_add_series", description="Add series"),
@@ -821,15 +826,19 @@ def test_stack_status_lists_tools_for_connected_services_only(monkeypatch):
     result = asyncio.run(server.stack_status())
     radarr = result["services"]["radarr"]
     assert radarr["ok"] is True
-    assert radarr["tool_count"] == 3
+    assert radarr["tool_count"] == 8
     assert [tool["name"] for tool in radarr["tools"]] == [
-        "arr_add_movie", "arr_api_request", "arr_list_library"
+        "arr_add_movie", "arr_api_request", "arr_create_configuration",
+        "arr_delete_configuration", "arr_get_configuration", "arr_list_library",
+        "arr_preview_delete_configuration", "arr_update_configuration"
     ]
     sonarr = result["services"]["sonarr"]
     assert sonarr["ok"] is True
-    assert sonarr["tool_count"] == 4
+    assert sonarr["tool_count"] == 9
     assert [tool["name"] for tool in sonarr["tools"]] == [
-        "arr_add_series", "arr_api_request", "arr_list_library", "sonarr_get_series"
+        "arr_add_series", "arr_api_request", "arr_create_configuration",
+        "arr_delete_configuration", "arr_get_configuration", "arr_list_library",
+        "arr_preview_delete_configuration", "arr_update_configuration", "sonarr_get_series"
     ]
     prowlarr = result["services"]["prowlarr"]
     assert prowlarr["ok"] is True
