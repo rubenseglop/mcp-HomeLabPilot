@@ -69,6 +69,8 @@ class FakeAsyncClient:
             return FakeResponse([[{"entity_id": "sensor.temperature", "state": "20.0"}]])
         if url.endswith("/library/sections/1/recentlyAdded"):
             return FakeResponse([{"ratingKey": "101", "title": "Alien"}])
+        if url.endswith("/api/queue/status"):
+            return FakeResponse({"paused": False, "rateLimited": False, "pending": 4})
         if url.endswith("/external-api/v1/videos/abcdefghijk"):
             return FakeResponse({"id": "abcdefghijk", "title": "Test video", "status": "downloaded"})
         if url.endswith("/external-api/v1/videos"):
@@ -118,6 +120,8 @@ def registered(monkeypatch):
     monkeypatch.setenv("BOOKORBIT_API_KEY", "bookorbit-read-key")
     monkeypatch.setenv("YOUTARR_URL", "http://youtarr:3000")
     monkeypatch.setenv("YOUTARR_API_KEY", "youtarr-read-key")
+    monkeypatch.setenv("TIDARR_URL", "http://tidarr:8080")
+    monkeypatch.setenv("TIDARR_API_KEY", "tidarr-read-key")
     FakeAsyncClient.calls = []
     monkeypatch.setattr(integrations.httpx, "AsyncClient", FakeAsyncClient)
 
@@ -371,3 +375,13 @@ def test_youtarr_dashboard_video_detail_validates_youtube_id(registered):
     assert FakeAsyncClient.calls[-1]["url"] == "http://youtarr:3000/external-api/v1/videos/abcdefghijk"
     with pytest.raises(ValueError, match="11-character"):
         asyncio.run(status.dashboard_read("youtarr", "video", youtube_id="invalid"))
+
+
+
+def test_tidarr_dashboard_exposes_queue_pause_and_rate_limit_status(registered):
+    status = integrations_status(registered)
+    result = asyncio.run(status.dashboard_read("tidarr", "queue_status"))
+    assert result == {"paused": False, "rateLimited": False, "pending": 4}
+    call = FakeAsyncClient.calls[-1]
+    assert call["url"] == "http://tidarr:8080/api/queue/status"
+    assert call["headers"]["X-Api-Key"] == "tidarr-read-key"
