@@ -105,7 +105,7 @@ flowchart TD
 | Questarr | PARCIAL | Implementadas lectura de estado y biblioteca con clave de integración `read`, límites y pruebas unitarias. CI del bloque inicial pasó; validar en instancia real cuando esté instalada. |
 | Frigate | PARCIAL | Implementadas estadísticas, eventos, revisión y resumen con bearer JWT; solo lectura y paginación acotada. CI del bloque inicial pasó; validar en instancia real cuando esté instalada. |
 | Recyclarr | PENDIENTE | Evaluar estado actual y diseñar integración útil, con pruebas |
-| Docker Gateway | PARCIAL | Gateway limitado a lista explícita y start/stop/restart. Ahora las acciones MCP requieren preview firmado y confirmación escrita; añadidas pruebas unitarias. Pendiente CI y revisar catálogo/alias de contenedor. |
+| Docker Gateway | PARCIAL | Gateway limitado a lista explícita y start/stop/restart. Las acciones MCP requieren preview firmado y confirmación escrita; CI run 353 pasó. Corregido el alias cuando un contenedor tiene varios nombres y añadidas pruebas. Pendiente catálogo y evaluar ejecución segura de Recyclarr. |
 
 ## 4. Prioridad 3 — Paneles propios
 
@@ -195,7 +195,7 @@ flowchart TD
 | Rechazar batches que contengan llamadas no aprobadas | COMPLETADO EN FEATURE | El batch completo se rechaza para evitar ejecución parcial ambigua; las llamadas aprobadas individuales siguen su flujo normal. |
 | Añadir pruebas Node.js de la política | COMPLETADO EN FEATURE | `tests/proxy-policy.test.mjs`; comprueba allowlist, denegación por defecto y filtrado simple/batch. |
 | Incluir módulo en imagen del proxy y CI | COMPLETADO EN FEATURE | Dockerfile copia el módulo; workflow ejecuta `node --test` y se activa también en la rama feature. |
-| Ejecutar CI de la rama y desplegar proxy | PARCIAL | CI run 340 pasó el bloque proxy. Los cambios posteriores de Questarr/Frigate aún esperan CI. Pendiente desplegar; no se ha reiniciado ningún contenedor. |
+| Ejecutar CI de la rama y desplegar proxy | PARCIAL | CI runs 352–354 pasaron (incluyen Docker preview/confirm y pruebas de Questarr/Frigate). Cambios posteriores de documentación y test de alias siguen en CI. Pendiente despliegue; no se ha reiniciado ningún contenedor. |
 
 ## 9. Protocolo obligatorio de trabajo
 
