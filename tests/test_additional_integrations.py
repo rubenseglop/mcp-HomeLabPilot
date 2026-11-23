@@ -69,6 +69,12 @@ class FakeAsyncClient:
             return FakeResponse([[{"entity_id": "sensor.temperature", "state": "20.0"}]])
         if url.endswith("/library/sections/1/recentlyAdded"):
             return FakeResponse([{"ratingKey": "101", "title": "Alien"}])
+        if url.endswith("/api/v1/books/search"):
+            return FakeResponse({"total": 1, "items": [{"id": 7, "title": "Dune"}]})
+        if url.endswith("/api/v1/books/7"):
+            return FakeResponse({"id": 7, "title": "Dune", "formats": ["epub", "pdf"]})
+        if url.endswith("/api/v1/statistics/format-distribution"):
+            return FakeResponse({"epub": 10, "pdf": 3, "audiobook": 2})
         if url.endswith("/Items"):
             return FakeResponse({"Items": [{"Id": "movie-1", "Name": "Alien"}]})
         if url.endswith("/api/v1/search"):
@@ -104,6 +110,8 @@ def registered(monkeypatch):
     monkeypatch.setenv("SEERR_API_KEY", "seerr-read-key")
     monkeypatch.setenv("IMMICH_URL", "http://immich:2283")
     monkeypatch.setenv("IMMICH_API_KEY", "immich-read-key")
+    monkeypatch.setenv("BOOKORBIT_URL", "http://bookorbit:8080")
+    monkeypatch.setenv("BOOKORBIT_API_KEY", "bookorbit-read-key")
     FakeAsyncClient.calls = []
     monkeypatch.setattr(integrations.httpx, "AsyncClient", FakeAsyncClient)
 
@@ -311,3 +319,25 @@ def test_immich_dashboard_search_uses_existing_read_tool(registered):
     assert call["url"] == "http://immich:2283/api/search/metadata"
     assert call["json"] == {"query": "Alien", "page": 2, "size": 10}
     assert call["headers"]["X-Api-Key"] == "immich-read-key"
+
+
+
+def test_bookorbit_dashboard_search_and_detail_use_existing_read_tools(registered):
+    status = integrations_status(registered)
+    result = asyncio.run(status.dashboard_read("bookorbit", "search", query="Dune", limit=5))
+    assert result == {"total": 1, "items": [{"id": 7, "title": "Dune"}]}
+    call = FakeAsyncClient.calls[-1]
+    assert call["url"] == "http://bookorbit:8080/api/v1/books/search"
+    assert call["params"] == {"q": "Dune", "limit": 5}
+    assert call["headers"]["X-Api-Key"] == "bookorbit-read-key"
+
+    detail = asyncio.run(status.dashboard_read("bookorbit", "book", book_id=7))
+    assert detail == {"id": 7, "title": "Dune", "formats": ["epub", "pdf"]}
+    assert FakeAsyncClient.calls[-1]["url"] == "http://bookorbit:8080/api/v1/books/7"
+
+
+def test_bookorbit_dashboard_exposes_format_distribution(registered):
+    status = integrations_status(registered)
+    result = asyncio.run(status.dashboard_read("bookorbit", "format_distribution"))
+    assert result == {"epub": 10, "pdf": 3, "audiobook": 2}
+    assert FakeAsyncClient.calls[-1]["url"] == "http://bookorbit:8080/api/v1/statistics/format-distribution"
