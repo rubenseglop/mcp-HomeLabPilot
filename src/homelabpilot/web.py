@@ -356,7 +356,7 @@ async function openView(view){const target=$('workspace');target.textContent='Lo
     agregarr:[['status','Service status'],['collections','Collections'],['dashboard_stats','Dashboard statistics'],['activity','Recent activity'],['missing_items','Missing items'],['missing_item_stats','Missing-item statistics'],['scheduled_jobs','Scheduled jobs'],['logs','Logs']],
     tracearr:[['health','Service status'],['stats','Statistics'],['activity','Activity'],['active_streams','Active streams'],['servers','Media servers'],['libraries','Library statistics'],['recently_added','Recently added'],['watch_history','Watch history'],['top_media','Most watched media']],
     cloudflare:[['zones','DNS zones'],['dns_records','DNS records']],
-    transmission:[['session','Session status'],['statistics','Transfer statistics'],['torrents','Torrent list']],
+    transmission:[['session','Session status'],['statistics','Transfer statistics'],['torrents','Torrent list'],['torrent_details','Torrent details']],
     flaresolverr:[['sessions','Browser sessions']],
     tinymediamanager:[['status','Service status'],['api_docs','API documentation']],
     recyclarr:[['status','Container status'],['preview','Preview sync']]
@@ -433,7 +433,19 @@ async function openView(view){const target=$('workspace');target.textContent='Lo
        const name=window.prompt('DNS record name — optional')||'';
        args={zone_id:zoneId.trim(),record_type:recordType.trim(),name:name.trim(),page:1,per_page:100};
       }
-      if(service==='maintainerr'&&operation==='task_status'){
+      if(service==='transmission'&&operation==='torrent_details'){
+        const rawId=window.prompt('Transmission torrent ID (see Torrent list)');
+        if(!rawId){output.textContent='Cancelled.';return;}
+        const torrentId=Number(rawId);
+        if(!Number.isSafeInteger(torrentId)||torrentId<1){output.textContent='A positive numeric torrent ID is required.';return;}
+        args={
+         ids:[torrentId],
+         fields:['id','name','status','percentDone','totalSize','downloadDir','addedDate','doneDate',
+          'rateDownload','rateUpload','eta','uploadedEver','downloadedEver','ratio','peersConnected',
+          'peersGettingFromUs','peersSendingToUs','error','errorString','files','fileStats','trackers']
+        };
+       }
+       if(service==='maintainerr'&&operation==='task_status'){
        const taskName=window.prompt('Task name: Collection Handler, Collection Log Cleaner, Rule Maintenance, Overlay Handler, Notification Timer, Version Notification, Telemetry Ping');
        if(!taskName){output.textContent='Cancelled.';return;}
        args={task_name:taskName.trim()};
