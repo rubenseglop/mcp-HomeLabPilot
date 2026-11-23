@@ -348,7 +348,7 @@ async function openView(view){const target=$('workspace');target.textContent='Lo
     homeassistant:[['config','Configuration'],['states','Entity states'],['state','Entity details'],['history','Entity history'],['services','Service catalogue']],
     tdarr:[['status','Server status'],['nodes','Nodes'],['job_reports','Recent job reports']],
     bookorbit:[['health','Service status'],['libraries','Libraries'],['statistics','Statistics'],['format_distribution','Format distribution'],['search','Search books'],['book','Book details']],
-    tidarr:[['status','Authentication status'],['queue','Download queue'],['history','Download history'],['sync_list','Auto-sync list']],
+    tidarr:[['status','Authentication status'],['queue_status','Queue status'],['queue','Download queue'],['history','Download history'],['sync_list','Auto-sync list']],
     youtarr:[['capabilities','Capabilities'],['channels','Channels'],['videos','Search / browse videos'],['video','Video details'],['requests','Requests']],
     pulsarr:[['health','Service status'],['approval_requests','Approval queue'],['content_router_rules','Content router rules']],
     cleanuparr:[['health','Readiness'],['system','System status'],['events','Recent events'],['statistics','Statistics']],
