@@ -105,6 +105,7 @@ export const READ_ONLY_TOOLS = new Set([
   "seanime_get_downloader",
   "seanime_get_library",
   "seanime_get_status",
+  "seanime_get_settings",
   "seanime_audit_library",
   "seanime_get_unmatched_files",
   "seanime_inspect_entry",
