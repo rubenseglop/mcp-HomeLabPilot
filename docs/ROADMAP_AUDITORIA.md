@@ -70,7 +70,7 @@ flowchart TD
 |---|---|---|
 | Ejecutar `stack_status` | COMPLETADO | 10 de 10 servicios configurados respondieron correctamente |
 | Revisar versiones y campos no disponibles | PARCIAL | Bazarr, Seanime, Jellyfin y Tdarr no devolvieron versión; no equivale a fallo de conectividad |
-| Ejecutar y revisar `integration_catalog` | PENDIENTE | Próxima comprobación funcional; clasificar configuradas, parciales y no implementadas |
+| Revisar implementación de `integration_catalog` | PARCIAL | Código inspeccionado: 20 integraciones HTTP adicionales y 4 no HTTP; Seanime está declarado también en el bloque principal y su modo se sobrescribe en el catálogo. Falta ejecución funcional para verificar la configuración real |
 
 ### 1.4 Proxy MCP, Codex y permisos
 
@@ -169,6 +169,7 @@ flowchart TD
 | 2026-11-23 | MCP `tools/list` | 187 herramientas; sin error JSON-RPC |
 | 2026-11-23 | Proxy `/health` | HTTP 200; modo `read-only` |
 | 2026-11-23 | Gateway de agentes `/health` | HTTP 200; Codex autenticado y MCP configurado |
+| 2026-11-23 | Revisión estática de `integration_catalog` | PARCIAL: 20 integraciones HTTP + 4 no HTTP; duplicidad de Seanime en la composición del catálogo; pendiente validación funcional |
 
 ## 7. Hallazgos de auditoría en la rama de desarrollo
 
