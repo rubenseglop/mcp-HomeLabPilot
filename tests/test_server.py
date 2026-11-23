@@ -969,16 +969,17 @@ def test_docker_control_requires_matching_preview_and_typed_confirmation(monkeyp
     with pytest.raises(PermissionError, match="preview"):
         asyncio.run(server.docker_control_allowlisted_container("radarr", "restart"))
 
-    preview = asyncio.run(server.docker_preview_container_action("radarr", "restart"))
-    assert preview["typed_confirmation"] == "CONFIRM DOCKER RESTART radarr"
-
     calls = []
 
     async def fake_gateway(method, path):
         calls.append((method, path))
+        if method == "GET":
+            return [{"name": "radarr", "id": "a" * 64}]
         return {"ok": True}
 
     monkeypatch.setattr(server, "_docker_gateway_request", fake_gateway)
+    preview = asyncio.run(server.docker_preview_container_action("radarr", "restart"))
+    assert preview["typed_confirmation"] == "CONFIRM DOCKER RESTART radarr"
     with pytest.raises(PermissionError, match="Type exactly"):
         asyncio.run(server.docker_control_allowlisted_container(
             "radarr", "restart", preview["preview_token"], "wrong phrase"
@@ -988,7 +989,7 @@ def test_docker_control_requires_matching_preview_and_typed_confirmation(monkeyp
         "radarr", "restart", preview["preview_token"], preview["typed_confirmation"]
     ))
     assert result == {"ok": True}
-    assert calls == [("POST", "/v1/containers/radarr/restart")]
+    assert calls == [("GET", "/v1/containers"), ("POST", "/v1/containers/radarr/restart")]
 
 
 def test_docker_preview_rejects_invalid_container_and_action(monkeypatch):
