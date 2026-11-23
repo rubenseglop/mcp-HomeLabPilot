@@ -347,7 +347,7 @@ async function openView(view){const target=$('workspace');target.textContent='Lo
     romm:[['platforms','Platforms'],['roms','Recent games'],['search','Search games'],['rom','Game details'],['collections','Collections']],
     homeassistant:[['config','Configuration'],['states','Entity states'],['state','Entity details'],['history','Entity history'],['services','Service catalogue']],
     tdarr:[['status','Server status'],['nodes','Nodes'],['job_reports','Recent job reports']],
-    bookorbit:[['health','Service status'],['libraries','Libraries'],['statistics','Statistics']],
+    bookorbit:[['health','Service status'],['libraries','Libraries'],['statistics','Statistics'],['format_distribution','Format distribution'],['search','Search books'],['book','Book details']],
     tidarr:[['status','Authentication status'],['queue','Download queue'],['history','Download history'],['sync_list','Auto-sync list']],
     youtarr:[['capabilities','Capabilities'],['channels','Channels'],['videos','Videos'],['requests','Requests']],
     pulsarr:[['health','Service status'],['approval_requests','Approval queue'],['content_router_rules','Content router rules']],
@@ -396,6 +396,18 @@ async function openView(view){const target=$('workspace');target.textContent='Lo
        const sectionId=Number(rawId);
        if(!Number.isInteger(sectionId)||sectionId<1){output.textContent='A positive numeric library section ID is required.';return;}
        args={section_id:sectionId,limit:25};
+      }
+      if(service==='bookorbit'&&operation==='search'){
+       const query=window.prompt('Search books by title, author or text');
+       if(!query||!query.trim()){output.textContent='Search cancelled or empty.';return;}
+       args={query:query.trim(),limit:10};
+      }
+      if(service==='bookorbit'&&operation==='book'){
+       const rawId=window.prompt('BookOrbit book ID');
+       if(!rawId){output.textContent='Cancelled.';return;}
+       const bookId=Number(rawId);
+       if(!Number.isInteger(bookId)||bookId<1){output.textContent='A positive numeric book ID is required.';return;}
+       args={book_id:bookId};
       }
       if(['jellyfin','seerr','immich'].includes(service)&&operation==='search'){
        const searchTerm=window.prompt(service==='immich'?'Search Immich asset metadata':'Search '+service+' media');
