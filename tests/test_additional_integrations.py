@@ -67,6 +67,14 @@ class FakeAsyncClient:
             return FakeResponse({"entity_id": "sensor.temperature", "state": "21.5"})
         if "/api/history/period/" in url:
             return FakeResponse([[{"entity_id": "sensor.temperature", "state": "20.0"}]])
+        if url.endswith("/library/sections/1/recentlyAdded"):
+            return FakeResponse([{"ratingKey": "101", "title": "Alien"}])
+        if url.endswith("/Items"):
+            return FakeResponse({"Items": [{"Id": "movie-1", "Name": "Alien"}]})
+        if url.endswith("/api/v1/search"):
+            return FakeResponse({"results": [{"id": 1, "title": "Alien"}]})
+        if url.endswith("/api/search/metadata"):
+            return FakeResponse({"assets": [{"id": "asset-1", "originalFileName": "alien.jpg"}]})
         if url.endswith("/api/roms/42"):
             return FakeResponse({"id": 42, "name": "Sonic"})
         if url.endswith("/api/roms"):
@@ -88,6 +96,14 @@ def registered(monkeypatch):
     monkeypatch.setenv("HOMEASSISTANT_TOKEN", "homeassistant-read-token")
     monkeypatch.setenv("ROMM_URL", "http://romm:8080")
     monkeypatch.setenv("ROMM_API_TOKEN", "romm-read-token")
+    monkeypatch.setenv("PLEX_URL", "http://plex:32400")
+    monkeypatch.setenv("PLEX_TOKEN", "plex-read-token")
+    monkeypatch.setenv("JELLYFIN_URL", "http://jellyfin:8096")
+    monkeypatch.setenv("JELLYFIN_API_KEY", "jellyfin-read-key")
+    monkeypatch.setenv("SEERR_URL", "http://seerr:5055")
+    monkeypatch.setenv("SEERR_API_KEY", "seerr-read-key")
+    monkeypatch.setenv("IMMICH_URL", "http://immich:2283")
+    monkeypatch.setenv("IMMICH_API_KEY", "immich-read-key")
     FakeAsyncClient.calls = []
     monkeypatch.setattr(integrations.httpx, "AsyncClient", FakeAsyncClient)
 
@@ -234,3 +250,64 @@ def test_romm_get_rom_returns_game_details(registered):
 def test_romm_search_rejects_short_terms(registered):
     with pytest.raises(ValueError, match="search_term"):
         asyncio.run(registered["romm_search_roms"]("S"))
+
+
+
+def test_plex_dashboard_can_read_recent_items_from_selected_library(registered):
+    from homelabpilot import integrations
+
+    monkeypatch_calls = FakeAsyncClient.calls
+    result = asyncio.run(integrations_status(registered).dashboard_read(
+        "plex", "recent_section", section_id=1, limit=10
+    ))
+    assert result == [{"ratingKey": "101", "title": "Alien"}]
+    call = monkeypatch_calls[-1]
+    assert call["url"] == "http://plex:32400/library/sections/1/recentlyAdded"
+    assert call["params"]["X-Plex-Container-Size"] == 10
+    assert call["params"]["X-Plex-Token"] == "plex-read-token"
+
+
+def integrations_status(registered):
+    # The dashboard reader is attached to the MCP registration's status checker.
+    from homelabpilot import integrations
+    mcp = FakeMCP()
+    return integrations.register_integration_tools(
+        mcp=mcp,
+        require_permission=lambda _permission: None,
+        make_preview_token=lambda snapshot: "signed",
+        safe_path=lambda path: path,
+        base_url=lambda env: __import__("os").environ[env].rstrip("/"),
+        decode_response=lambda response: response.json(),
+        audit=lambda *args, **kwargs: None,
+        timeout=5,
+    )
+
+
+def test_jellyfin_dashboard_search_uses_existing_read_tool(registered):
+    status = integrations_status(registered)
+    result = asyncio.run(status.dashboard_read("jellyfin", "search", search_term="Alien", limit=12))
+    assert result == {"Items": [{"Id": "movie-1", "Name": "Alien"}]}
+    call = FakeAsyncClient.calls[-1]
+    assert call["url"] == "http://jellyfin:8096/Items"
+    assert call["params"] == {"searchTerm": "Alien", "Limit": 12, "Recursive": "true"}
+    assert call["headers"]["X-Emby-Token"] == "jellyfin-read-key"
+
+
+def test_seerr_dashboard_search_uses_existing_read_tool(registered):
+    status = integrations_status(registered)
+    result = asyncio.run(status.dashboard_read("seerr", "search", search_term="Alien"))
+    assert result == {"results": [{"id": 1, "title": "Alien"}]}
+    call = FakeAsyncClient.calls[-1]
+    assert call["url"] == "http://seerr:5055/api/v1/search"
+    assert call["params"] == {"query": "Alien"}
+    assert call["headers"]["X-Api-Key"] == "seerr-read-key"
+
+
+def test_immich_dashboard_search_uses_existing_read_tool(registered):
+    status = integrations_status(registered)
+    result = asyncio.run(status.dashboard_read("immich", "search", search_term="Alien", page=2, size=10))
+    assert result == {"assets": [{"id": "asset-1", "originalFileName": "alien.jpg"}]}
+    call = FakeAsyncClient.calls[-1]
+    assert call["url"] == "http://immich:2283/api/search/metadata"
+    assert call["json"] == {"query": "Alien", "page": 2, "size": 10}
+    assert call["headers"]["X-Api-Key"] == "immich-read-key"
