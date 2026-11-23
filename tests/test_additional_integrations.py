@@ -63,6 +63,8 @@ class FakeAsyncClient:
             return FakeResponse([{"id": "review-1"}])
         if url.endswith("/api/review/summary"):
             return FakeResponse({"last24Hours": {"total_alert": 2}})
+        if url.endswith("/library/sections"):
+            return FakeResponse([{"id": 1, "title": "Movies"}])
         raise AssertionError(f"Unexpected endpoint: {url}")
 
 
@@ -138,3 +140,28 @@ def test_generic_reads_cannot_escape_questarr_or_frigate_allowlists(registered):
 def test_frigate_event_limit_is_bounded(registered, limit):
     with pytest.raises(ValueError, match="limit"):
         asyncio.run(registered["frigate_list_events"](limit=limit))
+
+
+def test_dashboard_read_exposes_only_registered_read_operations(monkeypatch):
+    from homelabpilot import integrations
+
+    monkeypatch.setenv("PLEX_URL", "http://plex:32400")
+    monkeypatch.setenv("PLEX_TOKEN", "plex-token")
+    FakeAsyncClient.calls = []
+    monkeypatch.setattr(integrations.httpx, "AsyncClient", FakeAsyncClient)
+    mcp = FakeMCP()
+    status_checks = register_integration_tools(
+        mcp=mcp,
+        require_permission=lambda _permission: None,
+        make_preview_token=lambda snapshot: "signed",
+        safe_path=lambda path: path,
+        base_url=lambda env: __import__("os").environ[env].rstrip("/"),
+        decode_response=lambda response: response.json(),
+        audit=lambda *args, **kwargs: None,
+        timeout=5,
+    )
+
+    result = asyncio.run(status_checks.dashboard_read("plex", "libraries"))
+    assert result == [{"id": 1, "title": "Movies"}]
+    with pytest.raises(ValueError, match="Unsupported dashboard read operation"):
+        asyncio.run(status_checks.dashboard_read("plex", "delete_library"))
