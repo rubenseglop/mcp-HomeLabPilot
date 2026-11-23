@@ -1005,6 +1005,13 @@ def test_docker_preview_rejects_invalid_container_and_action(monkeypatch):
     with pytest.raises(ValueError, match="action"):
         asyncio.run(server.docker_preview_container_action("radarr", "remove"))
 
+    async def no_containers(method, path):
+        return []
+
+    monkeypatch.setattr(server, "_docker_gateway_request", no_containers)
+    with pytest.raises(PermissionError, match="allowlist"):
+        asyncio.run(server.docker_preview_container_action("radarr", "stop"))
+
 
 def test_recyclarr_sync_requires_preview_and_exact_confirmation(monkeypatch):
     import asyncio
