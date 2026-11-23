@@ -333,7 +333,10 @@ integration_status = register_integration_tools(
     timeout=TIMEOUT,
 )
 
-register_seanime_tools(mcp=mcp, timeout=TIMEOUT, audit=_audit)
+register_seanime_tools(
+    mcp=mcp, timeout=TIMEOUT, audit=_audit,
+    require_permission=_require_permission, make_preview_token=_preview_token,
+)
 
 @mcp.tool()
 async def stack_status() -> dict[str, Any]:
