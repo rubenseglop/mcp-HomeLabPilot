@@ -102,8 +102,8 @@ flowchart TD
 
 | Tarea | Estado | Alcance |
 |---|---|---|
-| Questarr | PENDIENTE | Revisar presencia en catálogo, configuración, API y herramientas MCP |
-| Frigate | PENDIENTE | Revisar presencia en catálogo, configuración, API y herramientas MCP |
+| Questarr | PARCIAL | Implementadas lectura de estado y biblioteca con clave de integración `read`, límites y pruebas unitarias. Pendiente CI y validación en instancia real. |
+| Frigate | PARCIAL | Implementadas estadísticas, eventos, revisión y resumen con bearer JWT; solo lectura y paginación acotada. Pendiente CI y validación en instancia real. |
 | Recyclarr | PENDIENTE | Evaluar estado actual y diseñar integración útil, con pruebas |
 | Docker Gateway | PENDIENTE | Revisar allowlist, permisos, herramientas y representación en catálogo |
 
@@ -195,7 +195,7 @@ flowchart TD
 | Rechazar batches que contengan llamadas no aprobadas | COMPLETADO EN FEATURE | El batch completo se rechaza para evitar ejecución parcial ambigua; las llamadas aprobadas individuales siguen su flujo normal. |
 | Añadir pruebas Node.js de la política | COMPLETADO EN FEATURE | `tests/proxy-policy.test.mjs`; comprueba allowlist, denegación por defecto y filtrado simple/batch. |
 | Incluir módulo en imagen del proxy y CI | COMPLETADO EN FEATURE | Dockerfile copia el módulo; workflow ejecuta `node --test` y se activa también en la rama feature. |
-| Ejecutar CI de la rama y desplegar proxy | PARCIAL | CI GitHub Actions run 340 completado con `success`, incluidos `node --check`, pruebas Node y suite pytest. Pendiente desplegar el proxy; no se ha reiniciado ningún contenedor del servidor. |
+| Ejecutar CI de la rama y desplegar proxy | PARCIAL | CI run 340 pasó el bloque proxy. Los cambios posteriores de Questarr/Frigate aún esperan CI. Pendiente desplegar; no se ha reiniciado ningún contenedor. |
 
 ## 9. Protocolo obligatorio de trabajo
 
@@ -212,4 +212,4 @@ flowchart TD
 
 **Estados permitidos:** PENDIENTE · EN CURSO · COMPLETADO · PARCIAL · BLOQUEADO.
 
-**Siguiente paso:** ejecutar CI de la rama feature, corregir cualquier fallo y continuar con la siguiente integración pendiente (Questarr), después Frigate, Recyclarr y Docker Gateway. No desplegar ni pedir al usuario pruebas repetitivas hasta tener el bloque de cambios preparado.
+**Siguiente paso:** ejecutar CI de la rama feature tras Questarr/Frigate, corregir cualquier fallo y continuar con Recyclarr y Docker Gateway. No desplegar ni pedir al usuario pruebas repetitivas hasta tener el bloque de cambios preparado.
