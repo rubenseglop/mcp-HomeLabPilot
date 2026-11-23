@@ -132,10 +132,11 @@ flowchart TD
 | Jellyfin | PARCIAL | Panel de servidor, bibliotecas y sesiones; pendiente CI y validación real. |
 | Seerr | PARCIAL | Panel de estado, cola de solicitudes y datos de aplicación; pendiente CI y validación real. |
 | Immich | PARCIAL | Panel de estadísticas del servidor y álbumes; pendiente CI y validación real. |
-| Tdarr | COMPLETADO EN FEATURE | Cinco herramientas de lectura (estado, nodos, búsqueda, informes paginados y detalle de informe) y dos flujos de escritura (reencolar hasta 50 archivos y reescanear un archivo) con permiso `operations`, preview firmado y confirmación exacta. Pruebas unitarias específicas añadidas; pendiente CI final y validación real tras autorización de despliegue. |
+| Tdarr | COMPLETADO EN FEATURE | Cinco herramientas de lectura (estado, nodos, búsqueda, informes paginados y detalle de informe) y dos flujos de escritura (reencolar hasta 50 archivos y reescanear un archivo) con permiso `operations`, preview firmado y confirmación exacta. Pruebas unitarias específicas añadidas; CI runs 428–432 superados y validación real pendiente de despliegue autorizado tras autorización de despliegue. |
 | Home Assistant | PARCIAL | Panel de configuración, estados de entidades y catálogo de servicios; solo lectura; pendiente CI y validación real. |
 | RomM | PARCIAL | Panel de plataformas, juegos y colecciones; pendiente CI y validación real. |
-| Seanime | COMPLETADO EN FEATURE | Biblioteca, AniList, seguimiento, auditoría, inspección, archivos sin match y auto-downloader; ajustes booleanos seguros, añadir a AniList y reasignar archivos con preview firmado/confirmación exacta. Pruebas de redacción de secretos, permisos, token obsoleto, confirmación exacta y cambios concurrentes. Pendiente validación real tras despliegue autorizado. |\n| Resto de aplicaciones, priorizadas por utilidad | PARCIAL | Añadidos paneles de solo lectura para BookOrbit, Tidarr, Youtarr, Pulsarr, Cleanuparr, Maintainerr, Agregarr, Tracearr, Cloudflare, Transmission, FlareSolverr y tinyMediaManager; pendiente CI, revisión de cobertura y validación real. |
+| Seanime | COMPLETADO EN FEATURE | Biblioteca, AniList, seguimiento, auditoría, inspección, archivos sin match y auto-downloader; ajustes booleanos seguros, añadir a AniList y reasignar archivos con preview firmado/confirmación exacta. Pruebas de redacción de secretos, permisos, token obsoleto, confirmación exacta y cambios concurrentes. Pendiente validación real tras despliegue autorizado. |
+| Resto de aplicaciones, priorizadas por utilidad | PARCIAL | Añadidos paneles de solo lectura para BookOrbit, Tidarr, Youtarr, Pulsarr, Cleanuparr, Maintainerr, Agregarr, Tracearr, Cloudflare, Transmission, FlareSolverr y tinyMediaManager; pendiente CI, revisión de cobertura y validación real. |
 
 ## 5. Prioridad 4 — Calidad y validación final
 
@@ -177,7 +178,8 @@ flowchart TD
 |---|---|---|
 | 2026-11-23 | Repositorio, rama y commit | Checkout del servidor `44985e1`; GitHub `main` `a5ddc62`; rama de trabajo creada desde GitHub `main` |
 | 2026-11-23 | `stack_status` | 10/10 servicios configurados responden correctamente |
-| 2026-11-23 | MCP `tools/list` | 187 herramientas; sin error JSON-RPC |\n| 2026-11-23 | CI de mejora de inventario por servicio | run 410 (`a6e3b60`) completado con `success`; tests Python, Node y comprobación de sintaxis JS superados |
+| 2026-11-23 | MCP `tools/list` | 187 herramientas; sin error JSON-RPC |
+| 2026-11-23 | CI de mejora de inventario por servicio | run 410 (`a6e3b60`) completado con `success`; tests Python, Node y comprobación de sintaxis JS superados |
 | 2026-11-23 | Proxy `/health` | HTTP 200; modo `read-only` |
 | 2026-11-23 | Gateway de agentes `/health` | HTTP 200; Codex autenticado y MCP configurado |
 | 2026-11-23 | Revisión estática de `integration_catalog` | PARCIAL: 20 integraciones HTTP + 4 no HTTP; duplicidad de Seanime en la composición del catálogo; pendiente validación funcional |
@@ -200,7 +202,8 @@ flowchart TD
 | Cambio | Estado | Detalle |
 |---|---|---|
 | Sustituir regex de nombres por allowlist exacta | COMPLETADO EN FEATURE | `mcp-readonly-policy.mjs`: 148 herramientas aprobadas explícitamente; las herramientas nuevas quedan denegadas por defecto. |
-| Incorporar lecturas Seanime revisadas | COMPLETADO EN FEATURE | Allowlist read-only incluye estado, búsqueda, biblioteca, AniList, seguimiento, auditoría, inspección, unmatched files y lectura de ajustes redactados. `seanime_get_settings` es la nueva lectura añadida. |\n| Proteger todas las escrituras Seanime | COMPLETADO EN FEATURE | Añadidos previews firmados y confirmación exacta para añadir AniList y reasignar archivos; cambios de preferencias booleanas de bajo riesgo protegidos con permiso `admin`, preview firmado y revalidación del valor. Las tres familias de mutación permanecen fuera del proxy read-only. |
+| Incorporar lecturas Seanime revisadas | COMPLETADO EN FEATURE | Allowlist read-only incluye estado, búsqueda, biblioteca, AniList, seguimiento, auditoría, inspección, unmatched files y lectura de ajustes redactados. `seanime_get_settings` es la nueva lectura añadida. |
+| Proteger todas las escrituras Seanime | COMPLETADO EN FEATURE | Añadidos previews firmados y confirmación exacta para añadir AniList y reasignar archivos; cambios de preferencias booleanas de bajo riesgo protegidos con permiso `admin`, preview firmado y revalidación del valor. Las tres familias de mutación permanecen fuera del proxy read-only. |
 | Revisar semántica de herramientas Seanime permitidas | COMPLETADO EN FEATURE | `seanime_search_anime` usa POST contra un endpoint de búsqueda de AniList sin mutación; `seanime_get_settings` es GET y redacta credenciales; `seanime_verify_reassignment` consulta archivos locales; `seanime_audit_library` e `seanime_inspect_entry` solo leen datos. No se detectan efectos de escritura en estas herramientas. |
 | Revisar semántica de herramientas ARR y qBittorrent permitidas | COMPLETADO EN FEATURE | Las 11 herramientas ARR/qBittorrent incluidas en este grupo usan métodos GET; no se detectan mutaciones. |
 | Revisar POST de consulta de Tdarr | COMPLETADO EN FEATURE | `tdarr_search_files` (`/api/v2/search-db`) y `tdarr_list_job_reports` (`/api/v2/client/jobs`) usan POST para búsquedas/listados; no modifican trabajos ni archivos. Las herramientas de requeue/rescan siguen fuera de la allowlist. |
@@ -228,4 +231,4 @@ flowchart TD
 
 **Estados permitidos:** PENDIENTE · EN CURSO · COMPLETADO · PARCIAL · BLOQUEADO.
 
-**Siguiente paso:** cerrar CI de los cambios Seanime/Tdarr; después continuar con las pruebas del handler del proxy que demuestren que una escritura bloqueada nunca llega al upstream y que las lecturas aprobadas sí atraviesan. No desplegar hasta autorización explícita del usuario.
+**Siguiente paso:** continuar con las pruebas del handler del proxy que demuestren que una escritura bloqueada nunca llega al upstream y que las lecturas aprobadas sí atraviesan. No desplegar hasta autorización explícita del usuario.
