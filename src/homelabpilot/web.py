@@ -216,14 +216,14 @@ const APP_CATALOG=[
 {id:'maintainerr',name:'Maintainerr',category:'Automation',mode:'API integration',desc:'Maintenance health and scheduled task status.',support:'MCP tools · dedicated dashboard planned'},
 {id:'agregarr',name:'Agregarr',category:'Automation',mode:'API integration',desc:'Collections, scheduled jobs, activity and missing items.',support:'MCP tools · dedicated dashboard planned'},
 {id:'tracearr',name:'Tracearr',category:'Automation',mode:'API integration',desc:'Playback activity, watch history, users and media statistics.',support:'MCP tools · dedicated dashboard planned'},
-{id:'questarr',name:'Questarr',category:'Automation',mode:'Planned integration',desc:'Media request automation.',support:'Dashboard support is planned for this integration.'},
-{id:'recyclarr',name:'Recyclarr',category:'Automation',mode:'Status only',desc:'TRaSH Guides profile synchronization (container/CLI).',support:'Status only'},
+{id:'questarr',name:'Questarr',category:'Automation',mode:'API integration',desc:'Game library and integration status using a read-scoped API key.',support:'Read-only MCP tools'},
+{id:'recyclarr',name:'Recyclarr',category:'Automation',mode:'Docker Gateway',desc:'TRaSH Guides profile synchronization through a fixed container command.',support:'Container status · preview and confirmed sync'},
 {id:'postgres',name:'PostgreSQL',category:'Infrastructure',mode:'Status only',desc:'Database TCP reachability check.',support:'Status only'},
 {id:'redis',name:'Redis',category:'Infrastructure',mode:'Status only',desc:'Cache TCP reachability check.',support:'Status only'},
-{id:'docker',name:'Docker gateway',category:'Infrastructure',mode:'Status only',desc:'Restricted allowlisted container controls.',support:'Docker view'},
+{id:'docker',name:'Docker gateway',category:'Infrastructure',mode:'Restricted Docker Gateway',desc:'Allowlisted container status and controlled lifecycle operations.',support:'Docker view · preview and confirmation'},
 {id:'cloudflare',name:'Cloudflare',category:'Infrastructure',mode:'API integration',desc:'DNS zones and record discovery.',support:'MCP tools · dedicated dashboard planned'},
 {id:'homeassistant',name:'Home Assistant',category:'Smart home',mode:'API integration',desc:'Smart home entities, history and service catalogue.',support:'MCP tools · dedicated dashboard planned'},
-{id:'frigate',name:'Frigate',category:'Smart home',mode:'Planned integration',desc:'Local NVR and object detection.',support:'Dashboard support is planned for this integration.'}
+{id:'frigate',name:'Frigate',category:'Smart home',mode:'API integration',desc:'Local NVR statistics, detection events and review queue.',support:'Read-only MCP tools'}
 ];
 const APP_ENV_KEYS={
 radarr:['RADARR_URL','RADARR_API_KEY'],sonarr:['SONARR_URL','SONARR_API_KEY'],lidarr:['LIDARR_URL','LIDARR_API_KEY'],prowlarr:['PROWLARR_URL','PROWLARR_API_KEY'],bazarr:['BAZARR_URL','BAZARR_API_KEY'],scryer:['SCRYER_URL','SCRYER_API_KEY'],qbittorrent:['QBITTORRENT_URL','QBITTORRENT_USERNAME','QBITTORRENT_PASSWORD'],
