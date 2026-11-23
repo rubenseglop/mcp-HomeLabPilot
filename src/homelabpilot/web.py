@@ -340,10 +340,10 @@ async function openView(view){const target=$('workspace');target.textContent='Lo
    const dashboards={
     questarr:[['status','Connection status'],['library','Game library']],
     frigate:[['status','NVR statistics'],['events','Recent detection events'],['review','Review queue'],['review_summary','Review summary']],
-    plex:[['libraries','Libraries'],['recent','Recently added'],['sessions','Active playback'],['on_deck','On deck']],
-    jellyfin:[['server_info','Server info'],['libraries','Libraries'],['sessions','Active playback']],
-    seerr:[['status','Service status'],['requests','Request queue'],['application_data','Application data status']],
-    immich:[['statistics','Server statistics'],['albums','Albums']],
+    plex:[['libraries','Libraries'],['recent','Recently added'],['recent_section','Recent by library'],['sessions','Active playback'],['on_deck','On deck']],
+    jellyfin:[['server_info','Server info'],['libraries','Libraries'],['sessions','Active playback'],['search','Search library']],
+    seerr:[['status','Service status'],['requests','Request queue'],['application_data','Application data status'],['search','Search media']],
+    immich:[['statistics','Server statistics'],['albums','Albums'],['search','Search assets']],
     romm:[['platforms','Platforms'],['roms','Recent games'],['search','Search games'],['rom','Game details'],['collections','Collections']],
     homeassistant:[['config','Configuration'],['states','Entity states'],['state','Entity details'],['history','Entity history'],['services','Service catalogue']],
     tdarr:[['status','Server status'],['nodes','Nodes'],['job_reports','Recent job reports']],
@@ -390,6 +390,20 @@ async function openView(view){const target=$('workspace');target.textContent='Lo
       const result=await request('/web-api/recyclarr/status');output.textContent=JSON.stringify(result,null,2);
      }else{
       let args=service==='questarr'&&operation==='library'?{limit:50,include_hidden:false}:service==='frigate'&&operation==='events'?{limit:20,offset:0}:service==='frigate'&&operation==='review'?{limit:20}:service==='seerr'&&operation==='requests'?{take:20,skip:0}:service==='romm'&&operation==='roms'?{limit:30,offset:0}:service==='homeassistant'&&operation==='states'?{limit:100}:service==='tdarr'&&operation==='job_reports'?{page_size:10}:{};
+      if(service==='plex'&&operation==='recent_section'){
+       const rawId=window.prompt('Plex library section ID (see Libraries)');
+       if(!rawId){output.textContent='Cancelled.';return;}
+       const sectionId=Number(rawId);
+       if(!Number.isInteger(sectionId)||sectionId<1){output.textContent='A positive numeric library section ID is required.';return;}
+       args={section_id:sectionId,limit:25};
+      }
+      if(['jellyfin','seerr','immich'].includes(service)&&operation==='search'){
+       const searchTerm=window.prompt(service==='immich'?'Search Immich asset metadata':'Search '+service+' media');
+       if(!searchTerm||!searchTerm.trim()){output.textContent='Search cancelled or empty.';return;}
+       args={search_term:searchTerm.trim()};
+       if(service==='jellyfin')args.limit=25;
+       if(service==='immich'){args.page=1;args.size=25;}
+      }
       if(service==='romm'&&operation==='search'){
        const searchTerm=window.prompt('Search RomM games (at least 2 characters)');
        if(!searchTerm||searchTerm.trim().length<2){output.textContent='Search cancelled or too short.';return;}
