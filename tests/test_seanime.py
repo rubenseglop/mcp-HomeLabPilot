@@ -90,6 +90,11 @@ def registered(monkeypatch):
     monkeypatch.setenv("SEANIME_URL", "http://seanime:4321")
     monkeypatch.setenv("SEANIME_PASSWORD", "test-password")
     FakeAsyncClient.calls = []
+    FakeAsyncClient.local_files = [{
+        "path": "/media/anime/show/episode-01.mkv", "name": "episode-01.mkv",
+        "mediaId": 10, "locked": False, "ignored": False,
+    }]
+    FakeAsyncClient.collection = [{"media": {"id": 123}}]
     FakeAsyncClient.settings = {
         "library": {
             "autoUpdateProgress": True,
