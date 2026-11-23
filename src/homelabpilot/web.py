@@ -355,7 +355,7 @@ async function openView(view){const target=$('workspace');target.textContent='Lo
     maintainerr:[['health','Readiness'],['app_status','Application status'],['timezone','Timezone']],
     agregarr:[['status','Service status'],['collections','Collections'],['dashboard_stats','Dashboard statistics'],['activity','Recent activity'],['missing_items','Missing items'],['missing_item_stats','Missing-item statistics'],['scheduled_jobs','Scheduled jobs'],['logs','Logs']],
     tracearr:[['health','Service status'],['stats','Statistics'],['activity','Activity'],['active_streams','Active streams']],
-    cloudflare:[['zones','DNS zones']],
+    cloudflare:[['zones','DNS zones'],['dns_records','DNS records']],
     transmission:[['session','Session status'],['statistics','Transfer statistics'],['torrents','Torrent list']],
     flaresolverr:[['sessions','Browser sessions']],
     tinymediamanager:[['status','Service status'],['api_docs','API documentation']],
@@ -418,6 +418,13 @@ async function openView(view){const target=$('workspace');target.textContent='Lo
        const youtubeId=window.prompt('YouTube video ID (11 characters)');
        if(!youtubeId){output.textContent='Cancelled.';return;}
        args={youtube_id:youtubeId.trim()};
+      }
+      if(service==='cloudflare'&&operation==='dns_records'){
+       const zoneId=window.prompt('Cloudflare zone ID (32 hexadecimal characters)');
+       if(!zoneId){output.textContent='Cancelled.';return;}
+       const recordType=window.prompt('DNS record type (A, AAAA, CNAME, TXT, MX, NS, SRV, CAA, PTR) — optional')||'';
+       const name=window.prompt('DNS record name — optional')||'';
+       args={zone_id:zoneId.trim(),record_type:recordType.trim(),name:name.trim(),page:1,per_page:100};
       }
       if(['jellyfin','seerr','immich'].includes(service)&&operation==='search'){
        const searchTerm=window.prompt(service==='immich'?'Search Immich asset metadata':'Search '+service+' media');
