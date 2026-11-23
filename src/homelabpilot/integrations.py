@@ -2061,6 +2061,7 @@ def register_integration_tools(
                 "health": maintainerr_get_health,
                 "app_status": maintainerr_get_app_status,
                 "timezone": maintainerr_get_timezone,
+                "task_status": maintainerr_get_task_status,
             },
             "agregarr": {
                 "status": agregarr_get_status,
