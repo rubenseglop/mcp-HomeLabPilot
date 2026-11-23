@@ -198,7 +198,7 @@ const APP_CATALOG=[
 {id:'prowlarr',name:'Prowlarr',category:'Media',mode:'Native integration',desc:'Indexer management and configuration.',support:'Configuration'},
 {id:'bazarr',name:'Bazarr',category:'Media',mode:'Native integration',desc:'Subtitle providers and subtitle settings.',support:'Configuration'},
 {id:'scryer',name:'Scryer',category:'Media',mode:'Native integration',desc:'Media catalog, requests, audit and recycle bin.',support:'Full dashboard'},
-{id:'plex',name:'Plex',category:'Media',mode:'API integration',desc:'Media server libraries, recently added items and active playback.',support:'MCP tools · dedicated dashboard planned'},
+{id:'plex',name:'Plex',category:'Media',mode:'API integration',desc:'Media server libraries, recently added items and active playback.',support:'Read-only dashboard'},
 {id:'jellyfin',name:'Jellyfin',category:'Media',mode:'API integration',desc:'Media libraries, search and active playback sessions.',support:'MCP tools · dedicated dashboard planned'},
 {id:'seerr',name:'Seerr',category:'Media',mode:'API integration',desc:'Media discovery, request queues and service status.',support:'MCP tools · dedicated dashboard planned'},
 {id:'immich',name:'Immich',category:'Media',mode:'API integration',desc:'Photo albums, asset search and server statistics.',support:'MCP tools · dedicated dashboard planned'},
@@ -206,7 +206,7 @@ const APP_CATALOG=[
 {id:'bookorbit',name:'BookOrbit',category:'Media',mode:'API integration',desc:'Book library, search, statistics and formats.',support:'MCP tools · dedicated dashboard planned'},
 {id:'tinymediamanager',name:'TinyMediaManager',category:'Media',mode:'API integration',desc:'Media metadata, task queue and batch processing.',support:'MCP tools · dedicated dashboard planned'},
 {id:'tidarr',name:'Tidarr',category:'Media',mode:'API integration',desc:'Tidal download queue, history and playlists.',support:'MCP tools · dedicated dashboard planned'},
-{id:'tdarr',name:'Tdarr',category:'Media',mode:'API integration',desc:'Transcoding server, nodes, file search and job reports.',support:'5 read-only MCP tools · dedicated dashboard planned'},
+{id:'tdarr',name:'Tdarr',category:'Media',mode:'API integration',desc:'Transcoding server, nodes, file search and job reports.',support:'Read-only dashboard'},
 {id:'youtarr',name:'Youtarr',category:'Media',mode:'API integration',desc:'YouTube channels, video catalog and download requests.',support:'MCP tools · dedicated dashboard planned'},
 {id:'qbittorrent',name:'qBittorrent',category:'Downloads',mode:'Native integration',desc:'Torrent queue, categories, controls and file moves.',support:'Full dashboard'},
 {id:'transmission',name:'Transmission',category:'Downloads',mode:'API integration',desc:'Torrent queue, transfer statistics and daemon settings.',support:'MCP tools · dedicated dashboard planned'},
@@ -323,6 +323,13 @@ async function openView(view){const target=$('workspace');target.textContent='Lo
    const dashboards={
     questarr:[['status','Connection status'],['library','Game library']],
     frigate:[['status','NVR statistics'],['events','Recent detection events'],['review','Review queue'],['review_summary','Review summary']],
+    plex:[['libraries','Libraries'],['recent','Recently added'],['sessions','Active playback'],['on_deck','On deck']],
+    jellyfin:[['server_info','Server info'],['libraries','Libraries'],['sessions','Active playback']],
+    seerr:[['status','Service status'],['requests','Request queue'],['application_data','Application data status']],
+    immich:[['statistics','Server statistics'],['albums','Albums']],
+    romm:[['platforms','Platforms'],['roms','Recent games'],['collections','Collections']],
+    homeassistant:[['config','Configuration'],['states','Entity states'],['services','Service catalogue']],
+    tdarr:[['status','Server status'],['nodes','Nodes'],['job_reports','Recent job reports']],
     recyclarr:[['status','Container status'],['preview','Preview sync']]
    };
    const dashboard=(dashboards[app.id]||[]).length
@@ -353,7 +360,7 @@ async function openView(view){const target=$('workspace');target.textContent='Lo
      }else if(service==='recyclarr'&&operation==='status'){
       const result=await request('/web-api/recyclarr/status');output.textContent=JSON.stringify(result,null,2);
      }else{
-      const args=service==='questarr'&&operation==='library'?{limit:50,include_hidden:false}:service==='frigate'&&operation==='events'?{limit:20,offset:0}:service==='frigate'&&operation==='review'?{limit:20}: {};
+      const args=service==='questarr'&&operation==='library'?{limit:50,include_hidden:false}:service==='frigate'&&operation==='events'?{limit:20,offset:0}:service==='frigate'&&operation==='review'?{limit:20}:service==='seerr'&&operation==='requests'?{take:20,skip:0}:service==='romm'&&operation==='roms'?{limit:30,offset:0}:service==='homeassistant'&&operation==='states'?{limit:100}:service==='tdarr'&&operation==='job_reports'?{page_size:10}:{};
       const result=await request('/web-api/integration/read',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({service,operation,arguments:args})});
       output.textContent=JSON.stringify(result,null,2);
      }
