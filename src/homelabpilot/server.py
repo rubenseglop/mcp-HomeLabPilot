@@ -1413,6 +1413,12 @@ async def docker_preview_container_action(container: str, action: str) -> dict[s
     """Preview starting, stopping or restarting one allowlisted container."""
     _require_docker_permission("operations")
     snapshot = _docker_action_snapshot(container, action)
+    entries = await _docker_gateway_request("GET", "/v1/containers")
+    if not isinstance(entries, list) or not any(
+        item.get("name") == snapshot["container"] or item.get("id") == snapshot["container"]
+        for item in entries
+    ):
+        raise PermissionError("Container is not visible in the Docker allowlist")
     phrase = f"CONFIRM DOCKER {action.upper()} {snapshot['container']}"
     return {
         "preview_token": _preview_token(snapshot),
