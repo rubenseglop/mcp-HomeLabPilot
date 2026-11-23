@@ -200,6 +200,7 @@ flowchart TD
 | Sustituir regex de nombres por allowlist exacta | COMPLETADO EN FEATURE | `mcp-readonly-policy.mjs`: 147 herramientas aprobadas explícitamente; las herramientas nuevas quedan denegadas por defecto. |
 | Incorporar lecturas Seanime revisadas | COMPLETADO EN FEATURE | Añadidas `seanime_audit_library`, `seanime_inspect_entry` y `seanime_verify_reassignment`; no se exponen herramientas de preview ni mutación. |
 | Revisar semántica de herramientas Seanime permitidas | COMPLETADO EN FEATURE | `seanime_search_anime` usa POST contra un endpoint de búsqueda de AniList sin mutación; `seanime_verify_reassignment` consulta archivos locales; `seanime_audit_library` e `seanime_inspect_entry` solo leen datos. No se detectan efectos de escritura en estas herramientas. |
+| Revisar semántica de herramientas ARR y qBittorrent permitidas | COMPLETADO EN FEATURE | Las 11 herramientas ARR/qBittorrent incluidas en este grupo usan métodos GET; no se detectan mutaciones. |
 | Filtrar `tools/list` en respuestas JSON-RPC batch | COMPLETADO EN FEATURE | Filtro compartido para respuestas individuales y arrays; incluye transporte JSON y SSE. |
 | Rechazar batches que contengan llamadas no aprobadas | COMPLETADO EN FEATURE | El batch completo se rechaza para evitar ejecución parcial ambigua; las llamadas aprobadas individuales siguen su flujo normal. |
 | Añadir pruebas Node.js de la política | COMPLETADO EN FEATURE | `tests/proxy-policy.test.mjs`; comprueba allowlist, denegación por defecto y filtrado simple/batch. |
@@ -221,4 +222,4 @@ flowchart TD
 
 **Estados permitidos:** PENDIENTE · EN CURSO · COMPLETADO · PARCIAL · BLOQUEADO.
 
-**Siguiente paso:** continuar la revisión semántica por grupos de servicio, empezando por las herramientas ARR y las integraciones genéricas; distinguir POST de consulta frente a POST mutante y no ampliar la allowlist por el nombre de la herramienta. La comparación estática de inventario ya está registrada. No desplegar ni pedir al usuario pruebas repetitivas hasta tener el bloque de cambios preparado.
+**Siguiente paso:** continuar la revisión semántica de integraciones adicionales. Confirmar los POST de consulta de Tdarr y FlareSolverr, revisar los métodos RPC de Transmission y verificar que las herramientas genéricas mutantes permanecen fuera de la allowlist. La comparación estática de inventario ya está registrada. No desplegar ni pedir al usuario pruebas repetitivas hasta tener el bloque de cambios preparado.
