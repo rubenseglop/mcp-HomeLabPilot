@@ -57,6 +57,8 @@ class FakeAsyncClient:
             return FakeResponse({"count": 3, "games": [{"title": "A"}, {"title": "B"}, {"title": "C"}]})
         if url.endswith("/api/stats"):
             return FakeResponse({"cameras": {"front": {"camera_fps": 5}}})
+        if url.endswith("/dns_records"):
+            return FakeResponse({"success": True, "result": [{"id": "a" * 32, "type": "A", "name": "media.example.com", "content": "192.0.2.10"}], "result_info": {"page": 1, "per_page": 100, "total_count": 1}})
         if url.endswith("/api/events"):
             return FakeResponse([{"id": "event-1"}])
         if url.endswith("/api/review"):
@@ -130,6 +132,8 @@ def registered(monkeypatch):
     monkeypatch.setenv("TIDARR_API_KEY", "tidarr-read-key")
     monkeypatch.setenv("AGREGARR_URL", "http://agregarr:7171")
     monkeypatch.setenv("AGREGARR_API_KEY", "agregarr-read-key")
+    monkeypatch.setenv("CLOUDFLARE_API_URL", "https://api.cloudflare.com/client/v4")
+    monkeypatch.setenv("CLOUDFLARE_API_TOKEN", "cloudflare-read-token")
     FakeAsyncClient.calls = []
     monkeypatch.setattr(integrations.httpx, "AsyncClient", FakeAsyncClient)
 
@@ -417,3 +421,27 @@ def test_agregarr_dashboard_reads_missing_stats_and_activity(registered):
     activity = asyncio.run(status.dashboard_read("agregarr", "activity", days=7, limit=10))
     assert activity == {"days": 7, "topMedia": [{"title": "Dune"}]}
     assert FakeAsyncClient.calls[-1]["params"] == {"days": 7, "limit": 10}
+
+
+
+def test_cloudflare_dashboard_lists_dns_records_for_selected_zone(registered):
+    status = integrations_status(registered)
+    zone_id = "a" * 32
+    result = asyncio.run(status.dashboard_read(
+        "cloudflare", "dns_records", zone_id=zone_id,
+        record_type="A", name="media.example.com", page=1, per_page=50,
+    ))
+    assert result["success"] is True
+    assert result["result"][0]["name"] == "media.example.com"
+    call = FakeAsyncClient.calls[-1]
+    assert call["url"] == f"https://api.cloudflare.com/client/v4/zones/{zone_id}/dns_records"
+    assert call["params"] == {
+        "page": 1, "per_page": 50, "type": "A", "name": "media.example.com"
+    }
+    assert call["headers"]["Authorization"] == "Bearer cloudflare-read-token"
+
+
+def test_cloudflare_dashboard_dns_records_rejects_invalid_zone_id(registered):
+    status = integrations_status(registered)
+    with pytest.raises(ValueError, match="32-character Cloudflare zone ID"):
+        asyncio.run(status.dashboard_read("cloudflare", "dns_records", zone_id="invalid"))
