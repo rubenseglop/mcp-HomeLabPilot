@@ -330,7 +330,7 @@ async function openView(view){const target=$('workspace');target.textContent='Lo
     romm:[['platforms','Platforms'],['roms','Recent games'],['collections','Collections']],
     homeassistant:[['config','Configuration'],['states','Entity states'],['services','Service catalogue']],
     tdarr:[['status','Server status'],['nodes','Nodes'],['job_reports','Recent job reports']],
-    bookorbit:[['health','Service status'],['libraries','Libraries'],['statistics','Statistics'],['library_stats','Library statistics']],
+    bookorbit:[['health','Service status'],['libraries','Libraries'],['statistics','Statistics']],
     tidarr:[['status','Authentication status'],['queue','Download queue'],['history','Download history'],['sync_list','Auto-sync list']],
     youtarr:[['capabilities','Capabilities'],['channels','Channels'],['videos','Videos'],['requests','Requests']],
     pulsarr:[['health','Service status'],['approval_requests','Approval queue'],['content_router_rules','Content router rules']],
