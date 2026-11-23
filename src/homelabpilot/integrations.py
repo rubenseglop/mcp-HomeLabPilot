@@ -2003,6 +2003,8 @@ def register_integration_tools(
             "romm": {
                 "platforms": romm_get_platforms,
                 "roms": romm_list_roms,
+                "search": romm_search_roms,
+                "rom": romm_get_rom,
                 "collections": romm_list_collections,
             },
             "homeassistant": {
