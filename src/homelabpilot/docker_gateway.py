@@ -74,7 +74,7 @@ def visible_containers() -> list[dict[str, str]]:
 
 def run_recyclarr_sync() -> dict[str, object]:
     """Execute only the fixed 'recyclarr sync' command in the configured allowlisted container."""
-    configured = os.getenv("HOMELABPILOT_RECYCLARR_CONTAINER", "").strip().lstrip("/")
+    configured = os.getenv("HOMELABPILOT_RECYCLARR_CONTAINER", "").strip()
     if not configured:
         raise ValueError("HOMELABPILOT_RECYCLARR_CONTAINER is not configured")
     item = next(
