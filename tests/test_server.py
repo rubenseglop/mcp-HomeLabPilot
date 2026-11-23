@@ -783,6 +783,46 @@ def test_stack_status_marks_missing_services_as_unconfigured(monkeypatch):
     for service in (*server.ARR_SERVICES, "scryer", "qbittorrent"):
         assert result["services"][service] == {"configured": False, "ok": False}
 
+
+def test_stack_status_lists_tools_for_connected_services_only(monkeypatch):
+    import asyncio
+    from types import SimpleNamespace
+    import homelabpilot.server as server
+
+    for service, (url_env, key_env, _prefix) in server.ARR_SERVICES.items():
+        monkeypatch.setenv(url_env, "http://example.invalid" if service == "radarr" else "")
+        monkeypatch.setenv(key_env, "test-key" if service == "radarr" else "")
+    monkeypatch.delenv("SCRYER_URL", raising=False)
+    monkeypatch.delenv("SCRYER_API_KEY", raising=False)
+    monkeypatch.delenv("QBITTORRENT_URL", raising=False)
+
+    async def fake_arr_request(service, method, path, params=None, body=None):
+        return {"version": "6.0.0", "appName": "Radarr"}
+
+    async def no_integrations():
+        return {}
+
+    monkeypatch.setattr(server, "_arr_request", fake_arr_request)
+    monkeypatch.setattr(server, "integration_status", no_integrations)
+    monkeypatch.setattr(
+        server.mcp._tool_manager,
+        "list_tools",
+        lambda: [
+            SimpleNamespace(name="radarr_get_movies", description="List movies"),
+            SimpleNamespace(name="radarr_get_queue", description="Read queue"),
+            SimpleNamespace(name="sonarr_get_series", description="List series"),
+        ],
+    )
+
+    result = asyncio.run(server.stack_status())
+    radarr = result["services"]["radarr"]
+    assert radarr["ok"] is True
+    assert radarr["tool_count"] == 2
+    assert [tool["name"] for tool in radarr["tools"]] == [
+        "radarr_get_movies", "radarr_get_queue"
+    ]
+    assert "tools" not in result["services"]["sonarr"]
+
 def test_app_config_is_encrypted_and_never_returns_secret(monkeypatch, tmp_path):
     import os
     import homelabpilot.config_store as config_store
