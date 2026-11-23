@@ -1980,6 +1980,36 @@ def register_integration_tools(
                 "review": frigate_list_review_items,
                 "review_summary": frigate_get_review_summary,
             },
+            "plex": {
+                "libraries": plex_get_library_sections,
+                "recent": plex_get_recently_added_all,
+                "sessions": plex_get_active_sessions,
+                "on_deck": plex_get_on_deck,
+            },
+            "jellyfin": {
+                "libraries": jellyfin_get_libraries,
+                "sessions": jellyfin_get_active_sessions,
+                "server_info": jellyfin_get_server_info,
+            },
+            "seerr": {
+                "status": seerr_get_status,
+                "requests": seerr_get_requests,
+                "application_data": seerr_get_application_data_status,
+            },
+            "immich": {
+                "albums": immich_get_albums,
+                "statistics": immich_get_server_statistics,
+            },
+            "romm": {
+                "platforms": romm_get_platforms,
+                "roms": romm_list_roms,
+                "collections": romm_list_collections,
+            },
+            "homeassistant": {
+                "config": homeassistant_get_config,
+                "states": homeassistant_list_states,
+                "services": homeassistant_list_services,
+            },
         }
         service_readers = readers.get(service)
         if service_readers is None or operation not in service_readers:
