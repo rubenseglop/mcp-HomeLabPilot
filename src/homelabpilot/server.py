@@ -382,8 +382,15 @@ async def stack_status() -> dict[str, Any]:
         checks["qbittorrent"] = {"configured": False, "ok": False}
     else:
         try:
-            version = await qbittorrent_api_request("GET", "/api/v2/app/version")
-            checks["qbittorrent"] = {"configured": True, "ok": True, "version": version}
+            version_response = await qbittorrent_api_request("GET", "/api/v2/app/version")
+            if isinstance(version_response, dict):
+                version = version_response.get("text") or version_response.get("version")
+            else:
+                version = version_response
+            checks["qbittorrent"] = {
+                "configured": True, "ok": True,
+                **({"version": str(version).strip()} if version is not None and str(version).strip() else {}),
+            }
         except Exception:
             checks["qbittorrent"] = {
                 "configured": True, "ok": False,
@@ -401,9 +408,8 @@ async def stack_status() -> dict[str, Any]:
         if not status.get("configured") or not status.get("ok"):
             continue
         prefix = service.lower() + "_"
-        # Many *arr tools are intentionally shared and accept the target
-        # service as an argument, so their names do not carry a service prefix.
-        shared_arr_tools = {
+        # Shared *arr tools are assigned only to services supported by their API.
+        shared_arr_tool_services = {
             "arr_api_request": set(ARR_SERVICES),
             "arr_get_configuration": {"radarr", "sonarr", "prowlarr", "lidarr"},
             "arr_update_configuration": {"radarr", "sonarr", "prowlarr", "lidarr"},
@@ -431,7 +437,7 @@ async def stack_status() -> dict[str, Any]:
             for tool in registered_tools
             if (
                 getattr(tool, "name", "").startswith(prefix)
-                or service in shared_arr_tools.get(getattr(tool, "name", ""), set())
+                or service in shared_arr_tool_services.get(getattr(tool, "name", ""), set())
             )
         ]
         service_tools.sort(key=lambda item: item["name"])
