@@ -69,6 +69,10 @@ class FakeAsyncClient:
             return FakeResponse([[{"entity_id": "sensor.temperature", "state": "20.0"}]])
         if url.endswith("/library/sections/1/recentlyAdded"):
             return FakeResponse([{"ratingKey": "101", "title": "Alien"}])
+        if url.endswith("/external-api/v1/videos/abcdefghijk"):
+            return FakeResponse({"id": "abcdefghijk", "title": "Test video", "status": "downloaded"})
+        if url.endswith("/external-api/v1/videos"):
+            return FakeResponse({"items": [{"id": "abcdefghijk", "title": "Test video"}]})
         if url.endswith("/api/v1/books/search"):
             return FakeResponse({"total": 1, "items": [{"id": 7, "title": "Dune"}]})
         if url.endswith("/api/v1/books/7"):
@@ -112,6 +116,8 @@ def registered(monkeypatch):
     monkeypatch.setenv("IMMICH_API_KEY", "immich-read-key")
     monkeypatch.setenv("BOOKORBIT_URL", "http://bookorbit:8080")
     monkeypatch.setenv("BOOKORBIT_API_KEY", "bookorbit-read-key")
+    monkeypatch.setenv("YOUTARR_URL", "http://youtarr:3000")
+    monkeypatch.setenv("YOUTARR_API_KEY", "youtarr-read-key")
     FakeAsyncClient.calls = []
     monkeypatch.setattr(integrations.httpx, "AsyncClient", FakeAsyncClient)
 
@@ -341,3 +347,27 @@ def test_bookorbit_dashboard_exposes_format_distribution(registered):
     result = asyncio.run(status.dashboard_read("bookorbit", "format_distribution"))
     assert result == {"epub": 10, "pdf": 3, "audiobook": 2}
     assert FakeAsyncClient.calls[-1]["url"] == "http://bookorbit:8080/api/v1/statistics/format-distribution"
+
+
+
+def test_youtarr_dashboard_video_list_supports_search(registered):
+    status = integrations_status(registered)
+    result = asyncio.run(status.dashboard_read(
+        "youtarr", "videos", page_size=15, search="Home Assistant", status="downloaded"
+    ))
+    assert result == {"items": [{"id": "abcdefghijk", "title": "Test video"}]}
+    call = FakeAsyncClient.calls[-1]
+    assert call["url"] == "http://youtarr:3000/external-api/v1/videos"
+    assert call["params"]["pageSize"] == 15
+    assert call["params"]["search"] == "Home Assistant"
+    assert call["params"]["status"] == "downloaded"
+    assert call["headers"]["X-Api-Key"] == "youtarr-read-key"
+
+
+def test_youtarr_dashboard_video_detail_validates_youtube_id(registered):
+    status = integrations_status(registered)
+    result = asyncio.run(status.dashboard_read("youtarr", "video", youtube_id="abcdefghijk"))
+    assert result == {"id": "abcdefghijk", "title": "Test video", "status": "downloaded"}
+    assert FakeAsyncClient.calls[-1]["url"] == "http://youtarr:3000/external-api/v1/videos/abcdefghijk"
+    with pytest.raises(ValueError, match="11-character"):
+        asyncio.run(status.dashboard_read("youtarr", "video", youtube_id="invalid"))
