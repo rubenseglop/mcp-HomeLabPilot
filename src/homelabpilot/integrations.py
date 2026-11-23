@@ -2037,6 +2037,7 @@ def register_integration_tools(
                 "capabilities": youtarr_get_capabilities,
                 "channels": youtarr_list_channels,
                 "videos": youtarr_list_videos,
+                "video": youtarr_get_video,
                 "requests": youtarr_list_requests,
             },
             "pulsarr": {
