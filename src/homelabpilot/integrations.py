@@ -2061,6 +2061,10 @@ def register_integration_tools(
                 "status": agregarr_get_status,
                 "collections": agregarr_list_collections,
                 "dashboard_stats": agregarr_get_dashboard_stats,
+                "activity": agregarr_get_dashboard_activity,
+                "missing_items": agregarr_get_missing_items,
+                "missing_item_stats": agregarr_get_missing_item_stats,
+                "scheduled_jobs": agregarr_get_scheduled_jobs,
                 "logs": agregarr_get_logs,
             },
             "tracearr": {
