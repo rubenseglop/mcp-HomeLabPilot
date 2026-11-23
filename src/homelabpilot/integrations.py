@@ -2040,6 +2040,7 @@ def register_integration_tools(
                 "videos": youtarr_list_videos,
                 "video": youtarr_get_video,
                 "requests": youtarr_list_requests,
+                "request_detail": youtarr_get_request,
             },
             "pulsarr": {
                 "health": pulsarr_get_health,
