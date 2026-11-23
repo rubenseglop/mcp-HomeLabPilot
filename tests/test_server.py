@@ -790,7 +790,7 @@ def test_stack_status_lists_tools_for_connected_services_only(monkeypatch):
     import homelabpilot.server as server
 
     for service, (url_env, key_env, _prefix) in server.ARR_SERVICES.items():
-        enabled = service in {"radarr", "sonarr"}
+        enabled = service in {"radarr", "sonarr", "prowlarr"}
         monkeypatch.setenv(url_env, "http://example.invalid" if enabled else "")
         monkeypatch.setenv(key_env, "test-key" if enabled else "")
     monkeypatch.delenv("SCRYER_URL", raising=False)
@@ -814,6 +814,7 @@ def test_stack_status_lists_tools_for_connected_services_only(monkeypatch):
             SimpleNamespace(name="arr_add_movie", description="Add movie"),
             SimpleNamespace(name="arr_add_series", description="Add series"),
             SimpleNamespace(name="sonarr_get_series", description="List series"),
+            SimpleNamespace(name="prowlarr_get_indexers", description="List indexers"),
         ],
     )
 
@@ -828,9 +829,16 @@ def test_stack_status_lists_tools_for_connected_services_only(monkeypatch):
     assert sonarr["ok"] is True
     assert sonarr["tool_count"] == 3
     assert [tool["name"] for tool in sonarr["tools"]] == [
-        "arr_api_request", "arr_add_series", "arr_list_library"
+        "arr_api_request", "arr_add_series", "arr_list_library", "sonarr_get_series"
     ]
-    assert "tools" not in result["services"]["prowlarr"]
+    prowlarr = result["services"]["prowlarr"]
+    assert prowlarr["ok"] is True
+    assert prowlarr["tool_count"] == 7
+    assert [tool["name"] for tool in prowlarr["tools"]] == [
+        "arr_api_request", "arr_create_configuration", "arr_delete_configuration",
+        "arr_get_configuration", "arr_preview_delete_configuration",
+        "arr_update_configuration", "prowlarr_get_indexers"
+    ]
 
 def test_app_config_is_encrypted_and_never_returns_secret(monkeypatch, tmp_path):
     import os
@@ -1227,3 +1235,30 @@ def test_mcp_bearer_middleware_rejects_missing_and_invalid_tokens():
     assert invalid[0]["status"] == 401
     assert valid[0]["status"] == 200
     assert len(calls) == 1, "only the correctly authenticated request may reach the MCP app"
+
+
+def test_stack_status_normalizes_qbittorrent_plain_text_version(monkeypatch):
+    import asyncio
+    import homelabpilot.server as server
+
+    for url_env, key_env, _prefix in server.ARR_SERVICES.values():
+        monkeypatch.delenv(url_env, raising=False)
+        monkeypatch.delenv(key_env, raising=False)
+    monkeypatch.setenv("QBITTORRENT_URL", "http://example.invalid")
+    monkeypatch.setenv("QBITTORRENT_USERNAME", "test")
+    monkeypatch.setenv("QBITTORRENT_PASSWORD", "test")
+
+    async def fake_qbittorrent(method, path, params=None, data=None):
+        assert method == "GET"
+        assert path == "/api/v2/app/version"
+        return {"http_status": 200, "text": "v5.1.2"}
+
+    async def no_integrations():
+        return {}
+
+    monkeypatch.setattr(server, "qbittorrent_api_request", fake_qbittorrent)
+    monkeypatch.setattr(server, "integration_status", no_integrations)
+
+    result = asyncio.run(server.stack_status())
+    assert result["services"]["qbittorrent"]["ok"] is True
+    assert result["services"]["qbittorrent"]["version"] == "v5.1.2"
