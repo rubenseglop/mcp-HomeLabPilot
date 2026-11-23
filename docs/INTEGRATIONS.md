@@ -20,6 +20,10 @@ HomeLabPilot conecta con las API nativas de los servicios configurados. La dispo
 
 El catálogo de aplicaciones de la interfaz muestra qué servicios están configurados y el estado de conexión. Una aplicación puede aparecer en el catálogo aunque todavía no tenga integración funcional completa.
 
+## Paneles de aplicaciones
+
+El catálogo de aplicaciones incluye paneles de consulta de solo lectura para Plex, Jellyfin, Seerr, Immich, Tdarr, Home Assistant, RomM, Questarr, Frigate, BookOrbit, Tidarr, Youtarr, Pulsarr, Cleanuparr, Maintainerr, Agregarr, Tracearr, Cloudflare, Transmission, FlareSolverr y tinyMediaManager. Cada panel solo llama a operaciones incluidas en una lista explícita de lecturas; las acciones de escritura siguen en herramientas MCP separadas y protegidas por permisos/confirmaciones.
+
 ## Herramientas MCP
 
 Las herramientas se agrupan por servicio y operación. Entre las capacidades disponibles se incluyen:
