@@ -956,3 +956,50 @@ def test_tracearr_uses_bearer_auth_and_public_health_endpoint():
         "TRACEARR_URL", "TRACEARR_API_KEY", "bearer", "/api/v1/public/health"
     )
     assert APP_CONFIG_FIELDS["tracearr"] == ("TRACEARR_URL", "TRACEARR_API_KEY")
+
+
+def test_docker_control_requires_matching_preview_and_typed_confirmation(monkeypatch):
+    import asyncio
+    import homelabpilot.server as server
+
+    monkeypatch.setenv("HOMELABPILOT_DOCKER_ENABLED", "true")
+    monkeypatch.setenv("HOMELABPILOT_DOCKER_PERMISSION_LEVEL", "operations")
+    monkeypatch.setenv("HOMELABPILOT_PREVIEW_SECRET", "p" * 40)
+
+    with pytest.raises(PermissionError, match="preview"):
+        asyncio.run(server.docker_control_allowlisted_container("radarr", "restart"))
+
+    preview = asyncio.run(server.docker_preview_container_action("radarr", "restart"))
+    assert preview["typed_confirmation"] == "CONFIRM DOCKER RESTART radarr"
+
+    calls = []
+
+    async def fake_gateway(method, path):
+        calls.append((method, path))
+        return {"ok": True}
+
+    monkeypatch.setattr(server, "_docker_gateway_request", fake_gateway)
+    with pytest.raises(PermissionError, match="Type exactly"):
+        asyncio.run(server.docker_control_allowlisted_container(
+            "radarr", "restart", preview["preview_token"], "wrong phrase"
+        ))
+
+    result = asyncio.run(server.docker_control_allowlisted_container(
+        "radarr", "restart", preview["preview_token"], preview["typed_confirmation"]
+    ))
+    assert result == {"ok": True}
+    assert calls == [("POST", "/v1/containers/radarr/restart")]
+
+
+def test_docker_preview_rejects_invalid_container_and_action(monkeypatch):
+    import asyncio
+    import homelabpilot.server as server
+
+    monkeypatch.setenv("HOMELABPILOT_DOCKER_ENABLED", "true")
+    monkeypatch.setenv("HOMELABPILOT_DOCKER_PERMISSION_LEVEL", "operations")
+    monkeypatch.setenv("HOMELABPILOT_PREVIEW_SECRET", "p" * 40)
+
+    with pytest.raises(ValueError, match="container"):
+        asyncio.run(server.docker_preview_container_action("../radarr", "stop"))
+    with pytest.raises(ValueError, match="action"):
+        asyncio.run(server.docker_preview_container_action("radarr", "remove"))
