@@ -136,7 +136,7 @@ flowchart TD
 | Home Assistant | PARCIAL | Panel de configuración, estados, catálogo de servicios, consulta individual de entidades e historial por intervalo ISO-8601; operaciones del panel exclusivamente de lectura. Corregida la validación del formato `domain.object_id`. CI run 455 superado; pendiente validación visual y funcional en la instalación real. |
 | RomM | PARCIAL | Panel de plataformas, listado de juegos y colecciones ampliado con búsqueda por nombre y consulta de metadatos de un juego por ID; solo lectura y paginación acotada. CI run 458 superado; pendiente validación real en la instalación. |
 | Seanime | COMPLETADO EN FEATURE | Biblioteca, AniList, seguimiento, auditoría, inspección, archivos sin match y auto-downloader; ajustes booleanos seguros, añadir a AniList y reasignar archivos con preview firmado/confirmación exacta. Pruebas de redacción de secretos, permisos, token obsoleto, confirmación exacta y cambios concurrentes. Pendiente validación real tras despliegue autorizado. |
-| Resto de aplicaciones, priorizadas por utilidad | PARCIAL | Añadidos paneles de solo lectura para BookOrbit, Tidarr, Youtarr, Pulsarr, Cleanuparr, Maintainerr, Agregarr, Tracearr, Cloudflare, Transmission, FlareSolverr y tinyMediaManager; pendiente CI, revisión de cobertura y validación real. |
+| Resto de aplicaciones, priorizadas por utilidad | PARCIAL | Añadidos paneles de solo lectura para BookOrbit, Tidarr, Youtarr, Pulsarr, Cleanuparr, Maintainerr, Agregarr, Tracearr, Cloudflare, Transmission, FlareSolverr y tinyMediaManager; BookOrbit ya incluye búsqueda/detalle de libros y distribución de formatos. Pendiente revisión de cobertura y validación real. |
 
 ## 5. Prioridad 4 — Calidad y validación final
 
@@ -262,3 +262,17 @@ flowchart TD
 | Validación visual/funcional real | PENDIENTE | Requiere desplegar esta versión en el mediacenter y probar cada panel con servicios configurados. |
 
 | 2026-11-23 | Ampliación paneles multimedia | CI runs 461 (20c1f4c) y 462 (d7d46d3) success; se añadieron navegación por sección Plex y búsquedas de Jellyfin, Seerr e Immich. |
+
+
+## 11. Ampliación del panel BookOrbit
+
+| Cambio | Estado | Detalle |
+|---|---|---|
+| Distribución de formatos | COMPLETADO EN FEATURE | Se añade el lector de distribución EPUB/PDF/audiolibro/cómic al panel. |
+| Búsqueda de libros | COMPLETADO EN FEATURE | Búsqueda por título, autor o texto indexado; límite máximo heredado de la herramienta (20). |
+| Ficha de libro | COMPLETADO EN FEATURE | Consulta de metadatos y formatos disponibles por ID positivo. |
+| Pruebas | COMPLETADO EN FEATURE | Pruebas de búsqueda, parámetros, API key, detalle y distribución de formatos. |
+| CI | COMPLETADO EN FEATURE | Runs 465, 466 y 467 superados; la suite ampliada y el JavaScript del panel pasan. |
+| Validación visual/funcional real | PENDIENTE | Requiere despliegue autorizado y comprobar contra BookOrbit configurado. |
+
+| 2026-11-23 | Ampliación panel BookOrbit | CI runs 465 (b069fcb), 466 (7f58594) y 467 (286acd6) `success`. |
