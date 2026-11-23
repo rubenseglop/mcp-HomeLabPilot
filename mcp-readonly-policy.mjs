@@ -94,6 +94,7 @@ export const READ_ONLY_TOOLS = new Set([
   "romm_list_collections",
   "romm_list_roms",
   "romm_search_roms",
+  "recyclarr_get_status",
   "scryer_introspect",
   "scryer_list_audit_events",
   "scryer_list_media_requests",
