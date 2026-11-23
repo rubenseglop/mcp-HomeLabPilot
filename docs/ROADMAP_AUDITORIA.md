@@ -290,3 +290,21 @@ flowchart TD
 | Validación real | PENDIENTE | Requiere despliegue autorizado en el mediacenter. | 
 
 | 2026-11-23 | Ampliación Youtarr, Tidarr y Agregarr | CI runs 470–477 `success`; run 477 incluye pruebas Python, compilación y validación JavaScript. |
+
+
+## 13. Ampliación de paneles Cloudflare, Cleanuparr y Tracearr
+
+> Excepción de flujo autorizada por el usuario el 23-11-2026: continuar desarrollando funcionalidades de paneles mientras la auditoría de Prioridad 1 sigue abierta. No implica autorización para desplegar ni para ejecutar acciones de escritura reales.
+
+| Aplicación | Cambio | Estado | Detalle |
+|---|---|---|---|
+| Cloudflare | Registros DNS por zona | COMPLETADO EN FEATURE | El panel añade consulta paginada de registros DNS por ID de zona, con filtros opcionales por tipo y nombre. Reutiliza `cloudflare_list_dns_records`, valida el zone ID de 32 caracteres y limita la consulta a 100 registros. Solo lectura. |
+| Cleanuparr | Cronología e historial de strikes | COMPLETADO EN FEATURE | Se exponen cronología de eventos, strikes recientes e historial filtrable/paginado en el panel. |
+| Cleanuparr | Trabajos y eventos manuales | COMPLETADO EN FEATURE | Se añaden trabajos programados y estadísticas de eventos manuales, además de los eventos/estadísticas ya existentes. Solo lectura. |
+| Tracearr | Servidores y biblioteca reciente | COMPLETADO EN FEATURE | El panel permite consultar servidores multimedia y contenido añadido recientemente, con paginación acotada. |
+| Tracearr | Historial de reproducciones | COMPLETADO EN FEATURE | El panel añade consulta paginada del historial de visionado; filtros avanzados siguen disponibles en la herramienta MCP. |
+| Pruebas | Lectores Cloudflare, Cleanuparr y Tracearr | COMPLETADO EN FEATURE | Se verifican rutas, parámetros, Bearer/API key, límites y validación de zone ID. |
+| CI | Runs 480–488 | COMPLETADO EN FEATURE | Todos los runs 480–488 completados con `success`; incluyen suite Python, compilación y comprobación JavaScript. |
+| Validación real | PENDIENTE | Requiere despliegue autorizado y servicios configurados. | 
+
+| 2026-11-23 | Paneles Cloudflare, Cleanuparr y Tracearr | CI runs 480–488 `success`; paneles ampliados y pruebas unitarias superadas. |
