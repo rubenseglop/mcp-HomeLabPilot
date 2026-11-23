@@ -5,8 +5,9 @@
 - **Repositorio:** `rubenseglop/mcp-HomeLabPilot`
 - **Rama de trabajo:** `feature/complete-homelabpilot` (base `main` en `a5ddc62`)
 - **Última actualización:** 2026-11-23
-- **Fase activa:** Prioridad 1 — Comprobar todo lo existente
+- **Fase activa:** Desarrollo integral — correcciones y funcionalidades
 - **Estado global:** EN CURSO
+- **Autorización de trabajo:** El 23-11-2026 el usuario indicó abandonar las comprobaciones repetitivas y pasar directamente a programar. Se permite modificar código en la rama feature; `main` permanece intacta.
 
 ## 1. Flujo general
 
@@ -62,7 +63,7 @@ flowchart TD
 | Ejecutar `tools/list` | COMPLETADO | Respuesta JSON-RPC correcta |
 | Registrar recuento real | COMPLETADO | **187 herramientas** publicadas |
 | Aclarar diferencia respecto a las 189 previstas | COMPLETADO | 189 declaraciones `@mcp.tool`, 187 nombres únicos por dos nombres duplicados; coincide con `tools/list` (187) |
-| Revisar herramientas duplicadas, ausentes o inesperadas | EN CURSO | Confirmados dos nombres duplicados (`cleanuparr_get_health`, `maintainerr_get_health`); las dos versiones consultan el mismo endpoint GET. Clasificación estática del proxy: 133 nombres permitidos y 54 bloqueados; entre los bloqueados hay lecturas legítimas de Seanime (`seanime_search_anime`, `seanime_verify_reassignment`, `seanime_audit_library`, `seanime_inspect_entry`) y el helper puro `collection_has_media_id`. Pendiente comparar el inventario completo con la lista runtime y cerrar clasificación de efectos |
+| Revisar herramientas duplicadas, ausentes o inesperadas | PARCIAL | Confirmados dos nombres duplicados (`cleanuparr_get_health`, `maintainerr_get_health`); las dos versiones consultan el mismo endpoint GET. Clasificación estática del proxy: 133 nombres permitidos y 54 bloqueados; entre los bloqueados hay lecturas legítimas de Seanime (`seanime_search_anime`, `seanime_verify_reassignment`, `seanime_audit_library`, `seanime_inspect_entry`) y el helper puro `collection_has_media_id`. Pendiente comparar el inventario completo con la lista runtime y cerrar clasificación de efectos |
 
 ### 1.3 Integraciones
 
@@ -79,7 +80,7 @@ flowchart TD
 | Comprobar endpoint de salud del proxy | COMPLETADO | HTTP 200; modo `read-only` |
 | Comprobar salud del gateway de agentes | COMPLETADO | HTTP 200 |
 | Verificar autenticación/configuración MCP de Codex | PARCIAL | Gateway informó `authenticated=true` y `mcp_configured=true`; falta probar una llamada real a través del proxy |
-| Ejecutar `tools/list` a través del proxy | PENDIENTE | |
+| Ejecutar `tools/list` a través del proxy | COMPLETADO | 23-11-2026: initialize HTTP 200, sesión creada, tools/list HTTP 200, 137 herramientas visibles, sin error JSON-RPC. Diferencia pendiente de reconciliar con el filtrado estático. |
 | Ejecutar una herramienta de lectura a través del proxy | PENDIENTE | |
 | Verificar bloqueo de herramientas de escritura en el proxy | PENDIENTE | Prueba negativa segura; no ejecutar ninguna escritura en servicios reales |
 | Verificar que las lecturas siguen permitidas | PENDIENTE | |
@@ -179,7 +180,7 @@ flowchart TD
 | 2026-11-23 | Servidor local en `44985e1`; GitHub `main` en `a5ddc62` | CONFIRMADO; no sincronizar ni desplegar hasta completar auditoría |
 | 2026-11-23 | Hash de archivos del contenedor | COMPLETADO: cinco hashes SHA-256 coinciden entre host y contenedor; el usuario no privilegiado `10001` no podía leer los archivos, root sí |
 | 2026-11-23 | Diferencia 189/187 herramientas | RESUELTO: 189 decoradores, 187 nombres únicos; dos herramientas registradas dos veces |
-| 2026-11-23 | Versionado del paquete inconsistente | ABIERTO: `pyproject.toml` declara `0.5.0`; `src/homelabpilot/__init__.py` declara `0.1.0` |
+| 2026-11-23 | Versionado del paquete inconsistente | CORREGIDO EN FEATURE: `src/homelabpilot/__init__.py` alineado con `pyproject.toml` en `0.5.0` (commit `63804d6`). Pendiente ampliar la estrategia de versionado al completar desarrollo |
 | 2026-11-23 | Proxy read-only | ABIERTO: regex actual deja fuera consultas Seanime de verificación/auditoría; revisar semántica antes de ampliar allowlist |
 | 2026-11-23 | Cobertura CI | Workflow 337 de GitHub Actions para `main`/`a5ddc62`: `success`; la rama de desarrollo aún no ha ejecutado CI |
 | 2026-11-23 | Revisión estática del inventario MCP y proxy | 189 decoradores, 187 nombres únicos; el proxy permite 133 herramientas por regex y bloquea 54. Entre las lecturas bloqueadas están `seanime_search_anime`, `seanime_verify_reassignment`, `seanime_audit_library` y `seanime_inspect_entry`; `collection_has_media_id` es un helper puro. `flaresolverr_request_get` usa POST y se clasifica como operación, por lo que no debe habilitarse automáticamente. Los dos nombres duplicados consultan el mismo endpoint GET. En JSON-RPC batch, `tools/list` no aplica el filtrado de nombres; las llamadas mutantes sí se comprueban individualmente. Pendiente comparar inventario completo runtime y revisar allowlist semánticamente |
@@ -199,4 +200,4 @@ flowchart TD
 
 **Estados permitidos:** PENDIENTE · EN CURSO · COMPLETADO · PARCIAL · BLOQUEADO.
 
-**Siguiente paso:** completar el inventario de herramientas, después ejecutar `integration_catalog` y revisar el proxy MCP. No repetir comprobaciones ya registradas.
+**Siguiente paso:** desarrollo directo. Priorizar la corrección semántica del proxy read-only, completar integraciones pendientes (Questarr, Frigate, Recyclarr y Docker Gateway) y después paneles. No solicitar al usuario pruebas repetitivas; preparar cambios y commits en esta rama.
