@@ -105,7 +105,7 @@ flowchart TD
 | Questarr | PARCIAL | API de lectura y panel en catálogo con estado/biblioteca; credencial `read`, límites y pruebas unitarias. Pendiente CI del panel y validación real. |
 | Frigate | PARCIAL | API de estadísticas/eventos/revisión y panel en catálogo; bearer JWT, solo lectura y paginación acotada. Pendiente CI del panel y validación real. |
 | Recyclarr | PARCIAL | Estado del contenedor y ejecución fija `recyclarr sync` mediante Docker Gateway, limitada a contenedor configurado/allowlist y preview firmado con confirmación exacta. Añadido panel en catálogo; pendiente CI del panel y prueba real. |
-| Docker Gateway | PARCIAL | Gateway limitado a lista explícita y start/stop/restart más comando fijo Recyclarr sync. Las acciones MCP requieren preview firmado y confirmación escrita; CI runs 353–363 pasaron. Las ejecuciones 364–373 detectaron errores en tests (import de pytest y secuencia esperada de llamadas); ambos corregidos en feature. Pendiente resultado de CI run 374 y revisión final del catálogo. |
+| Docker Gateway | PARCIAL | Gateway limitado a lista explícita y start/stop/restart más comando fijo Recyclarr sync. Las acciones MCP y el panel web requieren preview firmado y confirmación escrita. CI runs 393–399 pasaron con el flujo web actualizado; pendiente validación real con el perfil Docker habilitado. |
 
 ## 4. Prioridad 3 — Paneles propios
 
@@ -195,7 +195,7 @@ flowchart TD
 | Rechazar batches que contengan llamadas no aprobadas | COMPLETADO EN FEATURE | El batch completo se rechaza para evitar ejecución parcial ambigua; las llamadas aprobadas individuales siguen su flujo normal. |
 | Añadir pruebas Node.js de la política | COMPLETADO EN FEATURE | `tests/proxy-policy.test.mjs`; comprueba allowlist, denegación por defecto y filtrado simple/batch. |
 | Incluir módulo en imagen del proxy y CI | COMPLETADO EN FEATURE | Dockerfile copia el módulo; workflow ejecuta `node --test` y se activa también en la rama feature. |
-| Ejecutar CI de la rama y desplegar proxy | PARCIAL | CI run 374 pasó tras corregir pruebas de Recyclarr. Los cambios posteriores de paneles y verificación de JavaScript embebido esperan CI. Pendiente CI limpio, despliegue y validación real; no se ha reiniciado ningún contenedor. |
+| Ejecutar CI de la rama y desplegar proxy | PARCIAL | CI runs 393–399 pasaron, incluidos paneles, JavaScript embebido y flujo de confirmación del Docker dashboard. Run 400 valida el último ajuste visual. Pendiente cierre de CI, despliegue y validación real; no se ha reiniciado ningún contenedor. |
 
 ## 9. Protocolo obligatorio de trabajo
 
