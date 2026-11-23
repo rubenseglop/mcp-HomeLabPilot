@@ -133,7 +133,7 @@ flowchart TD
 | Tdarr | PARCIAL | Panel de estado, nodos e informes de trabajos; pendiente CI y validación real. |
 | Home Assistant | PARCIAL | Panel de configuración, estados de entidades y catálogo de servicios; solo lectura; pendiente CI y validación real. |
 | RomM | PARCIAL | Panel de plataformas, juegos y colecciones; pendiente CI y validación real. |
-| Resto de aplicaciones, priorizadas por utilidad | PENDIENTE |
+| Resto de aplicaciones, priorizadas por utilidad | PARCIAL | Añadidos paneles de solo lectura para BookOrbit, Tidarr, Youtarr, Pulsarr, Cleanuparr, Maintainerr, Agregarr, Tracearr, Cloudflare, Transmission, FlareSolverr y tinyMediaManager; pendiente CI, revisión de cobertura y validación real. |
 
 ## 5. Prioridad 4 — Calidad y validación final
 
