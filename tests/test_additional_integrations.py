@@ -46,11 +46,22 @@ class FakeAsyncClient:
     async def __aexit__(self, *args):
         return None
 
+    async def post(self, url, json=None, headers=None, auth=None):
+        return await self.request("POST", url, json=json, headers=headers, auth=auth)
+
     async def request(self, method, url, params=None, json=None, headers=None, auth=None):
         self.calls.append({
             "method": method, "url": url, "params": params,
             "json": json, "headers": headers,
         })
+        if url.endswith("/transmission/rpc"):
+            method = (json or {}).get("method")
+            if method == "torrent-get":
+                return FakeResponse({"arguments": {"torrents": [{
+                    "id": 7, "name": "Linux ISO", "status": 4, "percentDone": 1.0,
+                    "ratio": 1.5, "peersConnected": 12, "files": [], "trackers": [],
+                }]}})
+            return FakeResponse({"arguments": {}})
         if url.endswith("/api/integration/ping"):
             return FakeResponse({"service": "questarr", "version": "1.0", "scope": "read"})
         if url.endswith("/api/integration/library"):
@@ -169,6 +180,9 @@ def registered(monkeypatch):
     monkeypatch.setenv("TRACEARR_URL", "http://tracearr:3000")
     monkeypatch.setenv("TRACEARR_API_KEY", "tracearr-read-token")
     monkeypatch.setenv("MAINTAINERR_URL", "http://maintainerr:6246")
+    monkeypatch.setenv("TRANSMISSION_URL", "http://transmission:9091")
+    monkeypatch.setenv("TRANSMISSION_USERNAME", "transmission-user")
+    monkeypatch.setenv("TRANSMISSION_PASSWORD", "transmission-password")
     FakeAsyncClient.calls = []
     monkeypatch.setattr(integrations.httpx, "AsyncClient", FakeAsyncClient)
 
@@ -610,3 +624,28 @@ def test_tracearr_dashboard_reads_library_statistics_and_top_media(registered):
     assert call["params"] == {
         "media_type": "movie", "days": 30, "sort": "plays", "pageSize": 15
     }
+
+
+def test_transmission_dashboard_reads_extended_details_for_one_torrent(registered):
+    status = integrations_status(registered)
+    result = asyncio.run(status.dashboard_read(
+        "transmission", "torrent_details",
+        ids=[7],
+        fields=[
+            "id", "name", "status", "percentDone", "totalSize", "downloadDir",
+            "addedDate", "doneDate", "rateDownload", "rateUpload", "eta",
+            "uploadedEver", "downloadedEver", "ratio", "peersConnected",
+            "peersGettingFromUs", "peersSendingToUs", "error", "errorString",
+            "files", "fileStats", "trackers",
+        ],
+    ))
+    torrent = result["arguments"]["torrents"][0]
+    assert torrent["name"] == "Linux ISO"
+    assert torrent["ratio"] == 1.5
+    call = FakeAsyncClient.calls[-1]
+    assert call["method"] == "POST"
+    assert call["url"] == "http://transmission:9091/transmission/rpc"
+    assert call["json"]["method"] == "torrent-get"
+    assert call["json"]["arguments"]["ids"] == [7]
+    assert "trackers" in call["json"]["arguments"]["fields"]
+    assert call["auth"] == ("transmission-user", "transmission-password")
