@@ -234,8 +234,9 @@ function appCard(app,status){
  const check=status[app.id],online=!!(check&&check.ok===true);
  const configured=!!(check&&(check.configured===true||online));
  const planned=app.mode==='Planned integration';
- const state=planned?'Integración prevista':!configured?'Sin configurar':online?'Conectada':'Revisar conexión';
- const klass=online?'ok':configured?'bad':'';
+ const hasHealth=!!(check&&typeof check.ok==='boolean');
+ const state=planned?'Integración prevista':!configured?'Sin configurar':!hasHealth?'Configurada':online?'Conectada':'Revisar conexión';
+ const klass=online?'ok':hasHealth&&configured?'bad':'';
  return '<article class="card" data-app-card data-category="'+esc(app.category)+'" data-search="'+esc((app.name+' '+app.desc+' '+app.category).toLowerCase())+'" style="padding:12px"><div class="cardtop"><div><div class="name">'+esc(app.name)+'</div><div class="version">'+esc(app.category)+' · '+esc(app.mode)+'</div></div><span class="status '+klass+'">'+esc(state)+'</span></div><p class="muted" style="line-height:1.45;margin:8px 0">'+esc(app.desc)+'</p><button type="button" data-app-details="'+esc(app.id)+'">Ver información y configuración</button><div id="app-detail-'+esc(app.id)+'" class="info" hidden style="margin-top:10px"></div></article>';
 }
 
@@ -319,7 +320,7 @@ async function openView(view){const target=$('workspace');target.textContent='Lo
   $('apps-search').addEventListener('input',filterApps);
   $('apps-categories').addEventListener('click',e=>{const b=e.target.closest('[data-app-filter]');if(!b)return;active=b.dataset.appFilter;$('apps-categories').querySelectorAll('button').forEach(x=>x.style.borderColor=x===b?'#647cf6':'#34435d');filterApps();});
   const renderAppDetails=(app,panel)=>{
-   const check=statuses[app.id]||{},config=appConfigs[app.id],connection=check.ok===true?'Connection successful':check.configured===true?'Configured but not reachable':'Not configured';
+   const check=statuses[app.id]||{},config=appConfigs[app.id],connection=check.ok===true?'Connection successful':check.configured===true&&typeof check.ok!=='boolean'?'Configured':check.configured===true?'Configured but not reachable':'Not configured';
    const dashboards={
     questarr:[['status','Connection status'],['library','Game library']],
     frigate:[['status','NVR statistics'],['events','Recent detection events'],['review','Review queue'],['review_summary','Review summary']],
