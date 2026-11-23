@@ -349,7 +349,7 @@ async function openView(view){const target=$('workspace');target.textContent='Lo
     tdarr:[['status','Server status'],['nodes','Nodes'],['job_reports','Recent job reports']],
     bookorbit:[['health','Service status'],['libraries','Libraries'],['statistics','Statistics'],['format_distribution','Format distribution'],['search','Search books'],['book','Book details']],
     tidarr:[['status','Authentication status'],['queue_status','Queue status'],['queue','Download queue'],['history','Download history'],['sync_list','Auto-sync list']],
-    youtarr:[['capabilities','Capabilities'],['channels','Channels'],['videos','Search / browse videos'],['video','Video details'],['requests','Requests']],
+    youtarr:[['capabilities','Capabilities'],['channels','Channels'],['videos','Search / browse videos'],['video','Video details'],['requests','Requests'],['request_detail','Request details']],
     pulsarr:[['health','Service status'],['approval_requests','Approval queue'],['content_router_rules','Content router rules']],
     cleanuparr:[['health','Readiness'],['system','System status'],['events','Recent events'],['event_timeline','Event timeline'],['statistics','Statistics'],['recent_strikes','Recent strikes'],['strikes','Strike history'],['jobs','Scheduled jobs'],['manual_event_stats','Manual event statistics']],
     maintainerr:[['health','Readiness'],['app_status','Application status'],['timezone','Timezone'],['task_status','Scheduled task status']],
@@ -418,6 +418,13 @@ async function openView(view){const target=$('workspace');target.textContent='Lo
        const youtubeId=window.prompt('YouTube video ID (11 characters)');
        if(!youtubeId){output.textContent='Cancelled.';return;}
        args={youtube_id:youtubeId.trim()};
+      }
+      if(service==='youtarr'&&operation==='request_detail'){
+       const rawId=window.prompt('Youtarr request ID');
+       if(!rawId){output.textContent='Cancelled.';return;}
+       const requestId=Number(rawId);
+       if(!Number.isSafeInteger(requestId)||requestId<1){output.textContent='A positive numeric request ID is required.';return;}
+       args={request_id:requestId};
       }
       if(service==='cloudflare'&&operation==='dns_records'){
        const zoneId=window.prompt('Cloudflare zone ID (32 hexadecimal characters)');
