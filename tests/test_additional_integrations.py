@@ -103,6 +103,8 @@ class FakeAsyncClient:
             return FakeResponse({"paused": False, "rateLimited": False, "pending": 4})
         if url.endswith("/external-api/v1/videos/abcdefghijk"):
             return FakeResponse({"id": "abcdefghijk", "title": "Test video", "status": "downloaded"})
+        if url.endswith("/external-api/v1/requests/42"):
+            return FakeResponse({"id": 42, "status": "completed", "youtubeId": "abcdefghijk"})
         if url.endswith("/external-api/v1/videos"):
             return FakeResponse({"items": [{"id": "abcdefghijk", "title": "Test video"}]})
         if url.endswith("/api/v1/books/search"):
@@ -414,6 +416,17 @@ def test_youtarr_dashboard_video_detail_validates_youtube_id(registered):
     assert FakeAsyncClient.calls[-1]["url"] == "http://youtarr:3000/external-api/v1/videos/abcdefghijk"
     with pytest.raises(ValueError, match="11-character"):
         asyncio.run(status.dashboard_read("youtarr", "video", youtube_id="invalid"))
+
+
+def test_youtarr_dashboard_request_detail_validates_positive_id(registered):
+    status = integrations_status(registered)
+    result = asyncio.run(status.dashboard_read("youtarr", "request_detail", request_id=42))
+    assert result == {"id": 42, "status": "completed", "youtubeId": "abcdefghijk"}
+    call = FakeAsyncClient.calls[-1]
+    assert call["url"] == "http://youtarr:3000/external-api/v1/requests/42"
+    assert call["headers"]["X-Api-Key"] == "youtarr-read-key"
+    with pytest.raises(ValueError, match="positive"):
+        asyncio.run(status.dashboard_read("youtarr", "request_detail", request_id=0))
 
 
 
