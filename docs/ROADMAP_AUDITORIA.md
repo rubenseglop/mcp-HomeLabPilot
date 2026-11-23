@@ -286,7 +286,7 @@ flowchart TD
 | Tidarr | Estado de cola | COMPLETADO EN FEATURE | Se añade al panel el estado de pausa, rate limit y pendientes; operación de lectura. |
 | Agregarr | Actividad y missing items | COMPLETADO EN FEATURE | El panel añade actividad reciente, solicitudes de contenido ausente, estadísticas de esas solicitudes y trabajos programados; filtros de missing items validados y paginación acotada. |
 | Pruebas | Lecturas Youtarr, Tidarr y Agregarr | COMPLETADO EN FEATURE | Pruebas verifican endpoints, autenticación, parámetros y validación de IDs. |
-| CI | Runs 470–476 | COMPLETADO EN FEATURE | Runs 470–475 superados; run 476 en fase final tras completar tests Python, compilación y JavaScript. |
+| CI | Runs 470–476 | COMPLETADO EN FEATURE | Runs 470–477 superados; la suite de pruebas, compilación Python y validación JavaScript están completadas. |
 | Validación real | PENDIENTE | Requiere despliegue autorizado en el mediacenter. | 
 
-| 2026-11-23 | Ampliación Youtarr, Tidarr y Agregarr | CI runs 470–475 `success`; run 476 con las pruebas de unidad y compilaciones completadas, pendiente cierre del job. |
+| 2026-11-23 | Ampliación Youtarr, Tidarr y Agregarr | CI runs 470–477 `success`; run 477 incluye pruebas Python, compilación y validación JavaScript. |
