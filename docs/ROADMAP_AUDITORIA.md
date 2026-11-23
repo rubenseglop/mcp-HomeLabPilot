@@ -136,7 +136,7 @@ flowchart TD
 | Home Assistant | PARCIAL | Panel de configuración, estados, catálogo de servicios, consulta individual de entidades e historial por intervalo ISO-8601; operaciones del panel exclusivamente de lectura. Corregida la validación del formato `domain.object_id`. CI run 455 superado; pendiente validación visual y funcional en la instalación real. |
 | RomM | PARCIAL | Panel de plataformas, listado de juegos y colecciones ampliado con búsqueda por nombre y consulta de metadatos de un juego por ID; solo lectura y paginación acotada. CI run 458 superado; pendiente validación real en la instalación. |
 | Seanime | COMPLETADO EN FEATURE | Biblioteca, AniList, seguimiento, auditoría, inspección, archivos sin match y auto-downloader; ajustes booleanos seguros, añadir a AniList y reasignar archivos con preview firmado/confirmación exacta. Pruebas de redacción de secretos, permisos, token obsoleto, confirmación exacta y cambios concurrentes. Pendiente validación real tras despliegue autorizado. |
-| Resto de aplicaciones, priorizadas por utilidad | PARCIAL | Añadidos paneles de solo lectura para BookOrbit, Tidarr, Youtarr, Pulsarr, Cleanuparr, Maintainerr, Agregarr, Tracearr, Cloudflare, Transmission, FlareSolverr y tinyMediaManager; BookOrbit ya incluye búsqueda/detalle de libros y distribución de formatos. Pendiente revisión de cobertura y validación real. |
+| Resto de aplicaciones, priorizadas por utilidad | PARCIAL | Añadidos paneles de solo lectura para BookOrbit, Tidarr, Youtarr, Pulsarr, Cleanuparr, Maintainerr, Agregarr, Tracearr, Cloudflare, Transmission, FlareSolverr y tinyMediaManager; BookOrbit incluye búsqueda/detalle/distribución de formatos; Youtarr búsqueda y detalle de vídeos; Tidarr estado de cola; Agregarr actividad y solicitudes de elementos ausentes. Pendiente revisión de cobertura y validación real. |
 
 ## 5. Prioridad 4 — Calidad y validación final
 
@@ -276,3 +276,17 @@ flowchart TD
 | Validación visual/funcional real | PENDIENTE | Requiere despliegue autorizado y comprobar contra BookOrbit configurado. |
 
 | 2026-11-23 | Ampliación panel BookOrbit | CI runs 465 (b069fcb), 466 (7f58594) y 467 (286acd6) `success`. |
+
+
+## 12. Ampliación de paneles de automatización y catálogo
+
+| Aplicación | Cambio | Estado | Detalle |
+|---|---|---|---|
+| Youtarr | Búsqueda y detalle de vídeos | COMPLETADO EN FEATURE | El panel permite buscar en el catálogo y consultar la ficha de un vídeo por ID de YouTube validado (11 caracteres). Usa la API externa con API key configurada y no crea solicitudes. |
+| Tidarr | Estado de cola | COMPLETADO EN FEATURE | Se añade al panel el estado de pausa, rate limit y pendientes; operación de lectura. |
+| Agregarr | Actividad y missing items | COMPLETADO EN FEATURE | El panel añade actividad reciente, solicitudes de contenido ausente, estadísticas de esas solicitudes y trabajos programados; filtros de missing items validados y paginación acotada. |
+| Pruebas | Lecturas Youtarr, Tidarr y Agregarr | COMPLETADO EN FEATURE | Pruebas verifican endpoints, autenticación, parámetros y validación de IDs. |
+| CI | Runs 470–476 | COMPLETADO EN FEATURE | Runs 470–475 superados; run 476 en fase final tras completar tests Python, compilación y JavaScript. |
+| Validación real | PENDIENTE | Requiere despliegue autorizado en el mediacenter. | 
+
+| 2026-11-23 | Ampliación Youtarr, Tidarr y Agregarr | CI runs 470–475 `success`; run 476 con las pruebas de unidad y compilaciones completadas, pendiente cierre del job. |
