@@ -1003,3 +1003,51 @@ def test_docker_preview_rejects_invalid_container_and_action(monkeypatch):
         asyncio.run(server.docker_preview_container_action("../radarr", "stop"))
     with pytest.raises(ValueError, match="action"):
         asyncio.run(server.docker_preview_container_action("radarr", "remove"))
+
+
+def test_recyclarr_sync_requires_preview_and_exact_confirmation(monkeypatch):
+    import asyncio
+    import homelabpilot.server as server
+
+    monkeypatch.setenv("HOMELABPILOT_DOCKER_ENABLED", "true")
+    monkeypatch.setenv("HOMELABPILOT_DOCKER_PERMISSION_LEVEL", "operations")
+    monkeypatch.setenv("HOMELABPILOT_PREVIEW_SECRET", "r" * 40)
+    monkeypatch.setenv("RECYCLARR_CONTAINER", "recyclarr")
+    calls = []
+
+    async def fake_gateway(method, path):
+        calls.append((method, path))
+        if method == "GET":
+            return [{"name": "recyclarr", "state": "running"}]
+        return {"ok": True, "exit_code": 0}
+
+    monkeypatch.setattr(server, "_docker_gateway_request", fake_gateway)
+    monkeypatch.setattr(server, "_audit", lambda *args, **kwargs: None)
+
+    preview = asyncio.run(server.recyclarr_preview_sync())
+    assert preview["typed_confirmation"] == "CONFIRM RECYCLARR SYNC recyclarr"
+
+    with pytest.raises(PermissionError, match="preview"):
+        asyncio.run(server.recyclarr_confirm_sync("wrong", preview["typed_confirmation"]))
+
+    result = asyncio.run(server.recyclarr_confirm_sync(
+        preview["preview_token"], preview["typed_confirmation"]
+    ))
+    assert result["ok"] is True
+    assert calls == [
+        ("GET", "/v1/containers"),
+        ("GET", "/v1/containers"),
+        ("POST", "/v1/recyclarr/sync"),
+    ]
+
+
+def test_recyclarr_tools_require_configured_container(monkeypatch):
+    import asyncio
+    import homelabpilot.server as server
+
+    monkeypatch.setenv("HOMELABPILOT_DOCKER_ENABLED", "true")
+    monkeypatch.setenv("HOMELABPILOT_DOCKER_PERMISSION_LEVEL", "operations")
+    monkeypatch.delenv("RECYCLARR_CONTAINER", raising=False)
+
+    with pytest.raises(ValueError, match="RECYCLARR_CONTAINER"):
+        asyncio.run(server.recyclarr_preview_sync())
