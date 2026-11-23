@@ -176,7 +176,7 @@ flowchart TD
 |---|---|---|
 | 2026-11-23 | Rama `feature/complete-homelabpilot` creada desde `main` (`a5ddc62`) | COMPLETADO; `main` permanece intacta |
 | 2026-11-23 | Servidor local en `44985e1`; GitHub `main` en `a5ddc62` | CONFIRMADO; no sincronizar ni desplegar hasta completar auditoría |
-| 2026-11-23 | Hash de archivos del contenedor | BLOQUEADO por `Permission denied` al usar `docker exec` con usuario predeterminado; inspeccionar usuario/permisos y repetir como root |
+| 2026-11-23 | Hash de archivos del contenedor | COMPLETADO: cinco hashes SHA-256 coinciden entre host y contenedor; el primer `Permission denied` se debía al usuario no privilegiado `10001` |
 | 2026-11-23 | Diferencia 189/187 herramientas | RESUELTO: 189 decoradores, 187 nombres únicos; dos herramientas registradas dos veces |
 | 2026-11-23 | Versionado del paquete inconsistente | ABIERTO: `pyproject.toml` declara `0.5.0`; `src/homelabpilot/__init__.py` declara `0.1.0` |
 | 2026-11-23 | Proxy read-only | ABIERTO: regex actual deja fuera consultas Seanime de verificación/auditoría; revisar semántica antes de ampliar allowlist |
@@ -197,4 +197,4 @@ flowchart TD
 
 **Estados permitidos:** PENDIENTE · EN CURSO · COMPLETADO · PARCIAL · BLOQUEADO.
 
-**Siguiente paso:** continuar en Prioridad 1, apartado 1.1: confirmar qué código ejecuta realmente el contenedor. No repetir `stack_status`, `tools/list` ni los checks de salud ya registrados.
+**Siguiente paso:** continuar en Prioridad 1, apartado 1.2: cerrar inventario y clasificación de herramientas MCP, y después revisar catálogo y permisos del proxy. No repetir comprobaciones ya registradas.
