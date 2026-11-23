@@ -2050,7 +2050,12 @@ def register_integration_tools(
                 "health": cleanuparr_get_readiness,
                 "system": cleanuparr_get_system_status,
                 "events": cleanuparr_get_events,
+                "event_timeline": cleanuparr_get_event_timeline,
                 "statistics": cleanuparr_get_statistics,
+                "recent_strikes": cleanuparr_get_recent_strikes,
+                "strikes": cleanuparr_get_strikes,
+                "jobs": cleanuparr_get_jobs,
+                "manual_event_stats": cleanuparr_get_manual_event_stats,
             },
             "maintainerr": {
                 "health": maintainerr_get_health,
