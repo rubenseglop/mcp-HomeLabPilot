@@ -69,9 +69,9 @@ test("an allowed read call reaches upstream with the server bearer token", async
   let captured;
   await withProxy(async (url, options) => {
     captured = { url, options };
-    return new Response(JSON.stringify(rpc("tools/call", 9, {
-      content: [{ type: "text", text: "ok" }],
-    })), {
+    return new Response(JSON.stringify({
+      jsonrpc: "2.0", id: 9, result: { content: [{ type: "text", text: "ok" }] },
+    }), {
       status: 200,
       headers: { "content-type": "application/json" },
     });
@@ -115,14 +115,14 @@ test("a batch containing one blocked write is rejected atomically", async () => 
 });
 
 test("tools/list is filtered by the exact read-only allowlist", async () => {
-  await withProxy(async () => new Response(JSON.stringify(rpc("tools/list", 10, {
-    tools: [
+  await withProxy(async () => new Response(JSON.stringify({
+    jsonrpc: "2.0", id: 10, result: { tools: [
       { name: "seanime_get_settings" },
       { name: "seanime_add_to_anilist" },
       { name: "tdarr_get_nodes" },
       { name: "tdarr_preview_rescan_file" },
-    ],
-  })), {
+    ] },
+  }), {
     status: 200,
     headers: { "content-type": "application/json" },
   }), async (base) => {
