@@ -2075,6 +2075,7 @@ def register_integration_tools(
             },
             "cloudflare": {
                 "zones": cloudflare_list_zones,
+                "dns_records": cloudflare_list_dns_records,
             },
             "transmission": {
                 "session": transmission_get_session,
