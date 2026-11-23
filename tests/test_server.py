@@ -823,13 +823,13 @@ def test_stack_status_lists_tools_for_connected_services_only(monkeypatch):
     assert radarr["ok"] is True
     assert radarr["tool_count"] == 3
     assert [tool["name"] for tool in radarr["tools"]] == [
-        "arr_api_request", "arr_add_movie", "arr_list_library"
+        "arr_add_movie", "arr_api_request", "arr_list_library"
     ]
     sonarr = result["services"]["sonarr"]
     assert sonarr["ok"] is True
     assert sonarr["tool_count"] == 3
     assert [tool["name"] for tool in sonarr["tools"]] == [
-        "arr_api_request", "arr_add_series", "arr_list_library", "sonarr_get_series"
+        "arr_add_series", "arr_api_request", "arr_list_library", "sonarr_get_series"
     ]
     prowlarr = result["services"]["prowlarr"]
     assert prowlarr["ok"] is True
