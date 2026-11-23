@@ -2022,7 +2022,10 @@ def register_integration_tools(
                 "health": bookorbit_get_health,
                 "libraries": bookorbit_list_libraries,
                 "statistics": bookorbit_get_statistics,
+                "format_distribution": bookorbit_get_format_distribution,
                 "library_stats": bookorbit_get_library_stats,
+                "search": bookorbit_search_books,
+                "book": bookorbit_get_book,
             },
             "tidarr": {
                 "status": tidarr_get_auth_status,
