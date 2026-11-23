@@ -7,8 +7,10 @@ import {
 } from "../mcp-readonly-policy.mjs";
 
 test("read-only policy is an explicit, bounded inventory", () => {
-  assert.equal(READ_ONLY_TOOLS.size, 140);
+  assert.equal(READ_ONLY_TOOLS.size, 146);
   assert.equal(isReadOnlyTool("stack_status"), true);
+  assert.equal(isReadOnlyTool("frigate_list_events"), true);
+  assert.equal(isReadOnlyTool("questarr_get_library"), true);
   assert.equal(isReadOnlyTool("seanime_audit_library"), true);
   assert.equal(isReadOnlyTool("flaresolverr_request_get"), false);
   assert.equal(isReadOnlyTool("arr_add_movie"), false);
