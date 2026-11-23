@@ -1050,3 +1050,50 @@ def test_recyclarr_tools_require_configured_container(monkeypatch):
 
     with pytest.raises(ValueError, match="RECYCLARR_CONTAINER"):
         asyncio.run(server.recyclarr_preview_sync())
+
+
+def test_web_dashboard_reads_only_registered_integration_operations(monkeypatch):
+    import asyncio
+    import homelabpilot.server as server
+
+    calls = []
+
+    async def fake_dashboard_read(service, operation, **arguments):
+        calls.append((service, operation, arguments))
+        return {"service": service, "operation": operation}
+
+    monkeypatch.setattr(server.integration_status, "dashboard_read", fake_dashboard_read)
+    result = asyncio.run(server._web_api_request(
+        "/web-api/integration/read", "POST", {},
+        {"service": "frigate", "operation": "events", "arguments": {"limit": 10}},
+    ))
+
+    assert result == {"service": "frigate", "operation": "events"}
+    assert calls == [("frigate", "events", {"limit": 10})]
+
+
+def test_web_dashboard_recyclarr_routes_require_preview_and_confirmation(monkeypatch):
+    import asyncio
+    import homelabpilot.server as server
+
+    monkeypatch.setenv("HOMELABPILOT_DOCKER_ENABLED", "true")
+    monkeypatch.setenv("HOMELABPILOT_DOCKER_PERMISSION_LEVEL", "operations")
+    monkeypatch.setenv("HOMELABPILOT_PREVIEW_SECRET", "w" * 40)
+    monkeypatch.setenv("RECYCLARR_CONTAINER", "recyclarr")
+    monkeypatch.setattr(server, "_docker_gateway_request", lambda *args, **kwargs: None)
+
+    async def fake_preview():
+        return {"preview_token": "preview", "typed_confirmation": "CONFIRM RECYCLARR SYNC recyclarr"}
+
+    async def fake_confirm(token, phrase):
+        return {"ok": token == "preview" and phrase == "CONFIRM RECYCLARR SYNC recyclarr"}
+
+    monkeypatch.setattr(server, "recyclarr_preview_sync", fake_preview)
+    monkeypatch.setattr(server, "recyclarr_confirm_sync", fake_confirm)
+
+    preview = asyncio.run(server._web_api_request("/web-api/recyclarr/preview", "POST", {}, {}))
+    result = asyncio.run(server._web_api_request(
+        "/web-api/recyclarr/confirm", "POST", {},
+        {"preview_token": preview["preview_token"], "typed_confirmation": preview["typed_confirmation"]},
+    ))
+    assert result == {"ok": True}
