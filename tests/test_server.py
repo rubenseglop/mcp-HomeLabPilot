@@ -1097,3 +1097,39 @@ def test_web_dashboard_recyclarr_routes_require_preview_and_confirmation(monkeyp
         {"preview_token": preview["preview_token"], "typed_confirmation": preview["typed_confirmation"]},
     ))
     assert result == {"ok": True}
+
+
+def test_docker_dashboard_routes_forward_preview_confirmation(monkeypatch):
+    import asyncio
+    import homelabpilot.server as server
+
+    calls = []
+
+    async def fake_preview(container, action):
+        calls.append(("preview", container, action))
+        return {"preview_token": "signed", "typed_confirmation": "CONFIRM DOCKER RESTART radarr"}
+
+    async def fake_control(container, action, token, phrase):
+        calls.append(("control", container, action, token, phrase))
+        return {"ok": True}
+
+    monkeypatch.setattr(server, "docker_preview_container_action", fake_preview)
+    monkeypatch.setattr(server, "docker_control_allowlisted_container", fake_control)
+
+    preview = asyncio.run(server._web_api_request(
+        "/web-api/docker/preview", "POST", {}, {"container": "radarr", "action": "restart"}
+    ))
+    result = asyncio.run(server._web_api_request(
+        "/web-api/docker/control", "POST", {},
+        {
+            "container": "radarr", "action": "restart",
+            "preview_token": preview["preview_token"],
+            "typed_confirmation": preview["typed_confirmation"],
+        },
+    ))
+
+    assert result == {"ok": True}
+    assert calls == [
+        ("preview", "radarr", "restart"),
+        ("control", "radarr", "restart", "signed", "CONFIRM DOCKER RESTART radarr"),
+    ]
