@@ -1627,9 +1627,16 @@ async def _web_api_request_inner(
 
     if method == "GET" and path == "/web-api/docker/containers":
         return await docker_list_allowlisted_containers()
+    if method == "POST" and path == "/web-api/docker/preview":
+        return await docker_preview_container_action(
+            str(payload.get("container", "")), str(payload.get("action", ""))
+        )
     if method == "POST" and path == "/web-api/docker/control":
         return await docker_control_allowlisted_container(
-            str(payload.get("container", "")), str(payload.get("action", ""))
+            str(payload.get("container", "")),
+            str(payload.get("action", "")),
+            str(payload.get("preview_token", "")),
+            str(payload.get("typed_confirmation", "")),
         )
 
     if method == "GET" and path == "/web-api/scryer/recycle-bin":
