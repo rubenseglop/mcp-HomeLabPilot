@@ -126,13 +126,13 @@ flowchart TD
 
 | Aplicación | Estado |
 |---|---|
-| Plex | PENDIENTE |
-| Jellyfin | PENDIENTE |
-| Seerr | PENDIENTE |
-| Immich | PENDIENTE |
-| Tdarr | PENDIENTE |
-| Home Assistant | PENDIENTE |
-| RomM | PENDIENTE |
+| Plex | PARCIAL | Panel de bibliotecas, añadidos recientes, reproducción activa y On Deck; pendiente CI y validación real. |
+| Jellyfin | PARCIAL | Panel de servidor, bibliotecas y sesiones; pendiente CI y validación real. |
+| Seerr | PARCIAL | Panel de estado, cola de solicitudes y datos de aplicación; pendiente CI y validación real. |
+| Immich | PARCIAL | Panel de estadísticas del servidor y álbumes; pendiente CI y validación real. |
+| Tdarr | PARCIAL | Panel de estado, nodos e informes de trabajos; pendiente CI y validación real. |
+| Home Assistant | PARCIAL | Panel de configuración, estados de entidades y catálogo de servicios; solo lectura; pendiente CI y validación real. |
+| RomM | PARCIAL | Panel de plataformas, juegos y colecciones; pendiente CI y validación real. |
 | Resto de aplicaciones, priorizadas por utilidad | PENDIENTE |
 
 ## 5. Prioridad 4 — Calidad y validación final
