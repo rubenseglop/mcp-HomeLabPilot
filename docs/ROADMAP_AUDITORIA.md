@@ -133,7 +133,7 @@ flowchart TD
 | Seerr | PARCIAL | Panel de estado, cola de solicitudes y datos de aplicación; pendiente CI y validación real. |
 | Immich | PARCIAL | Panel de estadísticas del servidor y álbumes; pendiente CI y validación real. |
 | Tdarr | COMPLETADO EN FEATURE | Cinco herramientas de lectura (estado, nodos, búsqueda, informes paginados y detalle de informe) y dos flujos de escritura (reencolar hasta 50 archivos y reescanear un archivo) con permiso `operations`, preview firmado y confirmación exacta. Pruebas unitarias específicas añadidas; CI run 434 superado (suite completa; fallos intermedios 431–433 corregidos y sustituidos); validación real pendiente de despliegue autorizado tras autorización de despliegue. |
-| Home Assistant | PARCIAL | Panel de configuración, estados de entidades y catálogo de servicios; solo lectura; pendiente CI y validación real. |
+| Home Assistant | PARCIAL | Panel de configuración, estados, catálogo de servicios, consulta individual de entidades e historial por intervalo ISO-8601; operaciones del panel exclusivamente de lectura. Corregida la validación del formato `domain.object_id`. CI run 455 superado; pendiente validación visual y funcional en la instalación real. |
 | RomM | PARCIAL | Panel de plataformas, juegos y colecciones; pendiente CI y validación real. |
 | Seanime | COMPLETADO EN FEATURE | Biblioteca, AniList, seguimiento, auditoría, inspección, archivos sin match y auto-downloader; ajustes booleanos seguros, añadir a AniList y reasignar archivos con preview firmado/confirmación exacta. Pruebas de redacción de secretos, permisos, token obsoleto, confirmación exacta y cambios concurrentes. Pendiente validación real tras despliegue autorizado. |
 | Resto de aplicaciones, priorizadas por utilidad | PARCIAL | Añadidos paneles de solo lectura para BookOrbit, Tidarr, Youtarr, Pulsarr, Cleanuparr, Maintainerr, Agregarr, Tracearr, Cloudflare, Transmission, FlareSolverr y tinyMediaManager; pendiente CI, revisión de cobertura y validación real. |
@@ -245,3 +245,4 @@ flowchart TD
 | Integraciones sin versión mostraban una segunda línea «Conectado» debajo del indicador de estado. | La tarjeta solo presenta una línea secundaria cuando existe versión o nombre de aplicación. | Renderizado frontend corregido; pendiente validación visual en el servidor. |
 
 | 2026-11-23 | Correcciones de inventario y presentación del panel | CI run 450 (`c4c6bf7`) `success`: 148 tests Python, validación de JavaScript y pruebas del proxy superadas. |
+| 2026-11-23 | Panel Home Assistant: detalle e historial de entidades | CI run 455 (`64da436`) `success`: suite Python, compilación y comprobación JavaScript superadas; incluye pruebas de entidad válida/inválida e historial con zona horaria. |
