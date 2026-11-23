@@ -102,10 +102,10 @@ flowchart TD
 
 | Tarea | Estado | Alcance |
 |---|---|---|
-| Questarr | PARCIAL | API de lectura y panel en catálogo con estado/biblioteca; credencial `read`, límites y pruebas unitarias. Pendiente CI del panel y validación real. |
+| Questarr | PARCIAL | API de lectura y panel en catálogo con estado/biblioteca; credencial `read`, límites y pruebas unitarias. CI de la rama superado (run 410); pendiente validación real. |
 | Frigate | PARCIAL | API de estadísticas/eventos/revisión y panel en catálogo; bearer JWT, solo lectura y paginación acotada. Pendiente CI del panel y validación real. |
-| Recyclarr | PARCIAL | Estado del contenedor y ejecución fija `recyclarr sync` mediante Docker Gateway, limitada a contenedor configurado/allowlist y preview firmado con confirmación exacta. Añadido panel en catálogo; pendiente CI del panel y prueba real. |
-| Docker Gateway | PARCIAL | Gateway limitado a lista explícita y start/stop/restart más comando fijo Recyclarr sync. Las acciones MCP y el panel web requieren preview firmado, comprobación previa de allowlist y confirmación escrita. CI run 405 pasó; pendiente validación real con el perfil Docker habilitado. |
+| Recyclarr | PARCIAL | Estado del contenedor y ejecución fija `recyclarr sync` mediante Docker Gateway, limitada a contenedor configurado/allowlist y preview firmado con confirmación exacta. Panel en catálogo y CI de la rama superado (run 410); pendiente prueba real. |
+| Docker Gateway | PARCIAL | Gateway limitado a lista explícita y start/stop/restart más comando fijo Recyclarr sync. Las acciones MCP y el panel web requieren preview firmado, comprobación previa de allowlist y confirmación escrita. CI de la rama superado hasta `a6e3b60` (run 410); pendiente validación real con el perfil Docker habilitado. |
 
 ## 4. Prioridad 3 — Paneles propios
 
@@ -175,7 +175,7 @@ flowchart TD
 |---|---|---|
 | 2026-11-23 | Repositorio, rama y commit | Checkout del servidor `44985e1`; GitHub `main` `a5ddc62`; rama de trabajo creada desde GitHub `main` |
 | 2026-11-23 | `stack_status` | 10/10 servicios configurados responden correctamente |
-| 2026-11-23 | MCP `tools/list` | 187 herramientas; sin error JSON-RPC |
+| 2026-11-23 | MCP `tools/list` | 187 herramientas; sin error JSON-RPC |\n| 2026-11-23 | CI de mejora de inventario por servicio | run 410 (`a6e3b60`) completado con `success`; tests Python, Node y comprobación de sintaxis JS superados |
 | 2026-11-23 | Proxy `/health` | HTTP 200; modo `read-only` |
 | 2026-11-23 | Gateway de agentes `/health` | HTTP 200; Codex autenticado y MCP configurado |
 | 2026-11-23 | Revisión estática de `integration_catalog` | PARCIAL: 20 integraciones HTTP + 4 no HTTP; duplicidad de Seanime en la composición del catálogo; pendiente validación funcional |
@@ -220,4 +220,4 @@ flowchart TD
 
 **Estados permitidos:** PENDIENTE · EN CURSO · COMPLETADO · PARCIAL · BLOQUEADO.
 
-**Siguiente paso:** ejecutar CI de la rama feature tras Questarr/Frigate, corregir cualquier fallo y continuar con Recyclarr y Docker Gateway. No desplegar ni pedir al usuario pruebas repetitivas hasta tener el bloque de cambios preparado.
+**Siguiente paso:** retomar la auditoría de Prioridad 1.2: contrastar el inventario completo de herramientas MCP con la allowlist del proxy y cerrar la clasificación de efectos (lectura, escritura, preview/confirmación y helpers). Después completar la prueba de lectura y el rechazo seguro de escritura a través del proxy. No desplegar ni pedir al usuario pruebas repetitivas hasta tener el bloque de cambios preparado.
