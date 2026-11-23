@@ -349,7 +349,7 @@ async function openView(view){const target=$('workspace');target.textContent='Lo
     tdarr:[['status','Server status'],['nodes','Nodes'],['job_reports','Recent job reports']],
     bookorbit:[['health','Service status'],['libraries','Libraries'],['statistics','Statistics'],['format_distribution','Format distribution'],['search','Search books'],['book','Book details']],
     tidarr:[['status','Authentication status'],['queue','Download queue'],['history','Download history'],['sync_list','Auto-sync list']],
-    youtarr:[['capabilities','Capabilities'],['channels','Channels'],['videos','Videos'],['requests','Requests']],
+    youtarr:[['capabilities','Capabilities'],['channels','Channels'],['videos','Search / browse videos'],['video','Video details'],['requests','Requests']],
     pulsarr:[['health','Service status'],['approval_requests','Approval queue'],['content_router_rules','Content router rules']],
     cleanuparr:[['health','Readiness'],['system','System status'],['events','Recent events'],['statistics','Statistics']],
     maintainerr:[['health','Readiness'],['app_status','Application status'],['timezone','Timezone']],
@@ -408,6 +408,16 @@ async function openView(view){const target=$('workspace');target.textContent='Lo
        const bookId=Number(rawId);
        if(!Number.isInteger(bookId)||bookId<1){output.textContent='A positive numeric book ID is required.';return;}
        args={book_id:bookId};
+      }
+      if(service==='youtarr'&&operation==='videos'){
+       const search=window.prompt('Search Youtarr videos (leave blank to browse)');
+       args={page_size:50,status:'all',tab_type:'videos'};
+       if(search&&search.trim())args.search=search.trim();
+      }
+      if(service==='youtarr'&&operation==='video'){
+       const youtubeId=window.prompt('YouTube video ID (11 characters)');
+       if(!youtubeId){output.textContent='Cancelled.';return;}
+       args={youtube_id:youtubeId.trim()};
       }
       if(['jellyfin','seerr','immich'].includes(service)&&operation==='search'){
        const searchTerm=window.prompt(service==='immich'?'Search Immich asset metadata':'Search '+service+' media');
