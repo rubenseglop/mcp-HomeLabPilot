@@ -1561,6 +1561,24 @@ async def _web_api_request_inner(
         _audit("CONFIG_UPDATE", app_id, ",".join(sorted(values)))
         return result
 
+    if method == "POST" and path == "/web-api/integration/read":
+        service = str(payload.get("service", ""))
+        operation = str(payload.get("operation", ""))
+        arguments = payload.get("arguments", {})
+        if not isinstance(arguments, dict):
+            raise ValueError("arguments must be a JSON object")
+        return await integration_status.dashboard_read(service, operation, **arguments)
+
+    if method == "GET" and path == "/web-api/recyclarr/status":
+        return await recyclarr_get_status()
+    if method == "POST" and path == "/web-api/recyclarr/preview":
+        return await recyclarr_preview_sync()
+    if method == "POST" and path == "/web-api/recyclarr/confirm":
+        return await recyclarr_confirm_sync(
+            str(payload.get("preview_token", "")),
+            str(payload.get("typed_confirmation", "")),
+        )
+
     if method == "GET" and path == "/web-api/tdarr/status":
         return await integration_status.dashboard_read("tdarr", "status")
     if method == "GET" and path == "/web-api/tdarr/nodes":
