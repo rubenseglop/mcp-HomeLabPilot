@@ -106,6 +106,7 @@ flowchart TD
 | Frigate | PARCIAL | API de estadísticas/eventos/revisión y panel en catálogo; bearer JWT, solo lectura y paginación acotada. Pendiente CI del panel y validación real. |
 | Recyclarr | PARCIAL | Estado del contenedor y ejecución fija `recyclarr sync` mediante Docker Gateway, limitada a contenedor configurado/allowlist y preview firmado con confirmación exacta. Panel en catálogo y CI de la rama superado (run 410); pendiente prueba real. |
 | Docker Gateway | PARCIAL | Gateway limitado a lista explícita y start/stop/restart más comando fijo Recyclarr sync. Las acciones MCP y el panel web requieren preview firmado, comprobación previa de allowlist y confirmación escrita. CI de la rama superado hasta `a6e3b60` (run 410); pendiente validación real con el perfil Docker habilitado. |
+| Seanime — gestión de configuración | PENDIENTE | La API actual ofrece `GET /api/v1/settings`, `PATCH /api/v1/settings` y `PATCH /api/v1/settings/path`, además de endpoints específicos para auto-downloader y reproductor. Diseñar herramientas de lectura y cambio individual con preview firmado y confirmación escrita; nunca incluir estas mutaciones en el proxy read-only. |
 
 ## 4. Prioridad 3 — Paneles propios
 
@@ -201,6 +202,10 @@ flowchart TD
 | Incorporar lecturas Seanime revisadas | COMPLETADO EN FEATURE | Añadidas `seanime_audit_library`, `seanime_inspect_entry` y `seanime_verify_reassignment`; no se exponen herramientas de preview ni mutación. |
 | Revisar semántica de herramientas Seanime permitidas | COMPLETADO EN FEATURE | `seanime_search_anime` usa POST contra un endpoint de búsqueda de AniList sin mutación; `seanime_verify_reassignment` consulta archivos locales; `seanime_audit_library` e `seanime_inspect_entry` solo leen datos. No se detectan efectos de escritura en estas herramientas. |
 | Revisar semántica de herramientas ARR y qBittorrent permitidas | COMPLETADO EN FEATURE | Las 11 herramientas ARR/qBittorrent incluidas en este grupo usan métodos GET; no se detectan mutaciones. |
+| Revisar POST de consulta de Tdarr | COMPLETADO EN FEATURE | `tdarr_search_files` (`/api/v2/search-db`) y `tdarr_list_job_reports` (`/api/v2/client/jobs`) usan POST para búsquedas/listados; no modifican trabajos ni archivos. Las herramientas de requeue/rescan siguen fuera de la allowlist. |
+| Revisar FlareSolverr | COMPLETADO EN FEATURE | `flaresolverr_list_sessions` usa POST `sessions.list` y es consulta. `flaresolverr_request_get` usa POST `request.get`, realiza una petición externa arbitraria y permanece fuera de la allowlist read-only (además requiere permiso `operations`). |
+| Revisar Transmission RPC | COMPLETADO EN FEATURE | `session-get`, `session-stats` y `torrent-get` son los únicos métodos RPC tratados como lectura por `TRANSMISSION_READ_METHODS`; la herramienta genérica solo admite esos métodos y la allowlist no expone acciones de modificación. |
+| Verificar herramientas genéricas con capacidad de escritura | COMPLETADO EN FEATURE | `arr_api_request`, `integration_api_request` y `scryer_graphql` permanecen fuera de la allowlist. Las dos primeras admiten controles/métodos mutantes bajo permisos; GraphQL puede ejecutar mutaciones y exige nivel admin. |
 | Filtrar `tools/list` en respuestas JSON-RPC batch | COMPLETADO EN FEATURE | Filtro compartido para respuestas individuales y arrays; incluye transporte JSON y SSE. |
 | Rechazar batches que contengan llamadas no aprobadas | COMPLETADO EN FEATURE | El batch completo se rechaza para evitar ejecución parcial ambigua; las llamadas aprobadas individuales siguen su flujo normal. |
 | Añadir pruebas Node.js de la política | COMPLETADO EN FEATURE | `tests/proxy-policy.test.mjs`; comprueba allowlist, denegación por defecto y filtrado simple/batch. |
@@ -222,4 +227,4 @@ flowchart TD
 
 **Estados permitidos:** PENDIENTE · EN CURSO · COMPLETADO · PARCIAL · BLOQUEADO.
 
-**Siguiente paso:** continuar la revisión semántica de integraciones adicionales. Confirmar los POST de consulta de Tdarr y FlareSolverr, revisar los métodos RPC de Transmission y verificar que las herramientas genéricas mutantes permanecen fuera de la allowlist. La comparación estática de inventario ya está registrada. No desplegar ni pedir al usuario pruebas repetitivas hasta tener el bloque de cambios preparado.
+**Siguiente paso:** cerrar la auditoría de las herramientas restantes del proxy y revisar los mecanismos de autenticación/autorización del transporte MCP. En paralelo, dejar planificada la integración de configuración de Seanime con preview y confirmación. No desplegar ni pedir al usuario pruebas repetitivas hasta tener el bloque de cambios preparado.
