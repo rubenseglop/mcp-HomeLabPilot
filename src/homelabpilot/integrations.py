@@ -1983,22 +1983,26 @@ def register_integration_tools(
             "plex": {
                 "libraries": plex_get_library_sections,
                 "recent": plex_get_recently_added_all,
+                "recent_section": plex_get_recently_added,
                 "sessions": plex_get_active_sessions,
                 "on_deck": plex_get_on_deck,
             },
             "jellyfin": {
+                "server_info": jellyfin_get_server_info,
                 "libraries": jellyfin_get_libraries,
                 "sessions": jellyfin_get_active_sessions,
-                "server_info": jellyfin_get_server_info,
+                "search": jellyfin_search_items,
             },
             "seerr": {
                 "status": seerr_get_status,
                 "requests": seerr_get_requests,
                 "application_data": seerr_get_application_data_status,
+                "search": seerr_search_media,
             },
             "immich": {
-                "albums": immich_get_albums,
                 "statistics": immich_get_server_statistics,
+                "albums": immich_get_albums,
+                "search": immich_search_assets,
             },
             "romm": {
                 "platforms": romm_get_platforms,
