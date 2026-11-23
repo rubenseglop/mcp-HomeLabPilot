@@ -182,6 +182,7 @@ flowchart TD
 | 2026-11-23 | Versionado del paquete inconsistente | ABIERTO: `pyproject.toml` declara `0.5.0`; `src/homelabpilot/__init__.py` declara `0.1.0` |
 | 2026-11-23 | Proxy read-only | ABIERTO: regex actual deja fuera consultas Seanime de verificación/auditoría; revisar semántica antes de ampliar allowlist |
 | 2026-11-23 | Cobertura CI | Workflow 337 de GitHub Actions para `main`/`a5ddc62`: `success`; la rama de desarrollo aún no ha ejecutado CI |
+| 2026-11-23 | Revisión estática del inventario MCP y proxy | 189 decoradores, 187 nombres únicos; el proxy permite 133 herramientas por regex y bloquea 54. Excluye al menos tres lecturas Seanime (`seanime_verify_reassignment`, `seanime_audit_library`, `seanime_inspect_entry`). En JSON-RPC batch, `tools/list` no aplica el filtrado de nombres; las llamadas mutantes sí se comprueban individualmente. Pendiente validar comportamiento real y revisar la allowlist semánticamente |
 
 ## 8. Protocolo obligatorio de trabajo
 
