@@ -1,6 +1,7 @@
 """Tests for Seanime read-only inspection and guarded settings changes."""
 
 import asyncio
+import hashlib
 import json
 
 import pytest
@@ -33,15 +34,7 @@ class FakeResponse:
 
 class FakeAsyncClient:
     calls = []
-    settings = {
-        "library": {
-            "autoUpdateProgress": True,
-            "enableManga": False,
-            "libraryPath": "/media/anime",
-        },
-        "torrent": {"qbittorrentPassword": "do-not-return"},
-        "nakama": {"hostPassword": "secret"},
-    }
+    settings = {}
 
     def __init__(self, *args, **kwargs):
         self.headers = kwargs.get("headers", {})
@@ -68,6 +61,11 @@ class FakeAsyncClient:
         raise AssertionError(f"Unexpected Seanime request: {method} {url}")
 
 
+def token_for(snapshot):
+    digest = hashlib.sha256(json.dumps(snapshot, sort_keys=True).encode()).hexdigest()
+    return "signed-preview:" + digest
+
+
 @pytest.fixture
 def registered(monkeypatch):
     monkeypatch.setenv("SEANIME_URL", "http://seanime:4321")
@@ -88,7 +86,7 @@ def registered(monkeypatch):
 
     def make_token(snapshot):
         snapshots.append(snapshot)
-        return "signed-preview:" + json.dumps(snapshot, sort_keys=True)
+        return token_for(snapshot)
 
     mcp = FakeMCP()
     seanime.register_seanime_tools(
@@ -123,8 +121,12 @@ def test_setting_preview_is_admin_only_and_signed(registered):
 
 def test_setting_confirm_requires_exact_preview_and_confirmation(registered):
     tools, permissions, _ = registered
+    snapshot = {
+        "service": "seanime", "operation": "update-setting",
+        "path": "library.enableManga", "current_value": False, "new_value": True,
+    }
     result = asyncio.run(tools["seanime_confirm_update_setting"](
-        "library.enableManga", True, "signed-preview:" + json.dumps({\n            "service": "seanime", "operation": "update-setting",\n            "path": "library.enableManga", "current_value": False, "new_value": True,\n        }, sort_keys=True),
+        "library.enableManga", True, token_for(snapshot),
         "CONFIRM SEANIME SETTING library.enableManga = true",
     ))
     assert result["changed"] is True
@@ -137,7 +139,10 @@ def test_setting_confirm_requires_exact_preview_and_confirmation(registered):
 
 @pytest.mark.parametrize("token,phrase", [
     ("wrong-token", "CONFIRM SEANIME SETTING library.enableManga = true"),
-    ("signed-preview:" + json.dumps({\n        "service": "seanime", "operation": "update-setting",\n        "path": "library.enableManga", "current_value": False, "new_value": True,\n    }, sort_keys=True), "wrong phrase"),
+    (token_for({
+        "service": "seanime", "operation": "update-setting",
+        "path": "library.enableManga", "current_value": False, "new_value": True,
+    }), "wrong phrase"),
 ])
 def test_setting_confirm_rejects_stale_or_inexact_confirmation(registered, token, phrase):
     tools, _, _ = registered
@@ -162,11 +167,13 @@ def test_setting_preview_rejects_unsafe_paths_and_wrong_types(registered, path, 
 
 def test_setting_confirm_rechecks_current_value_before_patch(registered):
     tools, _, _ = registered
-    asyncio.run(tools["seanime_preview_update_setting"]("library.enableManga", True))
+    preview = asyncio.run(tools["seanime_preview_update_setting"](
+        "library.enableManga", True
+    ))
     FakeAsyncClient.settings["library"]["enableManga"] = True
     with pytest.raises(PermissionError, match="stale"):
         asyncio.run(tools["seanime_confirm_update_setting"](
-            "library.enableManga", True, "signed-preview",
-            "CONFIRM SEANIME SETTING library.enableManga = true",
+            "library.enableManga", True, preview["preview_token"],
+            preview["typed_confirmation"],
         ))
     assert not any(call["method"] == "PATCH" for call in FakeAsyncClient.calls)
