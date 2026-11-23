@@ -2,14 +2,18 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
 import os
 from typing import Any
 
 import httpx
 
 
-def register_seanime_tools(mcp: Any, timeout: float = 15, audit: Any = None) -> None:
-    """Register read-only Seanime MCP tools."""
+def register_seanime_tools(
+    mcp: Any, timeout: float = 15, audit: Any = None,
+    require_permission: Any = None, make_preview_token: Any = None,
+) -> None:
+    """Register Seanime read and guarded configuration tools."""
 
     async def request(path: str, method: str = "GET", json_body: dict | None = None) -> Any:
         base_url = os.getenv("SEANIME_URL", "").strip().rstrip("/")
@@ -685,3 +689,145 @@ def register_seanime_tools(mcp: Any, timeout: float = 15, audit: Any = None) -> 
             "queue": as_list(data_of(await request("/api/v1/auto-downloader/items"))),
             "profiles": as_list(data_of(await request("/api/v1/auto-downloader/profiles"))),
         }
+
+
+    # Only low-risk boolean preferences are editable through this workflow.
+    # Library paths, credentials, torrent clients, media-player commands and
+    # account settings deliberately remain outside this generic setting API.
+    EDITABLE_BOOLEAN_SETTINGS = {
+        "library.autoUpdateProgress",
+        "library.disableUpdateCheck",
+        "library.autoScan",
+        "library.enableOnlinestream",
+        "library.disableAnimeCardTrailers",
+        "library.enableManga",
+        "library.openTorrentClientOnStart",
+        "library.openWebURLOnStart",
+        "library.refreshLibraryOnStart",
+        "library.autoPlayNextEpisode",
+        "library.enableWatchContinuity",
+        "library.autoSyncOfflineLocalData",
+        "library.autoSyncToLocalAccount",
+        "library.autoSaveCurrentMediaOffline",
+        "library.useFallbackMetadataProvider",
+        "library.scannerUseLegacyMatching",
+        "library.enableExtensionSecureMode",
+        "library.showTorrentAvailability",
+        "autoDownloader.enabled",
+        "autoDownloader.downloadAutomatically",
+        "autoDownloader.enableEnhancedQueries",
+        "autoDownloader.enableSeasonCheck",
+        "autoDownloader.useDebrid",
+        "notifications.disableNotifications",
+        "notifications.disableAutoDownloaderNotifications",
+        "notifications.disableAutoScannerNotifications",
+        "discord.enableRichPresence",
+        "discord.enableAnimeRichPresence",
+        "discord.enableMangaRichPresence",
+    }
+
+    def require_admin() -> None:
+        if require_permission is None or make_preview_token is None:
+            raise RuntimeError("Seanime guarded settings workflow is not configured")
+        require_permission("admin")
+
+    def redact_settings(value: Any) -> Any:
+        if isinstance(value, dict):
+            redacted = {}
+            for key, child in value.items():
+                normalized = str(key).replace("_", "").lower()
+                if any(marker in normalized for marker in (
+                    "password", "token", "apikey", "secret", "authorization",
+                )):
+                    redacted[key] = "[REDACTED]" if child not in (None, "") else child
+                else:
+                    redacted[key] = redact_settings(child)
+            return redacted
+        if isinstance(value, list):
+            return [redact_settings(item) for item in value]
+        return value
+
+    def nested_setting(settings: Any, path: str) -> Any:
+        current = settings
+        for part in path.split("."):
+            if not isinstance(current, dict) or part not in current:
+                raise ValueError(f"Seanime setting path does not exist: {path}")
+            current = current[part]
+        return current
+
+    @mcp.tool()
+    async def seanime_get_settings() -> dict:
+        """Read Seanime application settings with passwords, tokens and API keys redacted."""
+        settings = data_of(await request("/api/v1/settings"))
+        if not isinstance(settings, dict):
+            raise RuntimeError("Seanime returned an unexpected settings payload")
+        return redact_settings(settings)
+
+    @mcp.tool()
+    async def seanime_preview_update_setting(path: str, value: bool) -> dict:
+        """Preview a low-risk boolean Seanime preference change; requires admin permission."""
+        require_admin()
+        setting_path = path.strip()
+        if setting_path not in EDITABLE_BOOLEAN_SETTINGS:
+            raise ValueError("Setting is not in the safe boolean allowlist")
+        if not isinstance(value, bool):
+            raise ValueError("value must be a boolean")
+        settings = data_of(await request("/api/v1/settings"))
+        current = nested_setting(settings, setting_path)
+        if not isinstance(current, bool):
+            raise ValueError("Current setting is not boolean; refusing to change its type")
+        snapshot = {
+            "service": "seanime",
+            "operation": "update-setting",
+            "path": setting_path,
+            "current_value": current,
+            "new_value": value,
+        }
+        phrase = f"CONFIRM SEANIME SETTING {setting_path} = {str(value).lower()}"
+        return {
+            "preview_token": make_preview_token(snapshot),
+            "typed_confirmation": phrase,
+            "path": setting_path,
+            "current_value": current,
+            "new_value": value,
+            "changed": current != value,
+        }
+
+    @mcp.tool()
+    async def seanime_confirm_update_setting(
+        path: str, value: bool, preview_token: str, typed_confirmation: str
+    ) -> Any:
+        """Apply one allowlisted Seanime boolean preference after a fresh signed preview and exact confirmation."""
+        require_admin()
+        setting_path = path.strip()
+        if setting_path not in EDITABLE_BOOLEAN_SETTINGS:
+            raise ValueError("Setting is not in the safe boolean allowlist")
+        if not isinstance(value, bool):
+            raise ValueError("value must be a boolean")
+        settings = data_of(await request("/api/v1/settings"))
+        current = nested_setting(settings, setting_path)
+        if not isinstance(current, bool):
+            raise ValueError("Current setting is not boolean; refusing to change its type")
+        snapshot = {
+            "service": "seanime",
+            "operation": "update-setting",
+            "path": setting_path,
+            "current_value": current,
+            "new_value": value,
+        }
+        expected_phrase = f"CONFIRM SEANIME SETTING {setting_path} = {str(value).lower()}"
+        if not preview_token.strip() or not hmac.compare_digest(
+            preview_token, make_preview_token(snapshot)
+        ):
+            raise PermissionError("The Seanime setting preview is stale; request a new preview")
+        if not hmac.compare_digest(typed_confirmation, expected_phrase):
+            raise PermissionError(f"Type exactly: {expected_phrase}")
+        if current == value:
+            return {"changed": False, "path": setting_path, "value": current}
+        result = await request(
+            "/api/v1/settings/path", "PATCH",
+            {"path": setting_path, "value": value},
+        )
+        if audit:
+            audit("UPDATE_SETTING", "seanime", f"{setting_path}={str(value).lower()}")
+        return {"changed": True, "path": setting_path, "value": value, "result": result}
