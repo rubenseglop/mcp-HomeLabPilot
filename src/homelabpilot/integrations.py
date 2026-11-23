@@ -17,6 +17,8 @@ import httpx
 
 
 HTTP_INTEGRATIONS = {
+    "questarr": ("QUESTARR_URL", "QUESTARR_API_KEY", "x-api-key", "/api/integration/ping"),
+    "frigate": ("FRIGATE_URL", "FRIGATE_API_TOKEN", "bearer", "/api/stats"),
     "seanime": ("SEANIME_URL", "SEANIME_PASSWORD", "seanime-token", "/api/v1/status"),
     "plex": ("PLEX_URL", "PLEX_TOKEN", "plex", "/identity"),
     "jellyfin": ("JELLYFIN_URL", "JELLYFIN_API_KEY", "emby", "/System/Info/Public"),
@@ -182,6 +184,8 @@ def register_integration_tools(
             "scryer": {"configured": bool(os.getenv("SCRYER_URL", "").strip()), "mode": "GraphQL"},
             "seanime": {"configured": bool(os.getenv("SEANIME_URL", "").strip()), "mode": "native API"},
             "qbittorrent": {"configured": bool(os.getenv("QBITTORRENT_URL", "").strip()), "mode": "Web API"},
+            "questarr": {"configured": _is_configured(HTTP_INTEGRATIONS["questarr"]), "mode": "native HTTP API (read-only integration key)"},
+            "frigate": {"configured": _is_configured(HTTP_INTEGRATIONS["frigate"]), "mode": "native HTTP API (bearer token)"},
         }
         services.update({
             service: {
@@ -230,6 +234,10 @@ def register_integration_tools(
             return await request(service, verb, path, params, body)
         if verb != "GET":
             raise PermissionError("This tool is read-only; preview non-GET requests first")
+        if service == "questarr" and path not in {"/api/integration/ping", "/api/integration/library"}:
+            raise PermissionError("Questarr generic reads are restricted to its read-scoped integration API")
+        if service == "frigate" and path not in {"/api/stats", "/api/events", "/api/review", "/api/review/summary", "/api/profile"}:
+            raise PermissionError("Frigate generic reads are restricted to approved status/event endpoints")
         if service == "seanime":
             allowed = {"/api/v1/status", "/api/v1/library/collection",
                        "/api/v1/anilist/collection", "/api/v1/anilist/collection/raw",
@@ -302,6 +310,84 @@ def register_integration_tools(
         return await request(service, verb, path, params, body)
 
 
+
+    # Questarr and Frigate read-only integrations.
+    @mcp.tool()
+    async def questarr_get_status() -> Any:
+        """Read Questarr integration ping, version and API-key scope."""
+        return await request("questarr", "GET", "/api/integration/ping")
+
+    @mcp.tool()
+    async def questarr_get_library(
+        status: str = "", include_hidden: bool = False, limit: int = 100
+    ) -> Any:
+        """Read Questarr's game library using a read-scoped integration API key."""
+        if not 1 <= limit <= 500:
+            raise ValueError("limit must be between 1 and 500")
+        if len(status) > 200:
+            raise ValueError("status filter must be at most 200 characters")
+        params: dict[str, Any] = {"includeHidden": str(include_hidden).lower()}
+        if status.strip():
+            params["status"] = status.strip()
+        result = await request("questarr", "GET", "/api/integration/library", params=params)
+        if isinstance(result, dict) and isinstance(result.get("games"), list):
+            result["games"] = result["games"][:limit]
+            result["count"] = len(result["games"])
+        return result
+
+    @mcp.tool()
+    async def frigate_get_status() -> Any:
+        """Read Frigate NVR statistics, camera/detector state and system metrics."""
+        return await request("frigate", "GET", "/api/stats")
+
+    @mcp.tool()
+    async def frigate_list_events(
+        limit: int = 50, offset: int = 0, camera: str = "all",
+        label: str = "all", after: str | None = None, before: str | None = None,
+    ) -> Any:
+        """List Frigate detection events with bounded pagination and optional filters."""
+        if not 1 <= limit <= 200 or offset < 0 or offset > 100000:
+            raise ValueError("limit must be 1..200 and offset must be 0..100000")
+        if len(camera) > 100 or len(label) > 100:
+            raise ValueError("camera and label filters must be at most 100 characters")
+        params: dict[str, Any] = {
+            "limit": limit, "offset": offset, "camera": camera, "label": label,
+            "include_thumbnails": 0,
+        }
+        if after is not None:
+            params["after"] = after
+        if before is not None:
+            params["before"] = before
+        return await request("frigate", "GET", "/api/events", params=params)
+
+    @mcp.tool()
+    async def frigate_list_review_items(
+        limit: int = 50, camera: str = "all", label: str = "all",
+        severity: str | None = None,
+    ) -> Any:
+        """List Frigate review items (alerts/detections) for operator triage."""
+        if not 1 <= limit <= 200:
+            raise ValueError("limit must be between 1 and 200")
+        if len(camera) > 100 or len(label) > 100:
+            raise ValueError("camera and label filters must be at most 100 characters")
+        if severity not in {None, "alert", "detection"}:
+            raise ValueError("severity must be alert, detection or omitted")
+        params: dict[str, Any] = {"limit": limit, "cameras": camera, "labels": label}
+        if severity:
+            params["severity"] = severity
+        return await request("frigate", "GET", "/api/review", params=params)
+
+    @mcp.tool()
+    async def frigate_get_review_summary(
+        camera: str = "all", label: str = "all", timezone: str = "utc"
+    ) -> Any:
+        """Read Frigate review counters for the last 24 hours and historical days."""
+        if len(camera) > 100 or len(label) > 100 or len(timezone) > 64:
+            raise ValueError("camera/label must be <=100 characters and timezone <=64")
+        return await request(
+            "frigate", "GET", "/api/review/summary",
+            params={"cameras": camera, "labels": label, "timezone": timezone},
+        )
 
     # Tdarr workflows. POST query endpoints are explicitly marked read-only so
     # they are not misclassified as mutations in the operation audit.
