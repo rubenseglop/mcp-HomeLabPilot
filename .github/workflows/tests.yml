@@ -33,6 +33,7 @@ jobs:
           node --check mcp-readonly-proxy.mjs
           node --check mcp-readonly-policy.mjs
           node --test tests/proxy-policy.test.mjs
+          node tests/check-web-script.mjs
       - name: Compile Python sources
         run: python -m compileall -q src tests
       - name: Run test suite
