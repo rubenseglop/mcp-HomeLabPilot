@@ -161,6 +161,14 @@ flowchart TD
 | Ejecutar batería final de pruebas | PENDIENTE |
 | Registrar versión y resultados finales | PENDIENTE |
 
+### Mejora solicitada — herramientas por servicio en Estado de servicios
+
+| Tarea | Estado | Detalle |
+|---|---|---|
+| Mostrar el número de herramientas MCP disponibles en cada servicio conectado | COMPLETADO EN FEATURE | `stack_status` añade el recuento y el catálogo de herramientas registradas por prefijo de servicio para servicios configurados y saludables. |
+| Añadir listado desplegable por aplicación | COMPLETADO EN FEATURE | Cada tarjeta muestra «X herramientas disponibles» y despliega nombre y descripción de cada herramienta; no se listan herramientas de servicios desconectados. |
+| Validar visualmente en despliegue real | PENDIENTE | Requiere desplegar la rama feature después de cerrar la auditoría y autorización del usuario. |
+
 ## 6. Registro de comprobaciones
 
 | Fecha | Comprobación | Resultado |
