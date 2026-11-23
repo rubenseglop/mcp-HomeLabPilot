@@ -82,9 +82,9 @@ flowchart TD
 | Verificar autenticación/configuración MCP de Codex | PARCIAL | Gateway informó `authenticated=true` y `mcp_configured=true`; falta probar una llamada real a través del proxy |
 | Revisar autenticación Bearer del MCP principal | COMPLETADO EN FEATURE | `_BearerAuthMiddleware` exige el token completo con comparación constante; se añadieron pruebas para token ausente, incorrecto y correcto. CI pendiente. |
 | Ejecutar `tools/list` a través del proxy | COMPLETADO | 23-11-2026: initialize HTTP 200, sesión creada, tools/list HTTP 200, 137 herramientas visibles con la política anterior, sin error JSON-RPC. La nueva allowlist explícita contiene 148 herramientas (lecturas aprobadas de forma exacta, incluidas Questarr, Frigate, Seanime settings y Recyclarr status); pendiente desplegar y verificar el nuevo resultado. |
-| Ejecutar una herramienta de lectura a través del proxy | PENDIENTE | |
-| Verificar bloqueo de herramientas de escritura en el proxy | PENDIENTE | Prueba negativa segura; no ejecutar ninguna escritura en servicios reales |
-| Verificar que las lecturas siguen permitidas | PENDIENTE | |
+| Ejecutar una herramienta de lectura a través del proxy | PARCIAL | Prueba aislada del handler con lectura aprobada y cabecera Bearer superada; pendiente E2E real tras despliegue autorizado |
+| Verificar bloqueo de herramientas de escritura en el proxy | PARCIAL | COMPLETADO EN FEATURE mediante pruebas del handler real: las escrituras Seanime/Tdarr se rechazan antes de llamar al upstream. Pendiente E2E contra el proxy desplegado, sin invocar mutaciones reales |
+| Verificar que las lecturas siguen permitidas | PARCIAL | COMPLETADO EN FEATURE: `tdarr_search_files` atraviesa el handler con Bearer; `tools/list` filtra exactamente las lecturas. Pendiente llamada real contra el proxy desplegado |
 
 **Criterio para cerrar Prioridad 1:** todas las tareas deben estar COMPLETADAS o tener una excepción documentada y aceptada. Los estados PARCIAL y BLOQUEADO no cierran una fase.
 
@@ -181,6 +181,7 @@ flowchart TD
 | 2026-11-23 | MCP `tools/list` | 187 herramientas; sin error JSON-RPC |
 | 2026-11-23 | CI de mejora de inventario por servicio | run 410 (`a6e3b60`) completado con `success`; tests Python, Node y comprobación de sintaxis JS superados |
 | 2026-11-23 | Proxy `/health` | HTTP 200; modo `read-only` |
+| 2026-11-23 | Pruebas aisladas del handler MCP proxy | CI run 440 (`d68ddb7`) `success`: denegación previa al upstream de mutaciones Seanime/Tdarr, lecturas permitidas, Bearer, batch atómico y filtrado `tools/list` |
 | 2026-11-23 | Gateway de agentes `/health` | HTTP 200; Codex autenticado y MCP configurado |
 | 2026-11-23 | Revisión estática de `integration_catalog` | PARCIAL: 20 integraciones HTTP + 4 no HTTP; duplicidad de Seanime en la composición del catálogo; pendiente validación funcional |
 
@@ -210,6 +211,7 @@ flowchart TD
 | Revisar FlareSolverr | COMPLETADO EN FEATURE | `flaresolverr_list_sessions` usa POST `sessions.list` y es consulta. `flaresolverr_request_get` usa POST `request.get`, realiza una petición externa arbitraria y permanece fuera de la allowlist read-only (además requiere permiso `operations`). |
 | Revisar Transmission RPC | COMPLETADO EN FEATURE | `session-get`, `session-stats` y `torrent-get` son los únicos métodos RPC tratados como lectura por `TRANSMISSION_READ_METHODS`; la herramienta genérica solo admite esos métodos y la allowlist no expone acciones de modificación. |
 | Verificar herramientas genéricas con capacidad de escritura | COMPLETADO EN FEATURE | `arr_api_request`, `integration_api_request` y `scryer_graphql` permanecen fuera de la allowlist. Las dos primeras admiten controles/métodos mutantes bajo permisos; GraphQL puede ejecutar mutaciones y exige nivel admin. |
+| Probar el handler real del proxy sin upstream real | COMPLETADO EN FEATURE | `tests/mcp-proxy.test.mjs`: escrituras Seanime/Tdarr bloqueadas antes de upstream, lectura permitida, Bearer inyectado, batch rechazado atómicamente y filtrado de `tools/list`. CI run 440 (`d68ddb7`) superado. |
 | Filtrar `tools/list` en respuestas JSON-RPC batch | COMPLETADO EN FEATURE | Filtro compartido para respuestas individuales y arrays; incluye transporte JSON y SSE. |
 | Rechazar batches que contengan llamadas no aprobadas | COMPLETADO EN FEATURE | El batch completo se rechaza para evitar ejecución parcial ambigua; las llamadas aprobadas individuales siguen su flujo normal. |
 | Añadir pruebas Node.js de la política | COMPLETADO EN FEATURE | `tests/proxy-policy.test.mjs`; comprueba allowlist, denegación por defecto, filtrado simple/batch y que los nuevos cambios Seanime no exponen escrituras. |
@@ -231,4 +233,4 @@ flowchart TD
 
 **Estados permitidos:** PENDIENTE · EN CURSO · COMPLETADO · PARCIAL · BLOQUEADO.
 
-**Siguiente paso:** continuar con las pruebas del handler del proxy que demuestren que una escritura bloqueada nunca llega al upstream y que las lecturas aprobadas sí atraviesan. No desplegar hasta autorización explícita del usuario.
+**Siguiente paso:** revisar permisos efectivos del resto del inventario MCP y la autenticación/aislamiento de entrada del proxy; después preparar E2E del proxy desplegado. No desplegar ni invocar escrituras reales hasta autorización explícita del usuario.
