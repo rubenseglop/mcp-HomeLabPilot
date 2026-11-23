@@ -75,6 +75,10 @@ class FakeAsyncClient:
             return FakeResponse({"name": "Collection Handler", "running": False, "lastRun": "2026-11-23T20:00:00Z"})
         if url.endswith("/api/v2/public/servers"):
             return FakeResponse({"servers": [{"id": "server-1", "name": "Plex", "healthy": True}]})
+        if url.endswith("/api/v2/public/libraries"):
+            return FakeResponse({"libraries": [{"name": "Movies", "items": 120}]})
+        if url.endswith("/api/v2/public/top-media"):
+            return FakeResponse({"items": [{"title": "Alien", "plays": 12}], "nextCursor": None})
         if url.endswith("/api/v2/public/recently-added"):
             return FakeResponse({"items": [{"id": "media-1", "title": "Alien"}], "nextCursor": None})
         if url.endswith("/api/v2/public/history"):
@@ -541,3 +545,22 @@ def test_maintainerr_dashboard_reads_allowlisted_scheduled_task_status(registere
     )
     with pytest.raises(ValueError, match="task_name"):
         asyncio.run(status.dashboard_read("maintainerr", "task_status", task_name="arbitrary"))
+
+
+
+def test_tracearr_dashboard_reads_library_statistics_and_top_media(registered):
+    status = integrations_status(registered)
+    libraries = asyncio.run(status.dashboard_read("tracearr", "libraries"))
+    assert libraries == {"libraries": [{"name": "Movies", "items": 120}]}
+    assert FakeAsyncClient.calls[-1]["url"] == "http://tracearr:3000/api/v2/public/libraries"
+
+    top = asyncio.run(status.dashboard_read(
+        "tracearr", "top_media", media_type="movie", days=30,
+        sort="plays", page_size=15,
+    ))
+    assert top == {"items": [{"title": "Alien", "plays": 12}], "nextCursor": None}
+    call = FakeAsyncClient.calls[-1]
+    assert call["url"] == "http://tracearr:3000/api/v2/public/top-media"
+    assert call["params"] == {
+        "media_type": "movie", "days": 30, "sort": "plays", "pageSize": 15
+    }
