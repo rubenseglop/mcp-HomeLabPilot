@@ -62,7 +62,7 @@ flowchart TD
 | Ejecutar `tools/list` | COMPLETADO | Respuesta JSON-RPC correcta |
 | Registrar recuento real | COMPLETADO | **187 herramientas** publicadas |
 | Aclarar diferencia respecto a las 189 previstas | COMPLETADO | 189 declaraciones `@mcp.tool`, 187 nombres únicos por dos nombres duplicados; coincide con `tools/list` (187) |
-| Revisar herramientas duplicadas, ausentes o inesperadas | EN CURSO | Dos duplicaciones explican el recuento: 189 decoradores y 187 nombres únicos. Pendiente comparar nombres y clasificar capacidades/efectos |
+| Revisar herramientas duplicadas, ausentes o inesperadas | EN CURSO | Confirmados dos nombres duplicados (`cleanuparr_get_health`, `maintainerr_get_health`); las dos versiones consultan el mismo endpoint GET. Clasificación estática del proxy: 133 nombres permitidos y 54 bloqueados; entre los bloqueados hay lecturas legítimas de Seanime (`seanime_search_anime`, `seanime_verify_reassignment`, `seanime_audit_library`, `seanime_inspect_entry`) y el helper puro `collection_has_media_id`. Pendiente comparar el inventario completo con la lista runtime y cerrar clasificación de efectos |
 
 ### 1.3 Integraciones
 
@@ -182,7 +182,7 @@ flowchart TD
 | 2026-11-23 | Versionado del paquete inconsistente | ABIERTO: `pyproject.toml` declara `0.5.0`; `src/homelabpilot/__init__.py` declara `0.1.0` |
 | 2026-11-23 | Proxy read-only | ABIERTO: regex actual deja fuera consultas Seanime de verificación/auditoría; revisar semántica antes de ampliar allowlist |
 | 2026-11-23 | Cobertura CI | Workflow 337 de GitHub Actions para `main`/`a5ddc62`: `success`; la rama de desarrollo aún no ha ejecutado CI |
-| 2026-11-23 | Revisión estática del inventario MCP y proxy | 189 decoradores, 187 nombres únicos; el proxy permite 133 herramientas por regex y bloquea 54. Excluye al menos tres lecturas Seanime (`seanime_verify_reassignment`, `seanime_audit_library`, `seanime_inspect_entry`). En JSON-RPC batch, `tools/list` no aplica el filtrado de nombres; las llamadas mutantes sí se comprueban individualmente. Pendiente validar comportamiento real y revisar la allowlist semánticamente |
+| 2026-11-23 | Revisión estática del inventario MCP y proxy | 189 decoradores, 187 nombres únicos; el proxy permite 133 herramientas por regex y bloquea 54. Entre las lecturas bloqueadas están `seanime_search_anime`, `seanime_verify_reassignment`, `seanime_audit_library` y `seanime_inspect_entry`; `collection_has_media_id` es un helper puro. `flaresolverr_request_get` usa POST y se clasifica como operación, por lo que no debe habilitarse automáticamente. Los dos nombres duplicados consultan el mismo endpoint GET. En JSON-RPC batch, `tools/list` no aplica el filtrado de nombres; las llamadas mutantes sí se comprueban individualmente. Pendiente comparar inventario completo runtime y revisar allowlist semánticamente |
 
 ## 8. Protocolo obligatorio de trabajo
 
