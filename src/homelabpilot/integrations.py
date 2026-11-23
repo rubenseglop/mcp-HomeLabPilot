@@ -331,8 +331,8 @@ def register_integration_tools(
             params["status"] = status.strip()
         result = await request("questarr", "GET", "/api/integration/library", params=params)
         if isinstance(result, dict) and isinstance(result.get("games"), list):
+            result["returned"] = min(len(result["games"]), limit)
             result["games"] = result["games"][:limit]
-            result["count"] = len(result["games"])
         return result
 
     @mcp.tool()
