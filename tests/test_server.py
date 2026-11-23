@@ -1181,3 +1181,40 @@ def test_docker_dashboard_routes_forward_preview_confirmation(monkeypatch):
         ("preview", "radarr", "restart"),
         ("control", "radarr", "restart", "signed", "CONFIRM DOCKER RESTART radarr"),
     ]
+
+
+def test_mcp_bearer_middleware_rejects_missing_and_invalid_tokens():
+    import asyncio
+    import homelabpilot.server as server
+
+    calls = []
+
+    async def downstream(scope, receive, send):
+        calls.append(True)
+        await send({"type": "http.response.start", "status": 200, "headers": []})
+        await send({"type": "http.response.body", "body": b"ok"})
+
+    middleware = server._BearerAuthMiddleware(downstream, "a-valid-test-token-with-more-than-32-chars")
+
+    async def invoke(authorization):
+        messages = []
+
+        async def receive():
+            return {"type": "http.request", "body": b"", "more_body": False}
+
+        async def send(message):
+            messages.append(message)
+
+        headers = [] if authorization is None else [(b"authorization", authorization.encode())]
+        scope = {"type": "http", "method": "POST", "path": "/mcp", "headers": headers}
+        await middleware(scope, receive, send)
+        return messages
+
+    missing = asyncio.run(invoke(None))
+    invalid = asyncio.run(invoke("Bearer wrong-token"))
+    valid = asyncio.run(invoke("Bearer a-valid-test-token-with-more-than-32-chars"))
+
+    assert missing[0]["status"] == 401
+    assert invalid[0]["status"] == 401
+    assert valid[0]["status"] == 200
+    assert len(calls) == 1, "only the correctly authenticated request may reach the MCP app"
