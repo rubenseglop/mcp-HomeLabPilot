@@ -322,3 +322,14 @@ flowchart TD
 | Validación real | PENDIENTE | Requiere despliegue autorizado en el mediacenter y comprobar servicios configurados. |
 
 | 2026-11-23 | Paneles Maintainerr y Tracearr | CI runs 490–495 `success`; tareas programadas, estadísticas de bibliotecas y ranking de contenido incorporados. |
+
+
+## 15. Ampliación del panel Transmission
+
+| Cambio | Estado | Detalle |
+|---|---|---|
+| Detalle individual de torrent | COMPLETADO EN FEATURE | Se añade consulta por ID con progreso, velocidades, ETA, ratio, bytes transferidos, peers, errores, directorio, fechas, archivos y trackers. Reutiliza torrent-get con lista de campos permitidos y no modifica el torrent. |
+| Panel web | COMPLETADO EN FEATURE | Nuevo botón «Torrent details» solicita un ID positivo obtenido de «Torrent list» y presenta la ficha extendida. |
+| Pruebas | COMPLETADO EN FEATURE | Prueba del lector de detalle, selección de ID, campos extendidos, endpoint RPC y autenticación HTTP Basic. |
+| CI | EN CURSO | Pendiente ejecución de la suite y validación del JavaScript del panel. |
+| Validación real | PENDIENTE | Requiere despliegue autorizado en el mediacenter. |
