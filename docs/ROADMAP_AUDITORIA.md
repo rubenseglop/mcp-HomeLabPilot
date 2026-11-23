@@ -80,6 +80,7 @@ flowchart TD
 | Comprobar endpoint de salud del proxy | COMPLETADO | HTTP 200; modo `read-only` |
 | Comprobar salud del gateway de agentes | COMPLETADO | HTTP 200 |
 | Verificar autenticación/configuración MCP de Codex | PARCIAL | Gateway informó `authenticated=true` y `mcp_configured=true`; falta probar una llamada real a través del proxy |
+| Revisar autenticación Bearer del MCP principal | COMPLETADO EN FEATURE | `_BearerAuthMiddleware` exige el token completo con comparación constante; se añadieron pruebas para token ausente, incorrecto y correcto. CI pendiente. |
 | Ejecutar `tools/list` a través del proxy | COMPLETADO | 23-11-2026: initialize HTTP 200, sesión creada, tools/list HTTP 200, 137 herramientas visibles con la política anterior, sin error JSON-RPC. La nueva allowlist explícita contiene 147 herramientas (lecturas aprobadas de forma exacta, incluidas Questarr, Frigate y Recyclarr status); pendiente desplegar y verificar el nuevo resultado. |
 | Ejecutar una herramienta de lectura a través del proxy | PENDIENTE | |
 | Verificar bloqueo de herramientas de escritura en el proxy | PENDIENTE | Prueba negativa segura; no ejecutar ninguna escritura en servicios reales |
@@ -227,4 +228,4 @@ flowchart TD
 
 **Estados permitidos:** PENDIENTE · EN CURSO · COMPLETADO · PARCIAL · BLOQUEADO.
 
-**Siguiente paso:** cerrar la auditoría de las herramientas restantes del proxy y revisar los mecanismos de autenticación/autorización del transporte MCP. En paralelo, dejar planificada la integración de configuración de Seanime con preview y confirmación. No desplegar ni pedir al usuario pruebas repetitivas hasta tener el bloque de cambios preparado.
+**Siguiente paso:** comprobar CI del test Bearer recién añadido; después revisar el inventario de herramientas MCP que faltan y sus permisos efectivos, y preparar pruebas de rechazo del proxy sin invocar servicios reales. La configuración de Seanime queda planificada como integración separada con preview y confirmación.
