@@ -195,7 +195,7 @@ flowchart TD
 | Rechazar batches que contengan llamadas no aprobadas | COMPLETADO EN FEATURE | El batch completo se rechaza para evitar ejecución parcial ambigua; las llamadas aprobadas individuales siguen su flujo normal. |
 | Añadir pruebas Node.js de la política | COMPLETADO EN FEATURE | `tests/proxy-policy.test.mjs`; comprueba allowlist, denegación por defecto y filtrado simple/batch. |
 | Incluir módulo en imagen del proxy y CI | COMPLETADO EN FEATURE | Dockerfile copia el módulo; workflow ejecuta `node --test` y se activa también en la rama feature. |
-| Ejecutar CI de la rama y desplegar proxy | PENDIENTE | No se ha desplegado ni reiniciado ningún contenedor del servidor. |
+| Ejecutar CI de la rama y desplegar proxy | PARCIAL | CI GitHub Actions run 340 completado con `success`, incluidos `node --check`, pruebas Node y suite pytest. Pendiente desplegar el proxy; no se ha reiniciado ningún contenedor del servidor. |
 
 ## 9. Protocolo obligatorio de trabajo
 
