@@ -52,7 +52,7 @@ class FakeAsyncClient:
     async def request(self, method, url, params=None, json=None, headers=None, auth=None):
         self.calls.append({
             "method": method, "url": url, "params": params,
-            "json": json, "headers": headers,
+            "json": json, "headers": headers, "auth": auth,
         })
         if url.endswith("/transmission/rpc"):
             method = (json or {}).get("method")
