@@ -2010,6 +2010,67 @@ def register_integration_tools(
                 "states": homeassistant_list_states,
                 "services": homeassistant_list_services,
             },
+            "bookorbit": {
+                "health": bookorbit_get_health,
+                "libraries": bookorbit_list_libraries,
+                "statistics": bookorbit_get_statistics,
+                "library_stats": bookorbit_get_library_stats,
+            },
+            "tidarr": {
+                "status": tidarr_get_auth_status,
+                "queue": tidarr_get_download_queue,
+                "history": tidarr_get_download_history,
+                "sync_list": tidarr_get_sync_list,
+            },
+            "youtarr": {
+                "capabilities": youtarr_get_capabilities,
+                "channels": youtarr_list_channels,
+                "videos": youtarr_list_videos,
+                "requests": youtarr_list_requests,
+            },
+            "pulsarr": {
+                "health": pulsarr_get_health,
+                "approval_requests": pulsarr_get_approval_requests,
+                "content_router_rules": pulsarr_list_content_router_rules,
+            },
+            "cleanuparr": {
+                "health": cleanuparr_get_readiness,
+                "system": cleanuparr_get_system_status,
+                "events": cleanuparr_get_events,
+                "statistics": cleanuparr_get_statistics,
+            },
+            "maintainerr": {
+                "health": maintainerr_get_health,
+                "app_status": maintainerr_get_app_status,
+                "timezone": maintainerr_get_timezone,
+            },
+            "agregarr": {
+                "status": agregarr_get_status,
+                "collections": agregarr_list_collections,
+                "dashboard_stats": agregarr_get_dashboard_stats,
+                "logs": agregarr_get_logs,
+            },
+            "tracearr": {
+                "health": tracearr_get_health,
+                "stats": tracearr_get_stats,
+                "activity": tracearr_get_activity,
+                "active_streams": tracearr_get_active_streams,
+            },
+            "cloudflare": {
+                "zones": cloudflare_list_zones,
+            },
+            "transmission": {
+                "session": transmission_get_session,
+                "statistics": transmission_get_statistics,
+                "torrents": transmission_list_torrents,
+            },
+            "flaresolverr": {
+                "sessions": flaresolverr_list_sessions,
+            },
+            "tinymediamanager": {
+                "status": tinymediamanager_get_status,
+                "api_docs": tinymediamanager_get_api_docs,
+            },
         }
         service_readers = readers.get(service)
         if service_readers is None or operation not in service_readers:
