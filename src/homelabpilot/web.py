@@ -178,7 +178,9 @@ function render(data){
  $('services').innerHTML=entries.map(([name,v])=>{
   const tools=Array.isArray(v.tools)?v.tools:[];
   const toolList=v.ok?'<details class="tool-list"><summary>'+tools.length+' '+(getLanguage()==='es'?'herramientas disponibles':'tools available')+'</summary>'+(tools.length?'<ul>'+tools.map(tool=>'<li><code>'+esc(tool.name)+'</code>'+(tool.description?'<span>'+esc(tool.description)+'</span>':'')+'</li>').join('')+'</ul>':'<div class="muted">'+(getLanguage()==='es'?'No hay herramientas registradas para este servicio.':'No tools registered for this service.')+'</div>')+'</details>':'';
-  return '<article class="card"><div class="cardtop"><div class="name">'+esc(name[0].toUpperCase()+name.slice(1))+'</div><span class="status '+(v.ok?'ok':'bad')+'">'+(v.ok?'Online':'Attention')+'</span></div><div class="version">'+(v.version?'Version '+esc(v.version):v.app_name?esc(v.app_name):v.ok?'Connected':'Not connected')+'</div>'+toolList+(v.error?'<div class="error">'+esc(v.error)+'</div>':'')+'</article>';
+  const versionValue=typeof v.version==='string'||typeof v.version==='number'?String(v.version):v.version&&typeof v.version==='object'?(v.version.text||v.version.version||''):'';
+  const detail=versionValue?'Version '+esc(versionValue):v.app_name?esc(v.app_name):'';
+  return '<article class="card"><div class="cardtop"><div class="name">'+esc(name[0].toUpperCase()+name.slice(1))+'</div><span class="status '+(v.ok?'ok':'bad')+'">'+(v.ok?'Online':'Attention')+'</span></div>'+(detail?'<div class="version">'+detail+'</div>':'')+toolList+(v.error?'<div class="error">'+esc(v.error)+'</div>':'')+'</article>';
  }).join('');
 }
 async function refresh(){ $('refresh').disabled=true;$('refresh').textContent='Loading…';try{render(await request('/web-api/status'));}catch(e){if(e.message==='unauthorized')showLogin();else $('healthy').textContent=e.message;}finally{$('refresh').disabled=false;$('refresh').textContent='Refresh';}}
