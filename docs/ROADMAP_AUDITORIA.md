@@ -243,3 +243,5 @@ flowchart TD
 | Radarr, Sonarr y Prowlarr aparecían conectados con cero herramientas porque el inventario solo asociaba herramientas con prefijo del servicio. | Asignación explícita de las herramientas compartidas `arr_*` a cada aplicación compatible; Prowlarr incluye API genérica y operaciones de configuración. | Tests de inventario para Radarr, Sonarr y Prowlarr. |
 | qBittorrent mostraba `Versión [object Object]` porque la API devuelve texto plano envuelto por `_decode_response`. | `stack_status` extrae el campo `text` y publica una versión escalar; la interfaz también trata versiones estructuradas de forma defensiva. | Test de versión qBittorrent `v5.1.2`. |
 | Integraciones sin versión mostraban una segunda línea «Conectado» debajo del indicador de estado. | La tarjeta solo presenta una línea secundaria cuando existe versión o nombre de aplicación. | Renderizado frontend corregido; pendiente validación visual en el servidor. |
+
+| 2026-11-23 | Correcciones de inventario y presentación del panel | CI run 450 (`c4c6bf7`) `success`: 148 tests Python, validación de JavaScript y pruebas del proxy superadas. |
