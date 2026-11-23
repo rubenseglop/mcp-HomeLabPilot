@@ -61,8 +61,8 @@ flowchart TD
 |---|---|---|
 | Ejecutar `tools/list` | COMPLETADO | Respuesta JSON-RPC correcta |
 | Registrar recuento real | COMPLETADO | **187 herramientas** publicadas |
-| Aclarar diferencia respecto a las 189 previstas | PENDIENTE | Comparar inventario esperado con inventario real; no asumir que faltan dos |
-| Revisar herramientas duplicadas, ausentes o inesperadas | PENDIENTE | Basarse en el inventario real de `tools/list` |
+| Aclarar diferencia respecto a las 189 previstas | COMPLETADO | 189 declaraciones `@mcp.tool`, 187 nombres únicos por dos nombres duplicados; coincide con `tools/list` (187) |
+| Revisar herramientas duplicadas, ausentes o inesperadas | EN CURSO | Detectadas duplicaciones de `cleanuparr_get_health` y `maintainerr_get_health`; falta cotejar los 187 nombres exactos con el inventario remoto |
 
 ### 1.3 Integraciones
 
@@ -170,7 +170,17 @@ flowchart TD
 | 2026-11-23 | Proxy `/health` | HTTP 200; modo `read-only` |
 | 2026-11-23 | Gateway de agentes `/health` | HTTP 200; Codex autenticado y MCP configurado |
 
-## 7. Protocolo obligatorio de trabajo
+## 7. Hallazgos de auditoría en la rama de desarrollo
+
+| Fecha | Hallazgo | Estado / acción |
+|---|---|---|
+| 2026-11-23 | Rama `feature/complete-homelabpilot` creada desde `main` (`a5ddc62`) | COMPLETADO; `main` permanece intacta |
+| 2026-11-23 | Diferencia 189/187 herramientas | RESUELTO: 189 decoradores, 187 nombres únicos; dos herramientas registradas dos veces |
+| 2026-11-23 | Versionado del paquete inconsistente | ABIERTO: `pyproject.toml` declara `0.5.0`; `src/homelabpilot/__init__.py` declara `0.1.0` |
+| 2026-11-23 | Proxy read-only | ABIERTO: regex actual deja fuera consultas Seanime de verificación/auditoría; revisar semántica antes de ampliar allowlist |
+| 2026-11-23 | Cobertura CI | Último workflow de `main` para `a5ddc62`: ejecución 337, `success`; aún no hay ejecución de la rama de desarrollo |
+
+## 8. Protocolo obligatorio de trabajo
 
 1. **Al iniciar o retomar:** leer la versión de este archivo en la rama `main` de GitHub. No confiar en una copia antigua de una conversación.
 2. Identificar la primera tarea PENDIENTE de la fase activa y sus dependencias.
@@ -185,4 +195,4 @@ flowchart TD
 
 **Estados permitidos:** PENDIENTE · EN CURSO · COMPLETADO · PARCIAL · BLOQUEADO.
 
-**Siguiente paso al crear este documento:** continuar en Prioridad 1, apartado 1.1: confirmar qué código ejecuta realmente el contenedor. No repetir `stack_status`, `tools/list` ni los checks de salud ya registrados.
+**Siguiente paso:** continuar en Prioridad 1, apartado 1.1: confirmar qué código ejecuta realmente el contenedor. No repetir `stack_status`, `tools/list` ni los checks de salud ya registrados.
