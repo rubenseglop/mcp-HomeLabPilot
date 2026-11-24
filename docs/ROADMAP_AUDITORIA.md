@@ -334,3 +334,15 @@ flowchart TD
 | Pruebas | COMPLETADO EN FEATURE | Prueba del lector de detalle, selección de ID, campos extendidos, endpoint RPC y autenticación HTTP Basic. |
 | CI | COMPLETADO EN FEATURE | Run 508 (`1b50853`) completado con `success`; suite Python y validación del JavaScript superadas. |
 | Validación real | PENDIENTE | Requiere despliegue autorizado en el mediacenter. |
+
+
+## 16. FlareSolverr y tinyMediaManager: paneles de consulta
+
+| Aplicación | Cambio | Estado | Detalle |
+|---|---|---|---|
+| FlareSolverr | Consulta de páginas públicas desde el panel | COMPLETADO EN FEATURE | Se añade «Fetch public page» con URL y timeout acotado (1–120 s); reutiliza flaresolverr_request_get, mantiene permiso operations, rechaza destinos locales/privados y limita la respuesta a 20.000 caracteres. |
+| tinyMediaManager | Cola de tareas | COMPLETADO EN FEATURE | Se añade vista específica de estado, ocupación, tareas en cola/en ejecución y estado del pool, reutilizando GET /api/system. No encola ni ejecuta tareas. |
+| tinyMediaManager | Operaciones de escritura | SIN CAMBIOS | Las tareas de actualización, scraping, renombrado y escritura de metadatos siguen requiriendo preview firmado, permiso admin y confirmación exacta. No se añaden botones de ejecución al panel. |
+| Pruebas | FlareSolverr y tinyMediaManager | COMPLETADO EN FEATURE | Cobertura de consulta, timeout, truncado, endpoint y rechazo de destinos locales/privados; verificación del lector de cola TMM. |
+| CI | EN CURSO | Pendiente de ejecución de suite Python y validación JavaScript. |
+| Validación real | PENDIENTE | Requiere despliegue autorizado en el mediacenter. |
