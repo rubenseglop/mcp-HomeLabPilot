@@ -67,13 +67,13 @@ input{width:100%;padding:12px;border:1px solid #34435d;border-radius:10px;backgr
 .nav-label{padding:0 10px 7px;color:#71819a;font-size:10px;font-weight:750;letter-spacing:1.1px}
 .nav-link{width:100%;display:flex;align-items:center;gap:12px;text-align:left;border:1px solid transparent;background:transparent;color:#aebbd0;padding:10px 11px;border-radius:9px;font-size:13px}
 .nav-link:hover{background:#18243a;color:#fff}.nav-link.active{background:#253657;border-color:#354b70;color:#fff}
-.nav-link>span:first-of-type{font-weight:550}.sidebar-bottom{margin-top:auto;padding-top:15px;border-top:1px solid #25344d}
+.nav-link>span:first-of-type{font-weight:550}.nav-section{display:flex;flex-direction:column;gap:4px}.nav-section-toggle{width:100%;display:flex;align-items:center;gap:11px;text-align:left;border:1px solid transparent;background:transparent;color:#aebbd0;padding:10px 11px;border-radius:9px;font-size:13px;font-weight:600}.nav-section-toggle:hover,.nav-section.open>.nav-section-toggle{background:#18243a;color:#fff}.nav-section-icon{width:14px;flex:0 0 14px;text-align:center}.nav-chevron{margin-left:auto;color:#71819a;font-size:19px;line-height:1;transition:transform .15s}.nav-section.open .nav-chevron{transform:rotate(90deg)}.nav-items{display:flex;flex-direction:column;gap:3px;padding-left:12px}.nav-items[hidden]{display:none}.nav-items .nav-link{font-size:12px;padding:8px 10px}.nav-items .nav-link.active{background:#253657;border-color:#354b70}.sidebar-bottom{margin-top:auto;padding-top:15px;border-top:1px solid #25344d}
 .topbar-identity{display:flex;align-items:center;gap:22px;min-width:0}.topbar-identity .brand{flex:0 0 auto}.topbar-identity .logo{width:39px;height:39px}.topbar-identity h1{font-size:19px}.topbar-divider{height:34px;width:1px;background:#34435d}.topbar-title{font-size:15px;font-weight:650;margin:0;color:#b8c5d8;white-space:nowrap}.topbar-actions{gap:8px}.topbar-actions #logout{white-space:nowrap}
 .main-panel{min-width:0}.topbar{height:76px;margin:0;padding:0 30px;border-bottom:1px solid #25344d;background:#0e1728;display:flex;align-items:center;justify-content:space-between}
 .eyebrow{font-size:9px;letter-spacing:1.3px;color:#71819a;font-weight:750}.topbar-title{font-size:17px;font-weight:700;margin-top:3px}
 .page-content{max-width:1440px;margin:0 auto;padding:28px 30px 22px}.page-content .hero{margin:0 0 18px}
 .page-content .section{margin-top:22px}.page-content #workspace{min-height:100px}
-@media(max-width:760px){.topbar-identity{gap:10px}.topbar-identity .sub{display:none}.topbar-identity h1{font-size:16px}.topbar-actions{gap:5px}.topbar-actions button{padding:7px 8px}.app-layout{grid-template-columns:68px minmax(0,1fr)}.sidebar{padding:17px 7px}.sidebar-brand{padding:0 6px 18px}.sidebar-brand .brand>div:last-child{display:none}.sidebar-brand .logo{width:40px;height:40px}.nav-label{display:none}.side-nav{gap:15px;padding-top:17px}.nav-link{justify-content:center;padding:11px 5px;font-size:0}.nav-link>span{display:none}.sidebar-bottom .nav-link{font-size:0}.topbar{height:68px;padding:0 14px}.page-content{padding:20px 14px}.page-content .hero{align-items:flex-start;flex-direction:column}}
+@media(max-width:760px){.topbar-identity{gap:10px}.topbar-identity .sub{display:none}.topbar-identity h1{font-size:16px}.topbar-actions{gap:5px}.topbar-actions button{padding:7px 8px}.app-layout{grid-template-columns:68px minmax(0,1fr)}.sidebar{padding:17px 7px}.sidebar-brand{padding:0 6px 18px}.sidebar-brand .brand>div:last-child{display:none}.sidebar-brand .logo{width:40px;height:40px}.nav-label{display:none}.side-nav{gap:15px;padding-top:17px}.nav-link{justify-content:center;padding:11px 5px;font-size:0}.nav-link>span{display:none}.nav-section-toggle{justify-content:center;padding:11px 5px;font-size:0}.nav-section-toggle>span{display:none}.nav-section-icon{display:block;font-size:13px}.nav-chevron{display:none}.sidebar-bottom .nav-link{font-size:0}.topbar{height:68px;padding:0 14px}.page-content{padding:20px 14px}.page-content .hero{align-items:flex-start;flex-direction:column}}
 @media(max-width:430px){.topbar-identity .topbar-divider,.topbar-title{display:none}.topbar-identity .logo{width:34px;height:34px}.topbar-actions #logout{font-size:0}.topbar-actions #logout:after{content:'↪';font-size:16px}.app-layout{grid-template-columns:56px minmax(0,1fr)}.sidebar{padding-left:4px;padding-right:4px}.page-content{padding:16px 10px}.topbar{padding:0 10px}}
 </style>
 </head>
@@ -97,23 +97,43 @@ input{width:100%;padding:12px;border:1px solid #34435d;border-radius:10px;backgr
         <button class="nav-link" data-view="operation-history">◷ <span>Actividad</span></button>
       </div>
       <div class="nav-group"><div class="nav-label">BIBLIOTECA Y DESCARGAS</div>
-        <button class="nav-link" data-view="movies">▣ <span>Películas · Radarr</span></button>
-        <button class="nav-link" data-view="radarr-queue">≡ <span>Cola de Radarr</span></button>
-        <button class="nav-link" data-view="search-movies">⌕ <span>Buscar películas</span></button>
-        <button class="nav-link" data-view="series">▤ <span>Series · Sonarr</span></button>
-        <button class="nav-link" data-view="sonarr-queue">≡ <span>Cola de Sonarr</span></button>
-        <button class="nav-link" data-view="search-series">⌕ <span>Buscar series</span></button>
-        <button class="nav-link" data-view="artists">♫ <span>Música · Lidarr</span></button>
-        <button class="nav-link" data-view="lidarr-queue">≡ <span>Cola de Lidarr</span></button>
-        <button class="nav-link" data-view="lidarr-history">◷ <span>Historial de Lidarr</span></button>
-        <button class="nav-link" data-view="lidarr-missing">♫ <span>Álbumes ausentes</span></button>
-        <button class="nav-link" data-view="search-artists">⌕ <span>Buscar artistas</span></button>
+        <section class="nav-section" data-nav-group="radarr">
+          <button class="nav-section-toggle" type="button" data-nav-toggle="radarr" aria-expanded="false"><span class="nav-section-icon">▣</span><span>Películas · Radarr</span><span class="nav-chevron">›</span></button>
+          <div class="nav-items" data-nav-items="radarr" hidden>
+            <button class="nav-link" data-view="movies">▣ <span>Películas · Radarr</span></button>
+            <button class="nav-link" data-view="radarr-queue">≡ <span>Cola de Radarr</span></button>
+            <button class="nav-link" data-view="search-movies">⌕ <span>Buscar películas</span></button>
+          </div>
+        </section>
+        <section class="nav-section" data-nav-group="sonarr">
+          <button class="nav-section-toggle" type="button" data-nav-toggle="sonarr" aria-expanded="false"><span class="nav-section-icon">▤</span><span>Series · Sonarr</span><span class="nav-chevron">›</span></button>
+          <div class="nav-items" data-nav-items="sonarr" hidden>
+            <button class="nav-link" data-view="series">▤ <span>Series · Sonarr</span></button>
+            <button class="nav-link" data-view="sonarr-queue">≡ <span>Cola de Sonarr</span></button>
+            <button class="nav-link" data-view="search-series">⌕ <span>Buscar series</span></button>
+          </div>
+        </section>
+        <section class="nav-section" data-nav-group="lidarr">
+          <button class="nav-section-toggle" type="button" data-nav-toggle="lidarr" aria-expanded="false"><span class="nav-section-icon">♫</span><span>Música · Lidarr</span><span class="nav-chevron">›</span></button>
+          <div class="nav-items" data-nav-items="lidarr" hidden>
+            <button class="nav-link" data-view="artists">♫ <span>Música · Lidarr</span></button>
+            <button class="nav-link" data-view="lidarr-queue">≡ <span>Cola de Lidarr</span></button>
+            <button class="nav-link" data-view="lidarr-history">◷ <span>Historial de Lidarr</span></button>
+            <button class="nav-link" data-view="lidarr-missing">♫ <span>Álbumes ausentes</span></button>
+            <button class="nav-link" data-view="search-artists">⌕ <span>Buscar artistas</span></button>
+          </div>
+        </section>
         <button class="nav-link" data-view="downloads">⇩ <span>Descargas</span></button>
-        <button class="nav-link" data-view="scryer-titles">▦ <span>Biblioteca Scryer</span></button>
-        <button class="nav-link" data-view="scryer">⌘ <span>Esquema Scryer</span></button>
-        <button class="nav-link" data-view="scryer-requests">＋ <span>Solicitudes Scryer</span></button>
-        <button class="nav-link" data-view="scryer-audit">◷ <span>Auditoría Scryer</span></button>
-        <button class="nav-link" data-view="scryer-recycle-bin">▤ <span>Papelera Scryer</span></button>
+        <section class="nav-section" data-nav-group="scryer">
+          <button class="nav-section-toggle" type="button" data-nav-toggle="scryer" aria-expanded="false"><span class="nav-section-icon">▦</span><span>Scryer</span><span class="nav-chevron">›</span></button>
+          <div class="nav-items" data-nav-items="scryer" hidden>
+            <button class="nav-link" data-view="scryer-titles">▦ <span>Biblioteca Scryer</span></button>
+            <button class="nav-link" data-view="scryer">⌘ <span>Esquema Scryer</span></button>
+            <button class="nav-link" data-view="scryer-requests">＋ <span>Solicitudes Scryer</span></button>
+            <button class="nav-link" data-view="scryer-audit">◷ <span>Auditoría Scryer</span></button>
+            <button class="nav-link" data-view="scryer-recycle-bin">▤ <span>Papelera Scryer</span></button>
+          </div>
+        </section>
       </div>
       <div class="nav-group"><div class="nav-label">CONFIGURACIÓN</div>
         <button class="nav-link" data-view="apps">▧ <span>Aplicaciones</span></button>
@@ -827,7 +847,13 @@ async function openView(view){const target=$('workspace');target.textContent='Lo
  else if(view==='downloads'){data=await request('/web-api/torrents');const rows=(data||[]).map(x=>'<tr><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(x.name)+'</td><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(x.state)+'</td><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(x.progress===undefined?'—':Math.round(x.progress*100)+'%')+'</td><td style="padding:10px;border-bottom:1px solid #25344d">'+cell(x.category)+'</td><td style="padding:10px;border-bottom:1px solid #25344d"><input data-torrent-category value="'+esc(x.category||'')+'" aria-label="Torrent category" style="width:110px;margin:0;padding:6px"><button data-torrent-set-category data-hash="'+esc(x.hash)+'">Set</button></td><td style="padding:10px;border-bottom:1px solid #25344d"><button data-torrent-action="pause" data-hash="'+esc(x.hash)+'">Pause</button> <button data-torrent-action="resume" data-hash="'+esc(x.hash)+'">Resume</button> <button data-torrent-delete data-hash="'+esc(x.hash)+'" data-name="'+esc(x.name)+'">Preview remove</button></td></tr>');html='<h3>Active downloads <span class="muted">('+rows.length+')</span></h3><p class="muted">Removing a torrent keeps its downloaded files by default. A preview and exact confirmation are required.</p>'+table(['Name','State','Progress','Category','Set category','Controls'],rows);}
  target.innerHTML=html||'<div class="muted">No records found.</div>';
  }catch(e){target.innerHTML='<div class="error">'+esc(e.message)+'</div>';}}
-function setActiveView(view){document.querySelectorAll('.side-nav [data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===view));const titles={home:'Inicio','agent-chat':'Chat','operation-history':'Actividad',movies:'Películas · Radarr','radarr-queue':'Cola de Radarr','search-movies':'Buscar películas',series:'Series · Sonarr','sonarr-queue':'Cola de Sonarr','search-series':'Buscar series',artists:'Música · Lidarr','lidarr-queue':'Cola de Lidarr','lidarr-history':'Historial de Lidarr','lidarr-missing':'Álbumes ausentes','search-artists':'Buscar artistas',downloads:'Descargas','scryer-titles':'Biblioteca Scryer',scryer:'Esquema Scryer','scryer-requests':'Solicitudes Scryer','scryer-audit':'Auditoría Scryer','scryer-recycle-bin':'Papelera Scryer',apps:'Aplicaciones',docker:'Docker',settings:'General','api-explorer':'API avanzada'};$('page-title').textContent=titles[view]||view;}
+const NAV_STATE_KEY='homelabpilot-sidebar-groups';
+const NAV_VIEW_GROUP={movies:'radarr','radarr-queue':'radarr','search-movies':'radarr',series:'sonarr','sonarr-queue':'sonarr','search-series':'sonarr',artists:'lidarr','lidarr-queue':'lidarr','lidarr-history':'lidarr','lidarr-missing':'lidarr','search-artists':'lidarr','scryer-titles':'scryer',scryer:'scryer','scryer-requests':'scryer','scryer-audit':'scryer','scryer-recycle-bin':'scryer'};
+function readNavState(){try{const value=JSON.parse(localStorage.getItem(NAV_STATE_KEY)||'{}');return value&&typeof value==='object'?value:{};}catch(_){return {};}}
+function setNavGroupOpen(group,open,persist=true){const section=document.querySelector('[data-nav-group="'+group+'"]');if(!section)return;const toggle=section.querySelector('[data-nav-toggle]'),items=section.querySelector('[data-nav-items]');section.classList.toggle('open',open);toggle.setAttribute('aria-expanded',String(open));items.hidden=!open;if(persist){const state=readNavState();state[group]=open;localStorage.setItem(NAV_STATE_KEY,JSON.stringify(state));}}
+function initSidebar(){const state=readNavState();document.querySelectorAll('[data-nav-toggle]').forEach(toggle=>{const group=toggle.dataset.navToggle;setNavGroupOpen(group,state[group]===true,false);toggle.addEventListener('click',()=>{const open=toggle.getAttribute('aria-expanded')!=='true';setNavGroupOpen(group,open);});});}
+function setActiveView(view){document.querySelectorAll('.side-nav [data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===view));const group=NAV_VIEW_GROUP[view];if(group)setNavGroupOpen(group,true);const titles={home:'Inicio','agent-chat':'Chat','operation-history':'Actividad',movies:'Películas · Radarr','radarr-queue':'Cola de Radarr','search-movies':'Buscar películas',series:'Series · Sonarr','sonarr-queue':'Cola de Sonarr','search-series':'Buscar series',artists:'Música · Lidarr','lidarr-queue':'Cola de Lidarr','lidarr-history':'Historial de Lidarr','lidarr-missing':'Álbumes ausentes','search-artists':'Buscar artistas',downloads:'Descargas','scryer-titles':'Biblioteca Scryer',scryer:'Esquema Scryer','scryer-requests':'Solicitudes Scryer','scryer-audit':'Auditoría Scryer','scryer-recycle-bin':'Papelera Scryer',apps:'Aplicaciones',docker:'Docker',settings:'General','api-explorer':'API avanzada'};$('page-title').textContent=titles[view]||view;}
+initSidebar();
 document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>{setActiveView(b.dataset.view);if(b.dataset.view==='home'){$('home-overview').scrollIntoView({behavior:'smooth',block:'start'});$('workspace').innerHTML='<strong>Resumen general</strong><br>Estado de conexión de los servicios configurados.';return;}openView(b.dataset.view);}));
 $('workspace').addEventListener('submit',async e=>{
  if(e.target.id==='scryer-title-search'){
