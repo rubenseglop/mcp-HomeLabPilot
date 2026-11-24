@@ -17,7 +17,7 @@ Conecta servicios como Radarr, Sonarr, Lidarr, Prowlarr, Bazarr y qBittorrent, a
 - Previsualización y confirmación explícita para operaciones sensibles.
 - Chat con Codex CLI en un contenedor aislado y con acceso MCP de solo lectura.
 
-Consulta [Integraciones](docs/INTEGRATIONS.md) para ver el alcance técnico y [Seguridad](docs/SECURITY.md) para conocer los permisos y protecciones.
+Consulta [Integraciones](docs/INTEGRATIONS.md) para ver el alcance técnico, [Seguridad](docs/SECURITY.md) para conocer los permisos y protecciones, y [el plan de validación final](docs/VALIDACION_FINAL.md) para la campaña de aceptación previa a la publicación.
 
 ## Instalación con Docker Compose
 
@@ -111,4 +111,4 @@ homelabpilot-mcp
 
 ---
 
-HomeLabPilot es un proyecto en desarrollo. Las funciones disponibles dependen de las integraciones implementadas y de las API de cada servicio.
+HomeLabPilot se desarrolla en la rama `feature/complete-homelabpilot`. La implementación funcional se está cerrando antes de ejecutar una campaña única de validación; las funciones disponibles dependen de las integraciones implementadas, la configuración y las API de cada servicio.
