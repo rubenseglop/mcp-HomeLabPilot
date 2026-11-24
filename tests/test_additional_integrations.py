@@ -54,6 +54,15 @@ class FakeAsyncClient:
             "method": method, "url": url, "params": params,
             "json": json, "headers": headers, "auth": auth,
         })
+        if url.endswith("/v1"):
+            command = (json or {}).get("cmd")
+            if command == "sessions.list":
+                return FakeResponse({"status": "ok", "sessions": ["homelabpilot-test"]})
+            if command == "request.get":
+                return FakeResponse({"status": "ok", "solution": {
+                    "url": (json or {}).get("url"),
+                    "response": "x" * 21000,
+                }})
         if url.endswith("/transmission/rpc"):
             method = (json or {}).get("method")
             if method == "torrent-get":
@@ -181,6 +190,7 @@ def registered(monkeypatch):
     monkeypatch.setenv("TRACEARR_API_KEY", "tracearr-read-token")
     monkeypatch.setenv("MAINTAINERR_URL", "http://maintainerr:6246")
     monkeypatch.setenv("TRANSMISSION_URL", "http://transmission:9091/transmission/rpc")
+    monkeypatch.setenv("FLARESOLVERR_URL", "http://flaresolverr:8191")
     monkeypatch.setenv("TRANSMISSION_USERNAME", "transmission-user")
     monkeypatch.setenv("TRANSMISSION_PASSWORD", "transmission-password")
     FakeAsyncClient.calls = []
@@ -649,3 +659,33 @@ def test_transmission_dashboard_reads_extended_details_for_one_torrent(registere
     assert call["json"]["arguments"]["ids"] == [7]
     assert "trackers" in call["json"]["arguments"]["fields"]
     assert call["auth"] == ("transmission-user", "transmission-password")
+
+
+def test_flaresolverr_dashboard_fetches_public_page_and_truncates_response(registered):
+    status = integrations_status(registered)
+    result = asyncio.run(status.dashboard_read(
+        "flaresolverr", "request_get",
+        url="https://example.org/catalog", max_timeout=45000,
+    ))
+    assert result["status"] == "ok"
+    assert result["solution"]["url"] == "https://example.org/catalog"
+    assert result["solution"]["response"].endswith("[truncated by HomeLabPilot]")
+    call = FakeAsyncClient.calls[-1]
+    assert call["url"] == "http://flaresolverr:8191/v1"
+    assert call["json"] == {
+        "cmd": "request.get", "url": "https://example.org/catalog", "maxTimeout": 45000,
+    }
+
+
+def test_flaresolverr_request_get_rejects_private_targets(registered):
+    status = integrations_status(registered)
+    for target in ("http://127.0.0.1/admin", "http://192.168.1.10/", "http://printer.local/"):
+        with pytest.raises(ValueError):
+            asyncio.run(status.dashboard_read("flaresolverr", "request_get", url=target))
+    assert not [call for call in FakeAsyncClient.calls if call["url"].endswith("/v1")]
+
+
+def test_tinymediamanager_dashboard_exposes_task_queue_from_status(registered):
+    status = integrations_status(registered)
+    result = asyncio.run(status.dashboard_read("tinymediamanager", "tasks"))
+    assert result["data"]["queuedMainTasks"] == 0
