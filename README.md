@@ -2,97 +2,91 @@
 
 **MCP Server & AI Control Center for your Homelab**
 
-Plataforma para conectar modelos de inteligencia artificial con tu homelab mediante **MCP (Model Context Protocol)**. Permite que asistentes compatibles consulten y gestionen los servicios de tu infraestructura desde lenguaje natural, con permisos configurables y controles de seguridad.
+HomeLabPilot conecta asistentes de inteligencia artificial con los servicios del homelab mediante **MCP (Model Context Protocol)**. Reúne un servidor MCP, un panel web y un espacio de chat con agentes CLI, con permisos diferenciados y controles para las operaciones sensibles.
 
-HomeLabPilot reúne un panel web y un servidor MCP para interactuar con tu ecosistema multimedia y otros servicios domésticos desde un único lugar.
-
-Conecta servicios como Radarr, Sonarr, Lidarr, Prowlarr, Bazarr y qBittorrent, además de otras aplicaciones compatibles. Puedes utilizar la interfaz web o conectar un cliente MCP. También incluye un espacio de chat con **Codex CLI**.
+El proyecto está desarrollado en Python y se despliega con Docker Compose. La rama principal contiene las integraciones, el catálogo de aplicaciones, los paneles web y los componentes auxiliares descritos en esta documentación.
 
 ## Qué incluye
 
-- Panel web con catálogo de aplicaciones, estado de conexiones y herramientas para los servicios integrados.
-- Servidor MCP para conectar asistentes y clientes de IA con tu homelab.
-- Permisos MCP diferenciados para lectura, operaciones y administración.
-- Integraciones con aplicaciones multimedia, automatización, fotografías, juegos y otros servicios.
-- Previsualización y confirmación explícita para operaciones sensibles.
-- Chat con Codex CLI en un contenedor aislado y con acceso MCP de solo lectura.
+- Servidor MCP HTTP con autenticación Bearer y catálogo de herramientas para servicios del homelab.
+- Panel web con catálogo de aplicaciones, estado de conexiones y vistas de gestión para Radarr, Sonarr, Lidarr, qBittorrent y Scryer.
+- Paneles de consulta para servicios adicionales; el alcance depende de cada integración.
+- Herramientas de lectura y operaciones de escritura separadas por permisos.
+- Previsualización firmada y confirmación explícita para operaciones sensibles.
+- Catálogo de aplicaciones con 32 entradas en el código actual. Que una aplicación aparezca en el catálogo no significa que esté configurada ni que todas sus funciones hayan sido validadas en una instalación real.
+- Chat con agentes CLI mediante un gateway separado y un proxy MCP de solo lectura.
+- Gateway Docker opcional, desactivado por defecto y limitado a contenedores permitidos.
 
-Consulta [Integraciones](docs/INTEGRATIONS.md) para ver el alcance técnico, [Seguridad](docs/SECURITY.md) para conocer los permisos y protecciones, y [el plan de validación final](docs/VALIDACION_FINAL.md) para la campaña de aceptación previa a la publicación.
+Consulta [Integraciones](docs/INTEGRATIONS.md), [Seguridad](docs/SECURITY.md), [la hoja de ruta de auditoría](docs/ROADMAP_AUDITORIA.md) y [la campaña de validación](docs/VALIDACION_FINAL.md).
 
 ## Instalación con Docker Compose
 
-Necesitas Docker Engine y Docker Compose en el equipo donde ejecutarás HomeLabPilot.
+Necesitas Docker Engine y Docker Compose.
 
-1. Clona el repositorio y entra en la carpeta:
+1. Clona el repositorio:
 
    ```bash
    git clone https://github.com/rubenseglop/mcp-HomeLabPilot.git
    cd mcp-HomeLabPilot
    ```
 
-2. Crea tu configuración y genera un token MCP:
+2. Crea el archivo de configuración y genera un token:
 
    ```bash
    cp .env.example .env
    openssl rand -hex 32
    ```
 
-3. Edita `.env` y configura, como mínimo:
+3. Edita `.env` y configura como mínimo:
+   - `MCP_AUTH_TOKEN`: token generado para el endpoint MCP.
+   - `HOMELABPILOT_WEB_USERNAME` y `HOMELABPILOT_WEB_PASSWORD`: acceso al panel.
+   - Las URL y claves API de los servicios que quieras conectar.
 
-   - `MCP_AUTH_TOKEN`: pega el token generado.
-   - `HOMELABPILOT_WEB_USERNAME` y `HOMELABPILOT_WEB_PASSWORD`: credenciales para el panel web.
-   - Las URL y claves API de las aplicaciones que quieras conectar.
+   No subas ni compartas el archivo `.env`.
 
-   No compartas ni subas el archivo `.env` a Git.
-
-4. Inicia los servicios:
+4. Inicia el stack:
 
    ```bash
    docker compose up -d --build
    ```
 
-5. Abre el panel en:
+5. Abre el panel en `http://localhost:8765`.
 
-   ```
-   http://localhost:8765
-   ```
+Por defecto, el puerto se publica en loopback. Para acceder desde otros equipos de la LAN, configura `HOMELABPILOT_BIND_ADDRESS=0.0.0.0` y recrea el servicio. No expongas directamente el panel a Internet.
 
-Por defecto, el puerto se publica solo en loopback. Para acceder desde otros equipos de la LAN, configura `HOMELABPILOT_BIND_ADDRESS=0.0.0.0` en `.env` y recrea el contenedor. No expongas el puerto directamente a Internet.
-
-**Importante:** las URL de las aplicaciones deben ser accesibles desde dentro del contenedor de HomeLabPilot. Si están en otras redes Docker, conecta el servicio a esas redes o utiliza direcciones alcanzables desde el contenedor.
+Las URL de los servicios deben ser accesibles desde el contenedor de HomeLabPilot. Si las aplicaciones están en otras redes Docker, conecta el servicio a una red compartida o utiliza direcciones alcanzables.
 
 ## Conectar un cliente MCP
 
-El endpoint HTTP es:
+Endpoint HTTP:
 
 ```
 http://YOUR_DOCKER_HOST:8765/mcp
 ```
 
-Autenticación: `Authorization: Bearer YOUR_MCP_AUTH_TOKEN`.
+Autenticación mediante `Authorization: Bearer YOUR_MCP_AUTH_TOKEN`. El servidor también valida el encabezado `Host`; configura `HOMELABPILOT_MCP_ALLOWED_HOSTS` para los nombres de host que utilices.
 
-Configura el cliente MCP con esa URL y el token generado. El servidor valida también el encabezado `Host`; añade los nombres de host utilizados a `HOMELABPILOT_MCP_ALLOWED_HOSTS` en `.env`.
+## Chat con agentes
 
-## Chat con Codex
-
-El chat integrado utiliza Codex CLI dentro del contenedor aislado de agentes. Tras iniciar el stack, autentica Codex desde el host:
+El chat utiliza el contenedor `homelabpilot-agents` y el gateway correspondiente. Para autenticar Codex:
 
 ```bash
 docker compose exec homelabpilot-agents codex login --device-auth
 ```
 
-Después abre **AI Chat** en el panel. El agente utiliza un proxy MCP de solo lectura y no tiene acceso al socket Docker del host ni a las carpetas multimedia.
+Después abre **AI Chat** en el panel. El acceso MCP del agente pasa por un proxy con allowlist de lectura; no equivale a los permisos del MCP principal. El agente no monta el socket Docker del host ni las carpetas multimedia.
 
 ## Configuración y permisos
 
-- Copia las variables que necesites desde `.env.example`; no hace falta configurar aplicaciones que no utilices.
-- El nivel de permisos MCP se controla con `HOMELABPILOT_MCP_PERMISSION_LEVEL`: `read`, `operations` o `admin`.
-- Para cifrar la configuración persistente, define una clave estable en `HOMELABPILOT_CONFIG_ENCRYPTION_KEY`.
-- La gestión Docker es opcional y está desactivada por defecto.
+- Configura solo las aplicaciones que utilices.
+- `HOMELABPILOT_MCP_PERMISSION_LEVEL` controla los permisos: `read`, `operations` o `admin`.
+- Define una clave estable `HOMELABPILOT_CONFIG_ENCRYPTION_KEY` para cifrar la configuración persistente.
+- La gestión Docker es opcional y se activa mediante el perfil Compose correspondiente.
+- No compartas tokens, claves API ni cookies de sesión.
 
-Lee [Seguridad](docs/SECURITY.md) antes de habilitar operaciones administrativas o acceso remoto.
+Consulta [Seguridad](docs/SECURITY.md) antes de habilitar operaciones administrativas o acceso desde la LAN.
 
-## Desarrollo
+## Desarrollo y pruebas
 
 Requiere Python 3.11 o superior:
 
@@ -103,12 +97,14 @@ pip install -e ".[test]"
 pytest
 ```
 
-Para ejecutar el servidor localmente, configura las variables de entorno de `.env` y ejecuta:
+Para ejecutar el servidor localmente, configura las variables de entorno y ejecuta:
 
 ```bash
 homelabpilot-mcp
 ```
 
----
+## Estado del repositorio
 
-HomeLabPilot se desarrolla en la rama `feature/complete-homelabpilot`. La implementación funcional se está cerrando antes de ejecutar una campaña única de validación; las funciones disponibles dependen de las integraciones implementadas, la configuración y las API de cada servicio.
+La rama `main` es la rama principal de desarrollo e incluye la integración funcional y la navegación lateral compacta. La validación automatizada de la CI y la validación de código no sustituyen la comprobación E2E contra los servicios reales. El despliegue en una instalación concreta debe verificarse por separado.
+
+La documentación de estado y las tareas pendientes se mantienen en [docs/ROADMAP_AUDITORIA.md](docs/ROADMAP_AUDITORIA.md).
