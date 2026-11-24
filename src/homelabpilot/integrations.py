@@ -2097,9 +2097,11 @@ def register_integration_tools(
             },
             "flaresolverr": {
                 "sessions": flaresolverr_list_sessions,
+                "request_get": flaresolverr_request_get,
             },
             "tinymediamanager": {
                 "status": tinymediamanager_get_status,
+                "tasks": tinymediamanager_get_status,
                 "api_docs": tinymediamanager_get_api_docs,
             },
         }
