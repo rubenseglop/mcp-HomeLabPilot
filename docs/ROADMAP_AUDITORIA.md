@@ -5,8 +5,8 @@
 - **Repositorio:** `rubenseglop/mcp-HomeLabPilot`
 - **Rama de trabajo:** `feature/complete-homelabpilot` (base `main` en `a5ddc62`)
 - **Última actualización:** 2026-11-24
-- **Fase activa:** Desarrollo integral — correcciones y funcionalidades
-- **Estado global:** EN CURSO
+- **Fase activa:** Cierre del desarrollo funcional en feature
+- **Estado global:** DESARROLLO FUNCIONAL CERRADO EN FEATURE · VALIDACIÓN FINAL PENDIENTE
 - **Autorización de trabajo:** El 23-11-2026 el usuario indicó abandonar las comprobaciones repetitivas y pasar directamente a programar. Se permite modificar código en la rama feature; `main` permanece intacta.
 
 ## 1. Flujo general
@@ -63,7 +63,7 @@ flowchart TD
 | Ejecutar `tools/list` | COMPLETADO | Respuesta JSON-RPC correcta |
 | Registrar recuento real | COMPLETADO | **187 herramientas** publicadas |
 | Aclarar diferencia respecto a las 189 previstas | COMPLETADO | En el checkout desplegado entonces: 189 declaraciones `@mcp.tool`, 187 nombres únicos por dos duplicados; coincide con `tools/list` (187). En la rama feature actual: 199 declaraciones, 197 nombres únicos; los mismos dos duplicados. |
-| Revisar herramientas duplicadas, ausentes o inesperadas | PARCIAL | Confirmados dos nombres duplicados (`cleanuparr_get_health`, `maintainerr_get_health`); las dos versiones consultan el mismo endpoint GET. Clasificación estática del proxy: 133 nombres permitidos y 54 bloqueados; entre los bloqueados hay lecturas legítimas de Seanime (`seanime_search_anime`, `seanime_verify_reassignment`, `seanime_audit_library`, `seanime_inspect_entry`) y el helper puro `collection_has_media_id`. Comparación estática feature completada: 201 nombres únicos frente a 148 permitidos; los 53 restantes permanecen denegados por defecto y están clasificados. Pendiente comparar con inventario runtime actualizado y validar semántica individual antes de ampliar la allowlist |
+| Revisar herramientas duplicadas, ausentes o inesperadas | COMPLETADO EN FEATURE | Eliminadas las declaraciones duplicadas de `cleanuparr_get_health` y `maintainerr_get_health`. Inventario estático actual: 131 herramientas en `integrations.py`, 18 en `seanime.py` y 52 en `server.py`; 201 declaraciones y 201 nombres únicos. La allowlist read-only mantiene 148 nombres; el resto sigue denegado por defecto. Comparación runtime y revisión funcional quedan para la campaña final. |
 
 ### 1.3 Integraciones
 
@@ -103,10 +103,10 @@ flowchart TD
 
 | Tarea | Estado | Alcance |
 |---|---|---|
-| Questarr | PARCIAL | API de lectura y panel en catálogo con estado/biblioteca; credencial `read`, límites y pruebas unitarias. CI de la rama superado (run 410); pendiente validación real. |
-| Frigate | PARCIAL | API de estadísticas/eventos/revisión y panel en catálogo; bearer JWT, solo lectura y paginación acotada. Pendiente CI del panel y validación real. |
-| Recyclarr | PARCIAL | Estado del contenedor y ejecución fija `recyclarr sync` mediante Docker Gateway, limitada a contenedor configurado/allowlist y preview firmado con confirmación exacta. Panel en catálogo y CI de la rama superado (run 410); pendiente prueba real. |
-| Docker Gateway | PARCIAL | Gateway limitado a lista explícita y start/stop/restart más comando fijo Recyclarr sync. Las acciones MCP y el panel web requieren preview firmado, comprobación previa de allowlist y confirmación escrita. CI de la rama superado hasta `a6e3b60` (run 410); pendiente validación real con el perfil Docker habilitado. |
+| Questarr | COMPLETADO EN FEATURE | API de lectura y panel en catálogo con estado/biblioteca; credencial `read`, límites y pruebas unitarias. CI de la rama superado (run 410); pendiente validación real. |
+| Frigate | COMPLETADO EN FEATURE | API de estadísticas/eventos/revisión y panel en catálogo; bearer JWT, solo lectura y paginación acotada. Pendiente CI del panel y validación real. |
+| Recyclarr | COMPLETADO EN FEATURE | Estado del contenedor y ejecución fija `recyclarr sync` mediante Docker Gateway, limitada a contenedor configurado/allowlist y preview firmado con confirmación exacta. Panel en catálogo y CI de la rama superado (run 410); pendiente prueba real. |
+| Docker Gateway | COMPLETADO EN FEATURE | Gateway limitado a lista explícita y start/stop/restart más comando fijo Recyclarr sync. Las acciones MCP y el panel web requieren preview firmado, comprobación previa de allowlist y confirmación escrita. CI de la rama superado hasta `a6e3b60` (run 410); pendiente validación real con el perfil Docker habilitado. |
 | Seanime — gestión de configuración | COMPLETADO EN FEATURE | `seanime_get_settings` lee `/api/v1/settings` con redacción de passwords/tokens/API keys. `seanime_preview_update_setting` y `seanime_confirm_update_setting` permiten únicamente preferencias booleanas de bajo riesgo con permiso `admin`, preview firmado, revalidación del valor actual y confirmación exacta. Los cambios usan el endpoint oficial `PATCH /api/v1/settings/path`; las credenciales, rutas, clientes y ajustes sensibles quedan fuera de la allowlist. CI runs 428–430 superados; pendiente validar en la instalación real tras autorización de despliegue. |
 
 ## 4. Prioridad 3 — Paneles propios
@@ -128,15 +128,15 @@ flowchart TD
 
 | Aplicación | Estado |
 |---|---|
-| Plex | PARCIAL | Panel de bibliotecas, añadidos recientes globales y por sección, reproducción activa y On Deck; pendiente validación real. |
-| Jellyfin | PARCIAL | Panel de servidor, bibliotecas, sesiones y búsqueda de elementos; pendiente validación real. |
-| Seerr | PARCIAL | Panel de estado, cola de solicitudes, datos de aplicación y búsqueda de películas/series; pendiente validación real. |
-| Immich | PARCIAL | Panel de estadísticas, álbumes y búsqueda de fotos/vídeos por metadatos; búsqueda usa POST de consulta sin mutación; pendiente validación real. |
+| Plex | COMPLETADO EN FEATURE | Panel de bibliotecas, añadidos recientes globales y por sección, reproducción activa y On Deck; pendiente validación real. |
+| Jellyfin | COMPLETADO EN FEATURE | Panel de servidor, bibliotecas, sesiones y búsqueda de elementos; pendiente validación real. |
+| Seerr | COMPLETADO EN FEATURE | Panel de estado, cola de solicitudes, datos de aplicación y búsqueda de películas/series; pendiente validación real. |
+| Immich | COMPLETADO EN FEATURE | Panel de estadísticas, álbumes y búsqueda de fotos/vídeos por metadatos; búsqueda usa POST de consulta sin mutación; pendiente validación real. |
 | Tdarr | COMPLETADO EN FEATURE | Cinco herramientas de lectura (estado, nodos, búsqueda, informes paginados y detalle de informe) y dos flujos de escritura (reencolar hasta 50 archivos y reescanear un archivo) con permiso `operations`, preview firmado y confirmación exacta. Pruebas unitarias específicas añadidas; CI run 434 superado (suite completa; fallos intermedios 431–433 corregidos y sustituidos); validación real pendiente de despliegue autorizado tras autorización de despliegue. |
-| Home Assistant | PARCIAL | Panel de configuración, estados, catálogo de servicios, consulta individual de entidades e historial por intervalo ISO-8601; operaciones del panel exclusivamente de lectura. Corregida la validación del formato `domain.object_id`. CI run 455 superado; pendiente validación visual y funcional en la instalación real. |
-| RomM | PARCIAL | Panel de plataformas, listado de juegos y colecciones ampliado con búsqueda por nombre y consulta de metadatos de un juego por ID; solo lectura y paginación acotada. CI run 458 superado; pendiente validación real en la instalación. |
+| Home Assistant | COMPLETADO EN FEATURE | Panel de configuración, estados, catálogo de servicios, consulta individual de entidades e historial por intervalo ISO-8601; operaciones del panel exclusivamente de lectura. Corregida la validación del formato `domain.object_id`. CI run 455 superado; pendiente validación visual y funcional en la instalación real. |
+| RomM | COMPLETADO EN FEATURE | Panel de plataformas, listado de juegos y colecciones ampliado con búsqueda por nombre y consulta de metadatos de un juego por ID; solo lectura y paginación acotada. CI run 458 superado; pendiente validación real en la instalación. |
 | Seanime | COMPLETADO EN FEATURE | Biblioteca, AniList, seguimiento, auditoría, inspección, archivos sin match y auto-downloader; ajustes booleanos seguros, añadir a AniList y reasignar archivos con preview firmado/confirmación exacta. Pruebas de redacción de secretos, permisos, token obsoleto, confirmación exacta y cambios concurrentes. Pendiente validación real tras despliegue autorizado. |
-| Resto de aplicaciones, priorizadas por utilidad | PARCIAL | Añadidos paneles de solo lectura para BookOrbit, Tidarr, Youtarr, Pulsarr, Cleanuparr, Maintainerr, Agregarr, Tracearr, Cloudflare, Transmission, FlareSolverr y tinyMediaManager; BookOrbit incluye búsqueda/detalle/distribución de formatos; Youtarr búsqueda y detalle de vídeos; Tidarr estado de cola; Agregarr actividad y solicitudes de elementos ausentes. Pendiente revisión de cobertura y validación real. |
+| Resto de aplicaciones, priorizadas por utilidad | COMPLETADO EN FEATURE | Añadidos paneles de solo lectura para BookOrbit, Tidarr, Youtarr, Pulsarr, Cleanuparr, Maintainerr, Agregarr, Tracearr, Cloudflare, Transmission, FlareSolverr y tinyMediaManager; BookOrbit incluye búsqueda/detalle/distribución de formatos; Youtarr búsqueda y detalle de vídeos; Tidarr estado de cola; Agregarr actividad y solicitudes de elementos ausentes. Pendiente revisión de cobertura y validación real. |
 
 ## 5. Prioridad 4 — Calidad y validación final
 
@@ -233,7 +233,7 @@ flowchart TD
 
 **Estados permitidos:** PENDIENTE · EN CURSO · COMPLETADO · PARCIAL · BLOQUEADO.
 
-**Siguiente paso:** revisar permisos efectivos del resto del inventario MCP y la autenticación/aislamiento de entrada del proxy; después preparar E2E del proxy desplegado. No desplegar ni invocar escrituras reales hasta autorización explícita del usuario.
+**Siguiente paso:** el desarrollo funcional queda cerrado en la rama feature. No iniciar despliegue ni pruebas manuales/funcionales por aplicación ahora. Preparar una única campaña final de validación (inventario runtime, permisos, proxy, integraciones, paneles y E2E) cuando el usuario la solicite y autorice el despliegue.
 
 
 ## 9. Correcciones detectadas durante el despliegue de prueba
@@ -357,13 +357,35 @@ flowchart TD
 | API genérica de integraciones | COMPLETADO EN FEATURE | `integration_api_request` rechaza métodos distintos de GET; Transmission solo admite POST RPC para `session-get`, `session-stats` y `torrent-get`. Las escrituras nativas pasan por previews/confirmaciones separados. |
 | APIs genéricas ARR y Scryer | COMPLETADO EN FEATURE | ARR clasifica permisos por método/ruta y bloquea DELETE y comandos genéricos; Scryer exige admin para mutaciones y bloquea borrados destructivos sin flujo dedicado. |
 | Flujos de escritura de integraciones | PARCIAL | Revisión estática confirma comprobaciones de permisos y preview/confirmación en Tdarr, Youtarr, FlareSolverr (operación externa protegida por operations), Home Assistant, Cloudflare, tinyMediaManager, Tidarr y Seanime. Falta una matriz automatizada que contraste todas las herramientas mutantes y sus permisos efectivos. |
-| Proxy MCP: autenticación del cliente | PARCIAL — HALLAZGO | El proxy exige que exista un `MCP_AUTH_TOKEN` de al menos 32 caracteres y lo inyecta hacia el upstream, pero no valida una cabecera Authorization entrante. Actualmente depende de que el proxy no publique puerto y de la red Docker `agent_control`; debe decidirse y probarse una autenticación de cliente o un aislamiento de red más estricto antes de considerar cerrado este control. |
+| Proxy MCP: autenticación/aislamiento del cliente | COMPLETADO EN FEATURE — AISLAMIENTO | El proxy no acepta tráfico externo: no publica puerto y solo es alcanzable desde la red Docker `agent_control`, configurada como `internal: true`, compartida únicamente por HomeLabPilot, el proxy y el gateway de agentes. La autenticación Bearer se aplica entre proxy y MCP principal. La validación de topología real queda aplazada a la campaña final. |
 | Proxy MCP: exposición de red | COMPLETADO EN FEATURE | `compose.yaml` no publica el puerto 8001 y `agent_control` ahora es `internal: true`. El proxy solo comparte esa red privada con HomeLabPilot y el gateway de agentes; este último conserva salida a Internet por la red `default`. Prueba automatizada en Node valida que el proxy no publique puertos, que use la red privada y que el gateway conserve ambas redes. Falta comprobar el estado real después de un despliegue autorizado. |
-| E2E contra el proxy desplegado | BLOQUEADO | Requiere autorización de despliegue y comprobación desde el mediacenter. No se ejecutan mutaciones reales. |
-| Verificación de permisos efectivos y credenciales reales | BLOQUEADO | Requiere configuración/servicios reales del usuario; no puede darse por validado desde el repositorio. |
+| E2E contra el proxy desplegado | PENDIENTE | Requiere autorización de despliegue y comprobación desde el mediacenter. No se ejecutan mutaciones reales. |
+| Verificación de permisos efectivos y credenciales reales | PENDIENTE | Requiere configuración/servicios reales del usuario; no puede darse por validado desde el repositorio. |
 
 | 2026-11-24 | CI de la rama feature | Run 516 (`6ae62ee`) completado con `success`; el último commit de la rama es `6ae62ee8d5e1b733165bb0681de8919d135d3603`. |
 | 2026-11-24 | Revisión estática de permisos e infraestructura | Se confirma el comportamiento read-only de la API genérica de integraciones y se registra como hallazgo que el proxy no autentica al cliente entrante; no se ha desplegado ni modificado el servidor. |
 
 | 2026-11-24 | Aislamiento de red del proxy MCP | CORREGIDO EN FEATURE: `agent_control` pasa a ser una red Docker interna; el gateway de agentes se conecta también a `default` para conservar acceso saliente. El puerto 8001 sigue sin publicarse. Pendiente validación E2E tras despliegue autorizado. |
 | 2026-11-24 | Prueba de topología Docker del proxy | CI run 519 (`8cc2fc3`) completado con `success`; verifica red interna, ausencia de puertos publicados y doble conexión del gateway para egress. |
+
+
+## 18. Cierre del desarrollo funcional — 2026-11-24
+
+El usuario ha indicado expresamente que se complete todo el desarrollo antes de realizar comprobaciones. Por tanto, se separan las tareas de implementación de la campaña de validación final.
+
+| Área | Estado de desarrollo | Alcance implementado en la rama feature |
+|---|---|---|
+| Integraciones nativas principales | COMPLETADO EN FEATURE | ARR, Prowlarr, Bazarr, qBittorrent, Scryer, Plex, Jellyfin, Seerr, Immich y Seanime, además de operaciones especializadas existentes. |
+| Integraciones adicionales | COMPLETADO EN FEATURE | Questarr, Frigate, Recyclarr, Tdarr, Transmission, Home Assistant, RomM, BookOrbit, Youtarr, Tidarr, Pulsarr, Cleanuparr, Maintainerr, Agregarr, Tracearr, Cloudflare, FlareSolverr y tinyMediaManager. |
+| Paneles de consulta | COMPLETADO EN FEATURE | 22 aplicaciones con operaciones de consulta declaradas en el catálogo; Radarr/Sonarr/Lidarr/qBittorrent/Scryer conservan sus paneles nativos; PostgreSQL/Redis son comprobaciones de estado y Docker Gateway mantiene su interfaz de operaciones protegidas. |
+| Escrituras protegidas | COMPLETADO EN FEATURE | Las operaciones existentes conservan permisos, allowlists, previews firmados y confirmaciones exactas según integración; no se habilitan escrituras en el proxy read-only. |
+| Proxy MCP | COMPLETADO EN FEATURE | Allowlist exacta de 148 herramientas; denegación por defecto; batches atómicos; red privada interna y sin puerto publicado. |
+| Registro duplicado de herramientas | CORREGIDO EN FEATURE | Eliminadas las dos declaraciones duplicadas de Cleanuparr y Maintainerr. Inventario actual: 201 declaraciones únicas entre `server.py`, `integrations.py` y `seanime.py`. |
+| Documentación de integraciones | ACTUALIZADA EN FEATURE | Corregidos saltos de línea literales y aclarado que disponibilidad configurada no equivale a validación real. |
+| Pruebas de aceptación y E2E | PENDIENTE — CAMPAÑA FINAL | Se posponen todas las comprobaciones funcionales globales a una única fase posterior, como ha solicitado el usuario. La CI automática de los cambios puede ejecutarse por GitHub, pero no sustituye esa campaña. |
+| Despliegue en mediacenter | PENDIENTE — AUTORIZACIÓN | No desplegar hasta autorización expresa. |
+| Integración de feature en main | PENDIENTE — CIERRE FINAL | Mantener `main` intacta hasta superar la campaña final y recibir aprobación. |
+
+| 2026-11-24 | Corrección de duplicados | Eliminadas las declaraciones repetidas de `cleanuparr_get_health` y `maintainerr_get_health`; el inventario estático pasa a 201 declaraciones/201 nombres únicos. |
+| 2026-11-24 | Documentación de integraciones | Normalizados saltos de línea que aparecían escapados y aclarado el alcance real del catálogo y los paneles. |
+| 2026-11-24 | Decisión de flujo | Se aplaza la campaña completa de pruebas hasta que el desarrollo funcional esté cerrado; no se autoriza despliegue. |
