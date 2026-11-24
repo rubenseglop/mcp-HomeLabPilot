@@ -73,7 +73,7 @@ input{width:100%;padding:12px;border:1px solid #34435d;border-radius:10px;backgr
 .eyebrow{font-size:9px;letter-spacing:1.3px;color:#71819a;font-weight:750}.topbar-title{font-size:17px;font-weight:700;margin-top:3px}
 .page-content{max-width:1440px;margin:0 auto;padding:28px 30px 22px}.page-content .hero{margin:0 0 18px}
 .page-content .section{margin-top:22px}.page-content #workspace{min-height:100px}
-@media(max-width:760px){.topbar-identity{gap:10px}.topbar-identity .sub{display:none}.topbar-identity h1{font-size:16px}.topbar-actions{gap:5px}.topbar-actions button{padding:7px 8px}.app-layout{grid-template-columns:68px minmax(0,1fr)}.sidebar{padding:17px 7px}.sidebar-brand{padding:0 6px 18px}.sidebar-brand .brand>div:last-child{display:none}.sidebar-brand .logo{width:40px;height:40px}.nav-label{display:none}.side-nav{gap:15px;padding-top:17px}.nav-link{justify-content:center;padding:11px 5px;font-size:0}.nav-link>span{display:none}.sidebar-bottom .nav-link{font-size:0}.topbar{height:68px;padding:0 14px}.page-content{padding:20px 14px}.page-content .hero{align-items:flex-start;flex-direction:column}}
+@media(max-width:760px){.topbar-identity{gap:10px}.topbar-identity .sub{display:none}.topbar-identity h1{font-size:16px}.topbar-actions{gap:5px}.topbar-actions button{padding:7px 8px}.app-layout{grid-template-columns:68px minmax(0,1fr)}.sidebar{padding:17px 7px}.sidebar-brand{padding:0 6px 18px}.sidebar-brand .brand>div:last-child{display:none}.sidebar-brand .logo{width:40px;height:40px}.nav-label{display:none}.side-nav{gap:15px;padding-top:17px}.nav-link{justify-content:center;padding:11px 5px;font-size:0}.nav-link>span{display:none}.nav-section-toggle{justify-content:center;padding:11px 5px;font-size:0}.nav-section-toggle>span{display:none}.nav-section-icon{display:block;font-size:13px}.nav-chevron{display:none}.sidebar-bottom .nav-link{font-size:0}.topbar{height:68px;padding:0 14px}.page-content{padding:20px 14px}.page-content .hero{align-items:flex-start;flex-direction:column}}
 @media(max-width:430px){.topbar-identity .topbar-divider,.topbar-title{display:none}.topbar-identity .logo{width:34px;height:34px}.topbar-actions #logout{font-size:0}.topbar-actions #logout:after{content:'↪';font-size:16px}.app-layout{grid-template-columns:56px minmax(0,1fr)}.sidebar{padding-left:4px;padding-right:4px}.page-content{padding:16px 10px}.topbar{padding:0 10px}}
 </style>
 </head>
@@ -91,11 +91,6 @@ input{width:100%;padding:12px;border:1px solid #34435d;border-radius:10px;backgr
 <main id="app" class="app-layout hidden">
   <aside class="sidebar">
     <nav class="side-nav" aria-label="Main navigation">
-      <div class="nav-group"><div class="nav-label">WORKSPACE</div>
-        <button class="nav-link active" data-view="home">⌂ <span>Inicio</span></button>
-        <button class="nav-link" data-view="agent-chat">✧ <span>Chat</span></button>
-        <button class="nav-link" data-view="operation-history">◷ <span>Actividad</span></button>
-      </div>
       <div class="nav-group"><div class="nav-label">WORKSPACE</div>
         <button class="nav-link active" data-view="home">⌂ <span>Inicio</span></button>
         <button class="nav-link" data-view="agent-chat">✧ <span>Chat</span></button>
