@@ -357,8 +357,8 @@ async function openView(view){const target=$('workspace');target.textContent='Lo
     tracearr:[['health','Service status'],['stats','Statistics'],['activity','Activity'],['active_streams','Active streams'],['servers','Media servers'],['libraries','Library statistics'],['recently_added','Recently added'],['watch_history','Watch history'],['top_media','Most watched media']],
     cloudflare:[['zones','DNS zones'],['dns_records','DNS records']],
     transmission:[['session','Session status'],['statistics','Transfer statistics'],['torrents','Torrent list'],['torrent_details','Torrent details']],
-    flaresolverr:[['sessions','Browser sessions']],
-    tinymediamanager:[['status','Service status'],['api_docs','API documentation']],
+    flaresolverr:[['sessions','Browser sessions'],['request_get','Fetch public page']],
+    tinymediamanager:[['status','Service status'],['tasks','Task queue'],['api_docs','API documentation']],
     recyclarr:[['status','Container status'],['preview','Preview sync']]
    };
    const dashboard=(dashboards[app.id]||[]).length
@@ -433,6 +433,15 @@ async function openView(view){const target=$('workspace');target.textContent='Lo
        const name=window.prompt('DNS record name — optional')||'';
        args={zone_id:zoneId.trim(),record_type:recordType.trim(),name:name.trim(),page:1,per_page:100};
       }
+      if(service==='flaresolverr'&&operation==='request_get'){
+       const targetUrl=window.prompt('Public HTTP(S) URL to fetch through FlareSolverr');
+       if(!targetUrl||!targetUrl.trim()){output.textContent='Cancelled or empty URL.';return;}
+       const rawTimeout=window.prompt('Maximum timeout in milliseconds (1000–120000)','60000');
+       if(rawTimeout===null){output.textContent='Cancelled.';return;}
+       const maxTimeout=Number(rawTimeout);
+       if(!Number.isInteger(maxTimeout)||maxTimeout<1000||maxTimeout>120000){output.textContent='Timeout must be between 1000 and 120000 milliseconds.';return;}
+       args={url:targetUrl.trim(),max_timeout:maxTimeout};
+      }
       if(service==='transmission'&&operation==='torrent_details'){
         const rawId=window.prompt('Transmission torrent ID (see Torrent list)');
         if(!rawId){output.textContent='Cancelled.';return;}
@@ -484,7 +493,22 @@ async function openView(view){const target=$('workspace');target.textContent='Lo
        if(endTime&&endTime.trim())args.end_time=endTime.trim();
       }
       const result=await request('/web-api/integration/read',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({service,operation,arguments:args})});
-      output.textContent=JSON.stringify(result,null,2);
+      if(service==='tinymediamanager'&&operation==='tasks'){
+       const data=result&&typeof result.data==='object'&&result.data?result.data:result;
+       const running=Array.isArray(data.runningTasks)?data.runningTasks:[];
+       output.textContent=[
+        'State: '+(data.state||'unknown'),
+        'Busy: '+String(!!data.busy),
+        'Queued main tasks: '+String(data.queuedMainTasks??0),
+        'Running tasks: '+running.length,
+        'Image downloads running: '+String(!!data.imageDownloadsRunning),
+        'Worker pool running: '+String(!!data.poolRunning),
+        '',
+        JSON.stringify(running,null,2)
+       ].join('\\n');
+      }else{
+       output.textContent=JSON.stringify(result,null,2);
+      }
      }
     }catch(err){output.textContent='Error: '+err.message;}
     finally{readButton.disabled=false;}
