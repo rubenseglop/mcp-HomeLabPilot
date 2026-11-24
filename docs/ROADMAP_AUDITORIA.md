@@ -4,7 +4,7 @@
 
 - **Repositorio:** `rubenseglop/mcp-HomeLabPilot`
 - **Rama de trabajo:** `feature/complete-homelabpilot` (base `main` en `a5ddc62`)
-- **Última actualización:** 2026-11-23
+- **Última actualización:** 2026-11-24
 - **Fase activa:** Desarrollo integral — correcciones y funcionalidades
 - **Estado global:** EN CURSO
 - **Autorización de trabajo:** El 23-11-2026 el usuario indicó abandonar las comprobaciones repetitivas y pasar directamente a programar. Se permite modificar código en la rama feature; `main` permanece intacta.
@@ -347,3 +347,20 @@ flowchart TD
 | Pruebas | FlareSolverr y tinyMediaManager | COMPLETADO EN FEATURE | Cobertura de consulta, timeout, truncado, endpoint y rechazo de destinos locales/privados; verificación del lector de cola TMM. |
 | CI | COMPLETADO EN FEATURE | Run 515 (`8e0ebe3`) completado con `success`; suite Python y validación JavaScript superadas. |
 | Validación real | PENDIENTE | Requiere despliegue autorizado en el mediacenter. |
+
+
+## 17. Auditoría estática de permisos y aislamiento — revisión continua
+
+| Control | Estado | Evidencia / observaciones |
+|---|---|---|
+| Inventario de herramientas de integraciones y Seanime | COMPLETADO EN FEATURE | Revisión estática de los módulos: 133 declaraciones en `integrations.py` y 18 en `seanime.py`; se mantienen dos nombres duplicados ya conocidos (`cleanuparr_get_health` y `maintainerr_get_health`). |
+| API genérica de integraciones | COMPLETADO EN FEATURE | `integration_api_request` rechaza métodos distintos de GET; Transmission solo admite POST RPC para `session-get`, `session-stats` y `torrent-get`. Las escrituras nativas pasan por previews/confirmaciones separados. |
+| APIs genéricas ARR y Scryer | COMPLETADO EN FEATURE | ARR clasifica permisos por método/ruta y bloquea DELETE y comandos genéricos; Scryer exige admin para mutaciones y bloquea borrados destructivos sin flujo dedicado. |
+| Flujos de escritura de integraciones | PARCIAL | Revisión estática confirma comprobaciones de permisos y preview/confirmación en Tdarr, Youtarr, FlareSolverr (operación externa protegida por operations), Home Assistant, Cloudflare, tinyMediaManager, Tidarr y Seanime. Falta una matriz automatizada que contraste todas las herramientas mutantes y sus permisos efectivos. |
+| Proxy MCP: autenticación del cliente | PARCIAL — HALLAZGO | El proxy exige que exista un `MCP_AUTH_TOKEN` de al menos 32 caracteres y lo inyecta hacia el upstream, pero no valida una cabecera Authorization entrante. Actualmente depende de que el proxy no publique puerto y de la red Docker `agent_control`; debe decidirse y probarse una autenticación de cliente o un aislamiento de red más estricto antes de considerar cerrado este control. |
+| Proxy MCP: exposición de red | PARCIAL | `compose.yaml` no publica el puerto 8001; proxy, agente y aplicación comparten `agent_control`. La red no es `internal: true`, por lo que la protección se basa en la pertenencia a esa red y la ausencia de publicación de puerto. No se ha inspeccionado el estado real de redes/contenedores en el mediacenter. |
+| E2E contra el proxy desplegado | BLOQUEADO | Requiere autorización de despliegue y comprobación desde el mediacenter. No se ejecutan mutaciones reales. |
+| Verificación de permisos efectivos y credenciales reales | BLOQUEADO | Requiere configuración/servicios reales del usuario; no puede darse por validado desde el repositorio. |
+
+| 2026-11-24 | CI de la rama feature | Run 516 (`6ae62ee`) completado con `success`; el último commit de la rama es `6ae62ee8d5e1b733165bb0681de8919d135d3603`. |
+| 2026-11-24 | Revisión estática de permisos e infraestructura | Se confirma el comportamiento read-only de la API genérica de integraciones y se registra como hallazgo que el proxy no autentica al cliente entrante; no se ha desplegado ni modificado el servidor. |
