@@ -382,3 +382,14 @@ def test_dashboard_exposes_codex_chat_workspace():
         "Read-only mode",
     ):
         assert marker.encode() in body
+
+
+
+def test_operation_history_formats_timestamps_in_madrid_local_time():
+    start, body = call_asgi(make_app(), "/")
+    assert start["status"] == 200
+    assert b"function formatOperationDate(value)" in body
+    assert b"timeZone:'Europe/Madrid'" in body
+    assert b"formatOperationDate(x.occurred_at)" in body
+    assert b"Local time" in body
+    assert b"Time (UTC)" not in body
