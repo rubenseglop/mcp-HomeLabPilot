@@ -1753,11 +1753,6 @@ def register_integration_tools(
         return await request("tinymediamanager", "POST", f"/api/{section}", body=body)
 
     @mcp.tool()
-    async def cleanuparr_get_health() -> Any:
-        """Read Cleanuparr liveness without requiring authentication."""
-        return await request("cleanuparr", "GET", "/health")
-
-    @mcp.tool()
     async def cleanuparr_get_readiness() -> Any:
         """Read Cleanuparr readiness, including dependent service checks."""
         return await request("cleanuparr", "GET", "/health/ready")
@@ -1771,11 +1766,6 @@ def register_integration_tools(
     async def maintainerr_get_timezone() -> Any:
         """Read the timezone configured inside the Maintainerr process."""
         return await request("maintainerr", "GET", "/api/app/timezone")
-
-    @mcp.tool()
-    async def maintainerr_get_health() -> Any:
-        """Read Maintainerr readiness, including its database health."""
-        return await request("maintainerr", "GET", "/api/health/ready")
 
     @mcp.tool()
     async def maintainerr_get_live_health() -> Any:
