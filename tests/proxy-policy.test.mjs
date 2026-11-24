@@ -52,3 +52,17 @@ test("tools/list filters each response in a JSON-RPC batch", () => {
     ["stack_status"],
   ]);
 });
+
+
+test("read-only proxy stays unpublished on a private agent control network", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const compose = await readFile(new URL("../compose.yaml", import.meta.url), "utf8");
+  const proxy = compose.match(/  homelabpilot-mcp-proxy:\n([\s\S]*?)\n  homelabpilot-agents:/);
+  const agents = compose.match(/  homelabpilot-agents:\n([\s\S]*?)\n  homelabpilot-docker-gateway:/);
+  assert.ok(proxy, "proxy service must exist");
+  assert.ok(agents, "agent gateway service must exist");
+  assert.doesNotMatch(proxy[1], /\n\s+ports:/, "proxy must not publish a host port");
+  assert.match(proxy[1], /\n\s+- agent_control\s*$/, "proxy must use the private control network");
+  assert.match(agents[1], /\n\s+- default\s*\n\s+- agent_control\s*$/, "agent gateway needs private proxy access and default egress");
+  assert.match(compose, /  agent_control:\n\s+name: homelabpilot_agent_control\n\s+internal: true/, "agent control network must be internal");
+});
