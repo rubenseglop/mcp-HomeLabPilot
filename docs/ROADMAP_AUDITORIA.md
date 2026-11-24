@@ -381,7 +381,7 @@ El usuario ha indicado expresamente que se complete todo el desarrollo antes de 
 | Escrituras protegidas | COMPLETADO EN FEATURE | Las operaciones existentes conservan permisos, allowlists, previews firmados y confirmaciones exactas según integración; no se habilitan escrituras en el proxy read-only. |
 | Proxy MCP | COMPLETADO EN FEATURE | Allowlist exacta de 148 herramientas; denegación por defecto; batches atómicos; red privada interna y sin puerto publicado. |
 | Registro duplicado de herramientas | CORREGIDO EN FEATURE | Eliminadas las dos declaraciones duplicadas de Cleanuparr y Maintainerr. Inventario actual: 201 declaraciones únicas entre `server.py`, `integrations.py` y `seanime.py`. |
-| Documentación de integraciones | ACTUALIZADA EN FEATURE | Corregidos saltos de línea literales y aclarado que disponibilidad configurada no equivale a validación real. |
+| Documentación de integraciones | ACTUALIZADA EN FEATURE | Corregidos saltos de línea literales y aclarado que disponibilidad configurada no equivale a validación real. La guía de seguridad refleja el aislamiento de red privado y se ha creado `docs/VALIDACION_FINAL.md`. |
 | Pruebas de aceptación y E2E | PENDIENTE — CAMPAÑA FINAL | Se posponen todas las comprobaciones funcionales globales a una única fase posterior, como ha solicitado el usuario. La CI automática de los cambios puede ejecutarse por GitHub, pero no sustituye esa campaña. |
 | Despliegue en mediacenter | PENDIENTE — AUTORIZACIÓN | No desplegar hasta autorización expresa. |
 | Integración de feature en main | PENDIENTE — CIERRE FINAL | Mantener `main` intacta hasta superar la campaña final y recibir aprobación. |
@@ -389,3 +389,4 @@ El usuario ha indicado expresamente que se complete todo el desarrollo antes de 
 | 2026-11-24 | Corrección de duplicados | Eliminadas las declaraciones repetidas de `cleanuparr_get_health` y `maintainerr_get_health`; el inventario estático pasa a 201 declaraciones/201 nombres únicos. |
 | 2026-11-24 | Documentación de integraciones | Normalizados saltos de línea que aparecían escapados y aclarado el alcance real del catálogo y los paneles. |
 | 2026-11-24 | Decisión de flujo | Se aplaza la campaña completa de pruebas hasta que el desarrollo funcional esté cerrado; no se autoriza despliegue. |
+| 2026-11-24 | Catálogo de integraciones | Corregida la duplicidad de metadatos de Seanime: el catálogo conserva el modo `native API` y considera URL y contraseña para marcar la integración como configurada. |
