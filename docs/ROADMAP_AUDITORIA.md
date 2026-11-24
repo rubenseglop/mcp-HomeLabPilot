@@ -323,6 +323,7 @@ flowchart TD
 
 | 2026-11-23 | Paneles Maintainerr y Tracearr | CI runs 490–495 `success`; tareas programadas, estadísticas de bibliotecas y ranking de contenido incorporados. |
 | 2026-11-23 | Panel Transmission | Añadido detalle extendido de torrent por ID, solo lectura; CI run 508 `success` tras corregir la URL RPC usada por la prueba. |
+| 2026-11-24 | Paneles FlareSolverr y tinyMediaManager | Consulta de páginas públicas con FlareSolverr, controles de URL/timeout y vista de cola TMM; CI run 515 `success`. |
 
 
 ## 15. Ampliación del panel Transmission
@@ -344,5 +345,5 @@ flowchart TD
 | tinyMediaManager | Cola de tareas | COMPLETADO EN FEATURE | Se añade vista específica de estado, ocupación, tareas en cola/en ejecución y estado del pool, reutilizando GET /api/system. No encola ni ejecuta tareas. |
 | tinyMediaManager | Operaciones de escritura | SIN CAMBIOS | Las tareas de actualización, scraping, renombrado y escritura de metadatos siguen requiriendo preview firmado, permiso admin y confirmación exacta. No se añaden botones de ejecución al panel. |
 | Pruebas | FlareSolverr y tinyMediaManager | COMPLETADO EN FEATURE | Cobertura de consulta, timeout, truncado, endpoint y rechazo de destinos locales/privados; verificación del lector de cola TMM. |
-| CI | EN CURSO | Pendiente de ejecución de suite Python y validación JavaScript. |
+| CI | COMPLETADO EN FEATURE | Run 515 (`8e0ebe3`) completado con `success`; suite Python y validación JavaScript superadas. |
 | Validación real | PENDIENTE | Requiere despliegue autorizado en el mediacenter. |
