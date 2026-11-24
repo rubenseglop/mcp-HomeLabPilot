@@ -54,6 +54,12 @@ class FakeAsyncClient:
             "method": method, "url": url, "params": params,
             "json": json, "headers": headers, "auth": auth,
         })
+        if url.endswith("/api/system"):
+            return FakeResponse({"message": "OK", "data": {
+                "version": "5.3.5", "state": "RUNNING", "busy": False,
+                "queuedMainTasks": 0, "runningTasks": [],
+                "imageDownloadsRunning": False, "poolRunning": True,
+            }})
         if url.endswith("/v1"):
             command = (json or {}).get("cmd")
             if command == "sessions.list":
@@ -191,6 +197,8 @@ def registered(monkeypatch):
     monkeypatch.setenv("MAINTAINERR_URL", "http://maintainerr:6246")
     monkeypatch.setenv("TRANSMISSION_URL", "http://transmission:9091/transmission/rpc")
     monkeypatch.setenv("FLARESOLVERR_URL", "http://flaresolverr:8191")
+    monkeypatch.setenv("TINYMEDIAMANAGER_URL", "http://tinymediamanager:7878")
+    monkeypatch.setenv("TINYMEDIAMANAGER_API_KEY", "tmm-read-key")
     monkeypatch.setenv("TRANSMISSION_USERNAME", "transmission-user")
     monkeypatch.setenv("TRANSMISSION_PASSWORD", "transmission-password")
     FakeAsyncClient.calls = []
