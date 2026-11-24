@@ -17,6 +17,8 @@ import httpx
 
 
 HTTP_INTEGRATIONS = {
+    "questarr": ("QUESTARR_URL", "QUESTARR_API_KEY", "x-api-key", "/api/integration/ping"),
+    "frigate": ("FRIGATE_URL", "FRIGATE_API_TOKEN", "bearer", "/api/stats"),
     "seanime": ("SEANIME_URL", "SEANIME_PASSWORD", "seanime-token", "/api/v1/status"),
     "plex": ("PLEX_URL", "PLEX_TOKEN", "plex", "/identity"),
     "jellyfin": ("JELLYFIN_URL", "JELLYFIN_API_KEY", "emby", "/System/Info/Public"),
@@ -180,7 +182,7 @@ def register_integration_tools(
             "prowlarr": {"configured": bool(os.getenv("PROWLARR_URL", "").strip()), "mode": "ARR REST"},
             "bazarr": {"configured": bool(os.getenv("BAZARR_URL", "").strip()), "mode": "ARR REST"},
             "scryer": {"configured": bool(os.getenv("SCRYER_URL", "").strip()), "mode": "GraphQL"},
-            "seanime": {"configured": bool(os.getenv("SEANIME_URL", "").strip()), "mode": "native API"},
+            "seanime": {"configured": _is_configured(HTTP_INTEGRATIONS["seanime"]), "mode": "native API"},
             "qbittorrent": {"configured": bool(os.getenv("QBITTORRENT_URL", "").strip()), "mode": "Web API"},
         }
         services.update({
@@ -189,6 +191,7 @@ def register_integration_tools(
                 "mode": "native HTTP API",
             }
             for service, config in HTTP_INTEGRATIONS.items()
+            if service != "seanime"
         })
         services.update({
             "recyclarr": {
@@ -230,6 +233,10 @@ def register_integration_tools(
             return await request(service, verb, path, params, body)
         if verb != "GET":
             raise PermissionError("This tool is read-only; preview non-GET requests first")
+        if service == "questarr" and path not in {"/api/integration/ping", "/api/integration/library"}:
+            raise PermissionError("Questarr generic reads are restricted to its read-scoped integration API")
+        if service == "frigate" and path not in {"/api/stats", "/api/events", "/api/review", "/api/review/summary", "/api/profile"}:
+            raise PermissionError("Frigate generic reads are restricted to approved status/event endpoints")
         if service == "seanime":
             allowed = {"/api/v1/status", "/api/v1/library/collection",
                        "/api/v1/anilist/collection", "/api/v1/anilist/collection/raw",
@@ -302,6 +309,84 @@ def register_integration_tools(
         return await request(service, verb, path, params, body)
 
 
+
+    # Questarr and Frigate read-only integrations.
+    @mcp.tool()
+    async def questarr_get_status() -> Any:
+        """Read Questarr integration ping, version and API-key scope."""
+        return await request("questarr", "GET", "/api/integration/ping")
+
+    @mcp.tool()
+    async def questarr_get_library(
+        status: str = "", include_hidden: bool = False, limit: int = 100
+    ) -> Any:
+        """Read Questarr's game library using a read-scoped integration API key."""
+        if not 1 <= limit <= 500:
+            raise ValueError("limit must be between 1 and 500")
+        if len(status) > 200:
+            raise ValueError("status filter must be at most 200 characters")
+        params: dict[str, Any] = {"includeHidden": str(include_hidden).lower()}
+        if status.strip():
+            params["status"] = status.strip()
+        result = await request("questarr", "GET", "/api/integration/library", params=params)
+        if isinstance(result, dict) and isinstance(result.get("games"), list):
+            result["returned"] = min(len(result["games"]), limit)
+            result["games"] = result["games"][:limit]
+        return result
+
+    @mcp.tool()
+    async def frigate_get_status() -> Any:
+        """Read Frigate NVR statistics, camera/detector state and system metrics."""
+        return await request("frigate", "GET", "/api/stats")
+
+    @mcp.tool()
+    async def frigate_list_events(
+        limit: int = 50, offset: int = 0, camera: str = "all",
+        label: str = "all", after: str | None = None, before: str | None = None,
+    ) -> Any:
+        """List Frigate detection events with bounded pagination and optional filters."""
+        if not 1 <= limit <= 200 or offset < 0 or offset > 100000:
+            raise ValueError("limit must be 1..200 and offset must be 0..100000")
+        if len(camera) > 100 or len(label) > 100:
+            raise ValueError("camera and label filters must be at most 100 characters")
+        params: dict[str, Any] = {
+            "limit": limit, "offset": offset, "camera": camera, "label": label,
+            "include_thumbnails": 0,
+        }
+        if after is not None:
+            params["after"] = after
+        if before is not None:
+            params["before"] = before
+        return await request("frigate", "GET", "/api/events", params=params)
+
+    @mcp.tool()
+    async def frigate_list_review_items(
+        limit: int = 50, camera: str = "all", label: str = "all",
+        severity: str | None = None,
+    ) -> Any:
+        """List Frigate review items (alerts/detections) for operator triage."""
+        if not 1 <= limit <= 200:
+            raise ValueError("limit must be between 1 and 200")
+        if len(camera) > 100 or len(label) > 100:
+            raise ValueError("camera and label filters must be at most 100 characters")
+        if severity not in {None, "alert", "detection"}:
+            raise ValueError("severity must be alert, detection or omitted")
+        params: dict[str, Any] = {"limit": limit, "cameras": camera, "labels": label}
+        if severity:
+            params["severity"] = severity
+        return await request("frigate", "GET", "/api/review", params=params)
+
+    @mcp.tool()
+    async def frigate_get_review_summary(
+        camera: str = "all", label: str = "all", timezone: str = "utc"
+    ) -> Any:
+        """Read Frigate review counters for the last 24 hours and historical days."""
+        if len(camera) > 100 or len(label) > 100 or len(timezone) > 64:
+            raise ValueError("camera/label must be <=100 characters and timezone <=64")
+        return await request(
+            "frigate", "GET", "/api/review/summary",
+            params={"cameras": camera, "labels": label, "timezone": timezone},
+        )
 
     # Tdarr workflows. POST query endpoints are explicitly marked read-only so
     # they are not misclassified as mutations in the operation audit.
@@ -1266,7 +1351,7 @@ def register_integration_tools(
     async def homeassistant_get_state(entity_id: str) -> Any:
         """Read the current state and attributes for one Home Assistant entity."""
         import re
-        if not re.fullmatch(r"[a-z_][a-z0-9_]*\\.[a-z0-9_]+", entity_id):
+        if not re.fullmatch(r"[a-z_][a-z0-9_]*\.[a-z0-9_]+", entity_id):
             raise ValueError("entity_id must use the domain.entity_id format")
         return await request("homeassistant", "GET", f"/api/states/{entity_id}")
 
@@ -1278,7 +1363,7 @@ def register_integration_tools(
         """Read historical state changes for one Home Assistant entity over a time range."""
         import re
         from datetime import datetime
-        if not re.fullmatch(r"[a-z_][a-z0-9_]*\\.[a-z0-9_]+", entity_id):
+        if not re.fullmatch(r"[a-z_][a-z0-9_]*\.[a-z0-9_]+", entity_id):
             raise ValueError("entity_id must use the domain.entity_id format")
         def validate_timestamp(value: str, label: str) -> None:
             try:
@@ -1329,7 +1414,7 @@ def register_integration_tools(
         import re
         if not 1 <= len(entity_ids) <= 50:
             raise ValueError("entity_ids must contain 1..50 entities")
-        if any(not isinstance(x, str) or not re.fullmatch(r"[a-z_][a-z0-9_]*\\.[a-z0-9_]+", x) for x in entity_ids):
+        if any(not isinstance(x, str) or not re.fullmatch(r"[a-z_][a-z0-9_]*\.[a-z0-9_]+", x) for x in entity_ids):
             raise ValueError("Every entity_id must use the domain.entity_id format")
         if len(set(entity_ids)) != len(entity_ids):
             raise ValueError("entity_ids must be unique")
@@ -1669,11 +1754,6 @@ def register_integration_tools(
         return await request("tinymediamanager", "POST", f"/api/{section}", body=body)
 
     @mcp.tool()
-    async def cleanuparr_get_health() -> Any:
-        """Read Cleanuparr liveness without requiring authentication."""
-        return await request("cleanuparr", "GET", "/health")
-
-    @mcp.tool()
     async def cleanuparr_get_readiness() -> Any:
         """Read Cleanuparr readiness, including dependent service checks."""
         return await request("cleanuparr", "GET", "/health/ready")
@@ -1687,11 +1767,6 @@ def register_integration_tools(
     async def maintainerr_get_timezone() -> Any:
         """Read the timezone configured inside the Maintainerr process."""
         return await request("maintainerr", "GET", "/api/app/timezone")
-
-    @mcp.tool()
-    async def maintainerr_get_health() -> Any:
-        """Read Maintainerr readiness, including its database health."""
-        return await request("maintainerr", "GET", "/api/health/ready")
 
     @mcp.tool()
     async def maintainerr_get_live_health() -> Any:
@@ -1885,6 +1960,140 @@ def register_integration_tools(
                 "search_files": tdarr_search_files,
                 "job_reports": tdarr_list_job_reports,
                 "job_report": tdarr_get_job_report,
+            },
+            "questarr": {
+                "status": questarr_get_status,
+                "library": questarr_get_library,
+            },
+            "frigate": {
+                "status": frigate_get_status,
+                "events": frigate_list_events,
+                "review": frigate_list_review_items,
+                "review_summary": frigate_get_review_summary,
+            },
+            "plex": {
+                "libraries": plex_get_library_sections,
+                "recent": plex_get_recently_added_all,
+                "recent_section": plex_get_recently_added,
+                "sessions": plex_get_active_sessions,
+                "on_deck": plex_get_on_deck,
+            },
+            "jellyfin": {
+                "server_info": jellyfin_get_server_info,
+                "libraries": jellyfin_get_libraries,
+                "sessions": jellyfin_get_active_sessions,
+                "search": jellyfin_search_items,
+            },
+            "seerr": {
+                "status": seerr_get_status,
+                "requests": seerr_get_requests,
+                "application_data": seerr_get_application_data_status,
+                "search": seerr_search_media,
+            },
+            "immich": {
+                "statistics": immich_get_server_statistics,
+                "albums": immich_get_albums,
+                "search": immich_search_assets,
+            },
+            "romm": {
+                "platforms": romm_get_platforms,
+                "roms": romm_list_roms,
+                "search": romm_search_roms,
+                "rom": romm_get_rom,
+                "collections": romm_list_collections,
+            },
+            "homeassistant": {
+                "config": homeassistant_get_config,
+                "states": homeassistant_list_states,
+                "state": homeassistant_get_state,
+                "history": homeassistant_get_history,
+                "services": homeassistant_list_services,
+            },
+            "bookorbit": {
+                "health": bookorbit_get_health,
+                "libraries": bookorbit_list_libraries,
+                "statistics": bookorbit_get_statistics,
+                "format_distribution": bookorbit_get_format_distribution,
+                "library_stats": bookorbit_get_library_stats,
+                "search": bookorbit_search_books,
+                "book": bookorbit_get_book,
+            },
+            "tidarr": {
+                "status": tidarr_get_auth_status,
+                "queue_status": tidarr_get_queue_status,
+                "queue": tidarr_get_download_queue,
+                "history": tidarr_get_download_history,
+                "sync_list": tidarr_get_sync_list,
+            },
+            "youtarr": {
+                "capabilities": youtarr_get_capabilities,
+                "channels": youtarr_list_channels,
+                "videos": youtarr_list_videos,
+                "video": youtarr_get_video,
+                "requests": youtarr_list_requests,
+                "request_detail": youtarr_get_request,
+            },
+            "pulsarr": {
+                "health": pulsarr_get_health,
+                "approval_requests": pulsarr_get_approval_requests,
+                "content_router_rules": pulsarr_list_content_router_rules,
+            },
+            "cleanuparr": {
+                "health": cleanuparr_get_readiness,
+                "system": cleanuparr_get_system_status,
+                "events": cleanuparr_get_events,
+                "event_timeline": cleanuparr_get_event_timeline,
+                "statistics": cleanuparr_get_statistics,
+                "recent_strikes": cleanuparr_get_recent_strikes,
+                "strikes": cleanuparr_get_strikes,
+                "jobs": cleanuparr_get_jobs,
+                "manual_event_stats": cleanuparr_get_manual_event_stats,
+            },
+            "maintainerr": {
+                "health": maintainerr_get_health,
+                "app_status": maintainerr_get_app_status,
+                "timezone": maintainerr_get_timezone,
+                "task_status": maintainerr_get_task_status,
+            },
+            "agregarr": {
+                "status": agregarr_get_status,
+                "collections": agregarr_list_collections,
+                "dashboard_stats": agregarr_get_dashboard_stats,
+                "activity": agregarr_get_dashboard_activity,
+                "missing_items": agregarr_get_missing_items,
+                "missing_item_stats": agregarr_get_missing_item_stats,
+                "scheduled_jobs": agregarr_get_scheduled_jobs,
+                "logs": agregarr_get_logs,
+            },
+            "tracearr": {
+                "health": tracearr_get_health,
+                "stats": tracearr_get_stats,
+                "activity": tracearr_get_activity,
+                "active_streams": tracearr_get_active_streams,
+                "servers": tracearr_list_servers,
+                "libraries": tracearr_list_libraries,
+                "recently_added": tracearr_get_recently_added,
+                "watch_history": tracearr_get_watch_history,
+                "top_media": tracearr_get_top_media,
+            },
+            "cloudflare": {
+                "zones": cloudflare_list_zones,
+                "dns_records": cloudflare_list_dns_records,
+            },
+            "transmission": {
+                "session": transmission_get_session,
+                "statistics": transmission_get_statistics,
+                "torrents": transmission_list_torrents,
+                "torrent_details": transmission_list_torrents,
+            },
+            "flaresolverr": {
+                "sessions": flaresolverr_list_sessions,
+                "request_get": flaresolverr_request_get,
+            },
+            "tinymediamanager": {
+                "status": tinymediamanager_get_status,
+                "tasks": tinymediamanager_get_status,
+                "api_docs": tinymediamanager_get_api_docs,
             },
         }
         service_readers = readers.get(service)

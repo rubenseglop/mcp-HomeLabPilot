@@ -14,6 +14,7 @@ services:
       HOMELABPILOT_MCP_ALLOWED_HOSTS: "${HOMELABPILOT_MCP_ALLOWED_HOSTS:-localhost:*,127.0.0.1:*,[::1]:*},homelabpilot:8000"
       HOMELABPILOT_AUDIT_DB_PATH: ${HOMELABPILOT_AUDIT_DB_PATH:-${STACKARR_AUDIT_DB_PATH:-/data/operation-history.sqlite3}}
       HOMELABPILOT_DOCKER_ENABLED: ${HOMELABPILOT_DOCKER_ENABLED:-${STACKARR_DOCKER_ENABLED:-false}}
+      RECYCLARR_CONTAINER: ${RECYCLARR_CONTAINER:-}
       HOMELABPILOT_DOCKER_PERMISSION_LEVEL: ${HOMELABPILOT_DOCKER_PERMISSION_LEVEL:-${STACKARR_DOCKER_PERMISSION_LEVEL:-read}}
       HOMELABPILOT_DOCKER_GATEWAY_URL: http://homelabpilot-docker-gateway:2375
       HOMELABPILOT_DOCKER_GATEWAY_TOKEN: ${HOMELABPILOT_DOCKER_GATEWAY_TOKEN:-${STACKARR_DOCKER_GATEWAY_TOKEN:-}}
@@ -103,6 +104,7 @@ services:
     mem_limit: 2g
     cpus: 2
     networks:
+      - default
       - agent_control
   homelabpilot-docker-gateway:
     container_name: homelabpilot-docker-gateway
@@ -115,6 +117,7 @@ services:
     environment:
       HOMELABPILOT_DOCKER_GATEWAY_TOKEN: ${HOMELABPILOT_DOCKER_GATEWAY_TOKEN:-${STACKARR_DOCKER_GATEWAY_TOKEN:-}}
       HOMELABPILOT_DOCKER_ALLOWED_CONTAINERS: ${HOMELABPILOT_DOCKER_ALLOWED_CONTAINERS:-${STACKARR_DOCKER_ALLOWED_CONTAINERS:-}}
+      HOMELABPILOT_RECYCLARR_CONTAINER: ${RECYCLARR_CONTAINER:-}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     read_only: true
@@ -143,5 +146,6 @@ volumes:
 networks:
   agent_control:
     name: homelabpilot_agent_control
+    internal: true
   docker_control:
     internal: true

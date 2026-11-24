@@ -2,14 +2,18 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
 import os
 from typing import Any
 
 import httpx
 
 
-def register_seanime_tools(mcp: Any, timeout: float = 15, audit: Any = None) -> None:
-    """Register read-only Seanime MCP tools."""
+def register_seanime_tools(
+    mcp: Any, timeout: float = 15, audit: Any = None,
+    require_permission: Any = None, make_preview_token: Any = None,
+) -> None:
+    """Register Seanime read and guarded configuration tools."""
 
     async def request(path: str, method: str = "GET", json_body: dict | None = None) -> Any:
         base_url = os.getenv("SEANIME_URL", "").strip().rstrip("/")
@@ -219,17 +223,60 @@ def register_seanime_tools(mcp: Any, timeout: float = 15, audit: Any = None) -> 
         return False
 
     @mcp.tool()
-    async def seanime_add_to_anilist(media_id: int, confirm: bool = False) -> dict:
-        """Add an anime to the user's AniList Planning list. Requires confirm=true; never changes progress."""
+    async def seanime_preview_add_to_anilist(media_id: int) -> dict:
+        """Preview adding one verified AniList title to Seanime's Planning list."""
+        if require_permission is None or make_preview_token is None:
+            raise RuntimeError("Seanime guarded operations are not configured")
+        require_permission("operations")
         if media_id <= 0:
             raise ValueError("media_id must be a positive AniList ID")
-        if confirm is not True:
-            raise ValueError("Confirmation required: call again with confirm=true to add this AniList entry as PLANNING")
         details = data_of(await request(f"/api/v1/anilist/media-details/{media_id}"))
         if not isinstance(details, dict) or not details:
             raise ValueError(f"AniList media {media_id} could not be verified")
         collection = data_of(await request("/api/v1/anilist/collection/raw"))
-        if collection_has_media_id(collection, media_id):
+        already = collection_has_media_id(collection, media_id)
+        snapshot = {
+            "service": "seanime", "operation": "add-to-anilist",
+            "media_id": media_id, "already_in_collection": already,
+        }
+        return {
+            "preview_token": make_preview_token(snapshot),
+            "typed_confirmation": f"CONFIRM SEANIME ADD TO ANILIST {media_id}",
+            "media_id": media_id,
+            "title": (details.get("title") or {}).get("userPreferred")
+                if isinstance(details.get("title"), dict) else details.get("title"),
+            "already_in_collection": already,
+            "will_add_as": "PLANNING",
+            "will_change_progress": False,
+        }
+
+    @mcp.tool()
+    async def seanime_add_to_anilist(
+        media_id: int, preview_token: str, typed_confirmation: str
+    ) -> dict:
+        """Add a verified AniList title as Planning only after a fresh signed preview and exact confirmation."""
+        if require_permission is None or make_preview_token is None:
+            raise RuntimeError("Seanime guarded operations are not configured")
+        require_permission("operations")
+        if media_id <= 0:
+            raise ValueError("media_id must be a positive AniList ID")
+        details = data_of(await request(f"/api/v1/anilist/media-details/{media_id}"))
+        if not isinstance(details, dict) or not details:
+            raise ValueError(f"AniList media {media_id} could not be verified")
+        collection = data_of(await request("/api/v1/anilist/collection/raw"))
+        already = collection_has_media_id(collection, media_id)
+        snapshot = {
+            "service": "seanime", "operation": "add-to-anilist",
+            "media_id": media_id, "already_in_collection": already,
+        }
+        expected_phrase = f"CONFIRM SEANIME ADD TO ANILIST {media_id}"
+        if not preview_token.strip() or not hmac.compare_digest(
+            preview_token, make_preview_token(snapshot)
+        ):
+            raise PermissionError("The Seanime AniList preview is stale; request a new preview")
+        if not hmac.compare_digest(typed_confirmation, expected_phrase):
+            raise PermissionError(f"Type exactly: {expected_phrase}")
+        if already:
             return {"mediaId": media_id, "alreadyInCollection": True, "changed": False}
         try:
             await request("/api/v1/library/unknown-media", "POST", {"mediaIds": [media_id]})
@@ -272,7 +319,10 @@ def register_seanime_tools(mcp: Any, timeout: float = 15, audit: Any = None) -> 
     async def seanime_preview_reassignment(
         folder_path: str, source_media_id: int, target_media_id: int
     ) -> dict:
-        """Preview an exact-folder reassignment without changing anything."""
+        """Preview an exact-folder reassignment and issue a signed, expiring confirmation token."""
+        if require_permission is None or make_preview_token is None:
+            raise RuntimeError("Seanime guarded operations are not configured")
+        require_permission("operations")
         if source_media_id <= 0 or target_media_id <= 0 or source_media_id == target_media_id:
             raise ValueError("source_media_id and target_media_id must be distinct positive IDs")
         files = local_files_from(await request("/api/v1/library/local-files"))
@@ -283,7 +333,19 @@ def register_seanime_tools(mcp: Any, timeout: float = 15, audit: Any = None) -> 
             {"path": item.get("path"), "mediaId": item.get("mediaId")}
             for item in selected if item.get("mediaId") != source_media_id
         ]
+        ignored = [item.get("path") for item in selected if item.get("ignored")]
+        paths = sorted(str(item.get("path") or "") for item in selected)
+        if any(not path for path in paths):
+            raise ValueError("One or more selected files have no valid path")
+        snapshot = {
+            "service": "seanime", "operation": "reassign-files",
+            "folder": folder_path, "source_media_id": source_media_id,
+            "target_media_id": target_media_id, "file_paths": paths,
+        }
+        phrase = f"CONFIRM SEANIME REASSIGN {len(paths)} FILES {source_media_id} TO {target_media_id}"
         return {
+            "preview_token": make_preview_token(snapshot),
+            "typed_confirmation": phrase,
             "folder": folder_path,
             "sourceMediaId": source_media_id,
             "targetMediaId": target_media_id,
@@ -291,12 +353,13 @@ def register_seanime_tools(mcp: Any, timeout: float = 15, audit: Any = None) -> 
             "filesAlreadyAtTarget": sum(1 for item in selected if item.get("mediaId") == target_media_id),
             "filesMatchingExpectedSource": len(selected) - len(wrong),
             "unexpectedFiles": wrong,
+            "ignoredFiles": ignored,
             "files": [
                 {"path": item.get("path"), "name": item.get("name"), "mediaId": item.get("mediaId"),
                  "locked": item.get("locked"), "ignored": item.get("ignored")}
                 for item in selected
             ],
-            "safeToProceed": len(selected) > 0 and not wrong and not any(item.get("ignored") for item in selected),
+            "safeToProceed": not wrong and not ignored,
             "willLockFiles": True,
             "willClearIgnored": True,
             "warning": "Seanime's match action sets Locked=true and Ignored=false for every selected file.",
@@ -306,11 +369,12 @@ def register_seanime_tools(mcp: Any, timeout: float = 15, audit: Any = None) -> 
     @mcp.tool()
     async def seanime_reassign_files(
         folder_path: str, source_media_id: int, target_media_id: int,
-        expected_file_count: int, confirm: bool = False
+        expected_file_count: int, preview_token: str, typed_confirmation: str
     ) -> dict:
-        """Reassign every scanned file directly in one folder to another AniList entry. Requires exact count and confirm=true."""
-        if confirm is not True:
-            raise ValueError("Confirmation required: call again with confirm=true after reviewing seanime_preview_reassignment")
+        """Reassign one folder only after a fresh signed preview, unchanged file set and exact confirmation."""
+        if require_permission is None or make_preview_token is None:
+            raise RuntimeError("Seanime guarded operations are not configured")
+        require_permission("operations")
         if source_media_id <= 0 or target_media_id <= 0 or source_media_id == target_media_id:
             raise ValueError("source_media_id and target_media_id must be distinct positive IDs")
         if not 1 <= expected_file_count <= 1000:
@@ -325,12 +389,24 @@ def register_seanime_tools(mcp: Any, timeout: float = 15, audit: Any = None) -> 
         ignored_paths = [item.get("path") for item in selected if item.get("ignored")]
         if ignored_paths:
             raise ValueError(f"Folder contains ignored files; refusing to change their status: {ignored_paths[:10]}")
+        paths = sorted(str(item.get("path") or "") for item in selected)
+        if any(not path for path in paths):
+            raise ValueError("One or more selected files have no valid path; nothing changed")
+        snapshot = {
+            "service": "seanime", "operation": "reassign-files",
+            "folder": folder_path, "source_media_id": source_media_id,
+            "target_media_id": target_media_id, "file_paths": paths,
+        }
+        expected_phrase = f"CONFIRM SEANIME REASSIGN {len(paths)} FILES {source_media_id} TO {target_media_id}"
+        if not preview_token.strip() or not hmac.compare_digest(
+            preview_token, make_preview_token(snapshot)
+        ):
+            raise PermissionError("The Seanime reassignment preview is stale; request a new preview")
+        if not hmac.compare_digest(typed_confirmation, expected_phrase):
+            raise PermissionError(f"Type exactly: {expected_phrase}")
         collection = data_of(await request("/api/v1/anilist/collection/raw"))
         if not collection_has_media_id(collection, target_media_id):
-            raise ValueError("Target media is not in the AniList collection. Add it first with seanime_add_to_anilist.")
-        paths = [str(item.get("path")) for item in selected]
-        if any(not path or path == "None" for path in paths):
-            raise ValueError("One or more selected files have no valid path; nothing changed")
+            raise ValueError("Target media is not in the AniList collection. Add it first with seanime_preview_add_to_anilist.")
         try:
             await request("/api/v1/library/local-files", "PATCH", {
                 "paths": paths, "action": "match", "mediaId": target_media_id
@@ -685,3 +761,145 @@ def register_seanime_tools(mcp: Any, timeout: float = 15, audit: Any = None) -> 
             "queue": as_list(data_of(await request("/api/v1/auto-downloader/items"))),
             "profiles": as_list(data_of(await request("/api/v1/auto-downloader/profiles"))),
         }
+
+
+    # Only low-risk boolean preferences are editable through this workflow.
+    # Library paths, credentials, torrent clients, media-player commands and
+    # account settings deliberately remain outside this generic setting API.
+    EDITABLE_BOOLEAN_SETTINGS = {
+        "library.autoUpdateProgress",
+        "library.disableUpdateCheck",
+        "library.autoScan",
+        "library.enableOnlinestream",
+        "library.disableAnimeCardTrailers",
+        "library.enableManga",
+        "library.openTorrentClientOnStart",
+        "library.openWebURLOnStart",
+        "library.refreshLibraryOnStart",
+        "library.autoPlayNextEpisode",
+        "library.enableWatchContinuity",
+        "library.autoSyncOfflineLocalData",
+        "library.autoSyncToLocalAccount",
+        "library.autoSaveCurrentMediaOffline",
+        "library.useFallbackMetadataProvider",
+        "library.scannerUseLegacyMatching",
+        "library.enableExtensionSecureMode",
+        "library.showTorrentAvailability",
+        "autoDownloader.enabled",
+        "autoDownloader.downloadAutomatically",
+        "autoDownloader.enableEnhancedQueries",
+        "autoDownloader.enableSeasonCheck",
+        "autoDownloader.useDebrid",
+        "notifications.disableNotifications",
+        "notifications.disableAutoDownloaderNotifications",
+        "notifications.disableAutoScannerNotifications",
+        "discord.enableRichPresence",
+        "discord.enableAnimeRichPresence",
+        "discord.enableMangaRichPresence",
+    }
+
+    def require_admin() -> None:
+        if require_permission is None or make_preview_token is None:
+            raise RuntimeError("Seanime guarded settings workflow is not configured")
+        require_permission("admin")
+
+    def redact_settings(value: Any) -> Any:
+        if isinstance(value, dict):
+            redacted = {}
+            for key, child in value.items():
+                normalized = str(key).replace("_", "").lower()
+                if any(marker in normalized for marker in (
+                    "password", "token", "apikey", "secret", "authorization",
+                )):
+                    redacted[key] = "[REDACTED]" if child not in (None, "") else child
+                else:
+                    redacted[key] = redact_settings(child)
+            return redacted
+        if isinstance(value, list):
+            return [redact_settings(item) for item in value]
+        return value
+
+    def nested_setting(settings: Any, path: str) -> Any:
+        current = settings
+        for part in path.split("."):
+            if not isinstance(current, dict) or part not in current:
+                raise ValueError(f"Seanime setting path does not exist: {path}")
+            current = current[part]
+        return current
+
+    @mcp.tool()
+    async def seanime_get_settings() -> dict:
+        """Read Seanime application settings with passwords, tokens and API keys redacted."""
+        settings = data_of(await request("/api/v1/settings"))
+        if not isinstance(settings, dict):
+            raise RuntimeError("Seanime returned an unexpected settings payload")
+        return redact_settings(settings)
+
+    @mcp.tool()
+    async def seanime_preview_update_setting(path: str, value: bool) -> dict:
+        """Preview a low-risk boolean Seanime preference change; requires admin permission."""
+        require_admin()
+        setting_path = path.strip()
+        if setting_path not in EDITABLE_BOOLEAN_SETTINGS:
+            raise ValueError("Setting is not in the safe boolean allowlist")
+        if not isinstance(value, bool):
+            raise ValueError("value must be a boolean")
+        settings = data_of(await request("/api/v1/settings"))
+        current = nested_setting(settings, setting_path)
+        if not isinstance(current, bool):
+            raise ValueError("Current setting is not boolean; refusing to change its type")
+        snapshot = {
+            "service": "seanime",
+            "operation": "update-setting",
+            "path": setting_path,
+            "current_value": current,
+            "new_value": value,
+        }
+        phrase = f"CONFIRM SEANIME SETTING {setting_path} = {str(value).lower()}"
+        return {
+            "preview_token": make_preview_token(snapshot),
+            "typed_confirmation": phrase,
+            "path": setting_path,
+            "current_value": current,
+            "new_value": value,
+            "changed": current != value,
+        }
+
+    @mcp.tool()
+    async def seanime_confirm_update_setting(
+        path: str, value: bool, preview_token: str, typed_confirmation: str
+    ) -> Any:
+        """Apply one allowlisted Seanime boolean preference after a fresh signed preview and exact confirmation."""
+        require_admin()
+        setting_path = path.strip()
+        if setting_path not in EDITABLE_BOOLEAN_SETTINGS:
+            raise ValueError("Setting is not in the safe boolean allowlist")
+        if not isinstance(value, bool):
+            raise ValueError("value must be a boolean")
+        settings = data_of(await request("/api/v1/settings"))
+        current = nested_setting(settings, setting_path)
+        if not isinstance(current, bool):
+            raise ValueError("Current setting is not boolean; refusing to change its type")
+        snapshot = {
+            "service": "seanime",
+            "operation": "update-setting",
+            "path": setting_path,
+            "current_value": current,
+            "new_value": value,
+        }
+        expected_phrase = f"CONFIRM SEANIME SETTING {setting_path} = {str(value).lower()}"
+        if not preview_token.strip() or not hmac.compare_digest(
+            preview_token, make_preview_token(snapshot)
+        ):
+            raise PermissionError("The Seanime setting preview is stale; request a new preview")
+        if not hmac.compare_digest(typed_confirmation, expected_phrase):
+            raise PermissionError(f"Type exactly: {expected_phrase}")
+        if current == value:
+            return {"changed": False, "path": setting_path, "value": current}
+        result = await request(
+            "/api/v1/settings/path", "PATCH",
+            {"path": setting_path, "value": value},
+        )
+        if audit:
+            audit("UPDATE_SETTING", "seanime", f"{setting_path}={str(value).lower()}")
+        return {"changed": True, "path": setting_path, "value": value, "result": result}

@@ -30,9 +30,13 @@ class UnixHTTPConnection(http.client.HTTPConnection):
         self.sock.connect(SOCKET_PATH)
 
 
-def daemon_request(method: str, path: str) -> tuple[int, object]:
+def daemon_request(method: str, path: str, payload: object | None = None) -> tuple[int, object]:
     connection = UnixHTTPConnection("localhost", timeout=10)
-    connection.request(method, path, headers={"Host": "docker"})
+    body = json.dumps(payload).encode() if payload is not None else None
+    headers = {"Host": "docker"}
+    if body is not None:
+        headers["Content-Type"] = "application/json"
+    connection.request(method, path, body=body, headers=headers)
     response = connection.getresponse()
     raw = response.read()
     connection.close()
@@ -55,16 +59,61 @@ def visible_containers() -> list[dict[str, str]]:
             continue
         names = [str(name).lstrip("/") for name in item.get("Names", [])]
         identifier = str(item.get("Id", ""))
-        if not any(name in ALLOWED for name in names) and identifier not in ALLOWED:
+        matched_name = next((name for name in names if name in ALLOWED), None)
+        if matched_name is None and identifier not in ALLOWED:
             continue
         result.append({
             "id": identifier,
-            "name": names[0] if names else identifier[:12],
+            "name": matched_name or (names[0] if names else identifier[:12]),
             "image": str(item.get("Image", "")),
             "state": str(item.get("State", "unknown")),
             "status": str(item.get("Status", "")),
         })
     return result
+
+
+def run_recyclarr_sync() -> dict[str, object]:
+    """Execute only the fixed 'recyclarr sync' command in the configured allowlisted container."""
+    configured = os.getenv("HOMELABPILOT_RECYCLARR_CONTAINER", "").strip()
+    if not configured:
+        raise ValueError("HOMELABPILOT_RECYCLARR_CONTAINER is not configured")
+    item = next(
+        (entry for entry in visible_containers()
+         if entry["name"] == configured or entry["id"] == configured),
+        None,
+    )
+    if item is None:
+        raise PermissionError("Configured Recyclarr container is not in the Docker allowlist")
+    if item.get("state") != "running":
+        raise RuntimeError("Configured Recyclarr container must be running before sync")
+    container_id = quote(item["id"], safe="")
+    status, created = daemon_request(
+        "POST",
+        f"/containers/{container_id}/exec",
+        {
+            "AttachStdout": True,
+            "AttachStderr": True,
+            "Tty": True,
+            "Cmd": ["recyclarr", "sync"],
+        },
+    )
+    if status != 201 or not isinstance(created, dict) or not created.get("Id"):
+        raise RuntimeError("Docker Engine could not create the fixed Recyclarr sync process")
+    exec_id = str(created["Id"])
+    start_status, output = daemon_request(
+        "POST", f"/exec/{quote(exec_id, safe='')}/start", {"Detach": False, "Tty": True}
+    )
+    inspect_status, inspected = daemon_request("GET", f"/exec/{quote(exec_id, safe='')}/json")
+    if start_status != 200 or inspect_status != 200 or not isinstance(inspected, dict):
+        raise RuntimeError("Docker Engine could not complete or inspect Recyclarr sync")
+    exit_code = inspected.get("ExitCode")
+    return {
+        "ok": exit_code == 0,
+        "container": item["name"],
+        "command": "recyclarr sync",
+        "exit_code": exit_code,
+        "output": str(output)[:20000],
+    }
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -99,6 +148,16 @@ class Handler(BaseHTTPRequestHandler):
         if self.command == "GET" and route == "/v1/containers":
             try:
                 self._send(200, visible_containers())
+            except Exception as exc:
+                self._send(502, {"error": str(exc)[:500]})
+            return
+        if self.command == "POST" and route == "/v1/recyclarr/sync":
+            try:
+                self._send(200, run_recyclarr_sync())
+            except PermissionError as exc:
+                self._send(403, {"error": str(exc)[:500]})
+            except ValueError as exc:
+                self._send(400, {"error": str(exc)[:500]})
             except Exception as exc:
                 self._send(502, {"error": str(exc)[:500]})
             return

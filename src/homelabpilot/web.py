@@ -41,6 +41,16 @@ h2{font-size:20px;margin:0 0 6px}.muted{color:#91a0b8;font-size:13px}.summary{di
 .status{font-size:11px;border-radius:999px;padding:5px 8px;background:#263246;color:#b8c5d8}
 .status.ok{background:#10382f;color:#70e0bb}.status.bad{background:#44232c;color:#ff9ca8}
 .version{font-size:13px;color:#a8b6cb;margin-top:13px}.error{font-size:12px;color:#ffabb3;margin-top:10px;overflow-wrap:anywhere}
+.tool-list{margin-top:13px;border-top:1px solid #293750;padding-top:10px;font-size:12px;color:#b8c5d8}
+.tool-list summary{cursor:pointer;list-style:none;font-weight:650;color:#9fb4ff}
+.tool-list summary::-webkit-details-marker{display:none}
+.tool-list summary:after{content:'＋';float:right;color:#91a0b8}
+.tool-list[open] summary:after{content:'−'}
+.tool-list ul{list-style:none;margin:9px 0 0;padding:0;display:grid;gap:9px}
+.tool-list li{display:grid;gap:3px;padding:8px 9px;background:#0d1728;border:1px solid #25344d;border-radius:8px;overflow-wrap:anywhere}
+.tool-list code{color:#9fb4ff;font-size:11px}
+.tool-list li span{color:#91a0b8;font-size:11px;line-height:1.4}
+
 .section{margin-top:30px}.sectionhead{font-size:14px;font-weight:650;margin-bottom:12px}
 .info{border:1px solid #25344d;background:#111a2a;border-radius:14px;padding:17px;color:#aebbd0;font-size:13px;line-height:1.6}
 #login{max-width:390px;margin:12vh auto;padding:26px;border:1px solid #2b3a53;background:#121c2e;border-radius:18px}
@@ -165,7 +175,13 @@ function render(data){
  const entries=Object.entries(data.services||{});const good=entries.filter(([,v])=>v.ok).length;
  $('healthy').textContent=good+' / '+entries.length+' services online';
  $('updated').textContent='Updated '+new Date().toLocaleTimeString();
- $('services').innerHTML=entries.map(([name,v])=>'<article class="card"><div class="cardtop"><div class="name">'+esc(name[0].toUpperCase()+name.slice(1))+'</div><span class="status '+(v.ok?'ok':'bad')+'">'+(v.ok?'Online':'Attention')+'</span></div><div class="version">'+(v.version?'Version '+esc(v.version):v.app_name?esc(v.app_name):v.ok?'Connected':'Not connected')+'</div>'+(v.error?'<div class="error">'+esc(v.error)+'</div>':'')+'</article>').join('');
+ $('services').innerHTML=entries.map(([name,v])=>{
+  const tools=Array.isArray(v.tools)?v.tools:[];
+  const toolList=v.ok?'<details class="tool-list"><summary>'+tools.length+' '+(getLanguage()==='es'?'herramientas disponibles':'tools available')+'</summary>'+(tools.length?'<ul>'+tools.map(tool=>'<li><code>'+esc(tool.name)+'</code>'+(tool.description?'<span>'+esc(tool.description)+'</span>':'')+'</li>').join('')+'</ul>':'<div class="muted">'+(getLanguage()==='es'?'No hay herramientas registradas para este servicio.':'No tools registered for this service.')+'</div>')+'</details>':'';
+  const versionValue=typeof v.version==='string'||typeof v.version==='number'?String(v.version):v.version&&typeof v.version==='object'?(v.version.text||v.version.version||''):'';
+  const detail=versionValue?'Version '+esc(versionValue):v.app_name?esc(v.app_name):'';
+  return '<article class="card"><div class="cardtop"><div class="name">'+esc(name[0].toUpperCase()+name.slice(1))+'</div><span class="status '+(v.ok?'ok':'bad')+'">'+(v.ok?'Online':'Attention')+'</span></div>'+(detail?'<div class="version">'+detail+'</div>':'')+toolList+(v.error?'<div class="error">'+esc(v.error)+'</div>':'')+'</article>';
+ }).join('');
 }
 async function refresh(){ $('refresh').disabled=true;$('refresh').textContent='Loading…';try{render(await request('/web-api/status'));}catch(e){if(e.message==='unauthorized')showLogin();else $('healthy').textContent=e.message;}finally{$('refresh').disabled=false;$('refresh').textContent='Refresh';}}
 $('login-form').addEventListener('submit',async e=>{e.preventDefault();$('login-error').textContent='';try{await request('/web-login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:$('username').value,password:$('password').value})});$('password').value='';showApp();await refresh();}catch(e){$('login-error').textContent='Login failed. Check your username and password.';}});
@@ -198,32 +214,32 @@ const APP_CATALOG=[
 {id:'prowlarr',name:'Prowlarr',category:'Media',mode:'Native integration',desc:'Indexer management and configuration.',support:'Configuration'},
 {id:'bazarr',name:'Bazarr',category:'Media',mode:'Native integration',desc:'Subtitle providers and subtitle settings.',support:'Configuration'},
 {id:'scryer',name:'Scryer',category:'Media',mode:'Native integration',desc:'Media catalog, requests, audit and recycle bin.',support:'Full dashboard'},
-{id:'plex',name:'Plex',category:'Media',mode:'API integration',desc:'Media server libraries, recently added items and active playback.',support:'MCP tools · dedicated dashboard planned'},
-{id:'jellyfin',name:'Jellyfin',category:'Media',mode:'API integration',desc:'Media libraries, search and active playback sessions.',support:'MCP tools · dedicated dashboard planned'},
-{id:'seerr',name:'Seerr',category:'Media',mode:'API integration',desc:'Media discovery, request queues and service status.',support:'MCP tools · dedicated dashboard planned'},
-{id:'immich',name:'Immich',category:'Media',mode:'API integration',desc:'Photo albums, asset search and server statistics.',support:'MCP tools · dedicated dashboard planned'},
-{id:'romm',name:'RomM',category:'Media',mode:'API integration',desc:'Retro game platforms, library search and collections.',support:'MCP tools · dedicated dashboard planned'},
-{id:'bookorbit',name:'BookOrbit',category:'Media',mode:'API integration',desc:'Book library, search, statistics and formats.',support:'MCP tools · dedicated dashboard planned'},
-{id:'tinymediamanager',name:'TinyMediaManager',category:'Media',mode:'API integration',desc:'Media metadata, task queue and batch processing.',support:'MCP tools · dedicated dashboard planned'},
-{id:'tidarr',name:'Tidarr',category:'Media',mode:'API integration',desc:'Tidal download queue, history and playlists.',support:'MCP tools · dedicated dashboard planned'},
-{id:'tdarr',name:'Tdarr',category:'Media',mode:'API integration',desc:'Transcoding server, nodes, file search and job reports.',support:'5 read-only MCP tools · dedicated dashboard planned'},
-{id:'youtarr',name:'Youtarr',category:'Media',mode:'API integration',desc:'YouTube channels, video catalog and download requests.',support:'MCP tools · dedicated dashboard planned'},
+{id:'plex',name:'Plex',category:'Media',mode:'API integration',desc:'Media server libraries, recently added items and active playback.',support:'Read-only dashboard'},
+{id:'jellyfin',name:'Jellyfin',category:'Media',mode:'API integration',desc:'Media libraries, search and active playback sessions.',support:'Read-only dashboard'},
+{id:'seerr',name:'Seerr',category:'Media',mode:'API integration',desc:'Media discovery, request queues and service status.',support:'Read-only dashboard'},
+{id:'immich',name:'Immich',category:'Media',mode:'API integration',desc:'Photo albums, asset search and server statistics.',support:'Read-only dashboard'},
+{id:'romm',name:'RomM',category:'Media',mode:'API integration',desc:'Retro game platforms, library search and collections.',support:'Read-only dashboard'},
+{id:'bookorbit',name:'BookOrbit',category:'Media',mode:'API integration',desc:'Book library, search, statistics and formats.',support:'Read-only dashboard'},
+{id:'tinymediamanager',name:'TinyMediaManager',category:'Media',mode:'API integration',desc:'Media metadata, task queue and batch processing.',support:'Read-only dashboard'},
+{id:'tidarr',name:'Tidarr',category:'Media',mode:'API integration',desc:'Tidal download queue, history and playlists.',support:'Read-only dashboard'},
+{id:'tdarr',name:'Tdarr',category:'Media',mode:'API integration',desc:'Transcoding server, nodes, file search and job reports.',support:'Read-only dashboard'},
+{id:'youtarr',name:'Youtarr',category:'Media',mode:'API integration',desc:'YouTube channels, video catalog and download requests.',support:'Read-only dashboard'},
 {id:'qbittorrent',name:'qBittorrent',category:'Downloads',mode:'Native integration',desc:'Torrent queue, categories, controls and file moves.',support:'Full dashboard'},
-{id:'transmission',name:'Transmission',category:'Downloads',mode:'API integration',desc:'Torrent queue, transfer statistics and daemon settings.',support:'MCP tools · dedicated dashboard planned'},
-{id:'flaresolverr',name:'FlareSolverr',category:'Downloads',mode:'API integration',desc:'Browser session inspection and challenge-solving requests.',support:'MCP tools · dedicated dashboard planned'},
-{id:'pulsarr',name:'Pulsarr',category:'Automation',mode:'API integration',desc:'Automation health, approval queue and content-router rules.',support:'MCP tools · dedicated dashboard planned'},
-{id:'cleanuparr',name:'Cleanuparr',category:'Automation',mode:'API integration',desc:'Cleanup status, events, strikes, jobs and statistics.',support:'MCP tools · dedicated dashboard planned'},
-{id:'maintainerr',name:'Maintainerr',category:'Automation',mode:'API integration',desc:'Maintenance health and scheduled task status.',support:'MCP tools · dedicated dashboard planned'},
-{id:'agregarr',name:'Agregarr',category:'Automation',mode:'API integration',desc:'Collections, scheduled jobs, activity and missing items.',support:'MCP tools · dedicated dashboard planned'},
-{id:'tracearr',name:'Tracearr',category:'Automation',mode:'API integration',desc:'Playback activity, watch history, users and media statistics.',support:'MCP tools · dedicated dashboard planned'},
-{id:'questarr',name:'Questarr',category:'Automation',mode:'Planned integration',desc:'Media request automation.',support:'Dashboard support is planned for this integration.'},
-{id:'recyclarr',name:'Recyclarr',category:'Automation',mode:'Status only',desc:'TRaSH Guides profile synchronization (container/CLI).',support:'Status only'},
+{id:'transmission',name:'Transmission',category:'Downloads',mode:'API integration',desc:'Torrent queue, transfer statistics and daemon settings.',support:'Read-only dashboard'},
+{id:'flaresolverr',name:'FlareSolverr',category:'Downloads',mode:'API integration',desc:'Browser session inspection and challenge-solving requests.',support:'Read-only dashboard'},
+{id:'pulsarr',name:'Pulsarr',category:'Automation',mode:'API integration',desc:'Automation health, approval queue and content-router rules.',support:'Read-only dashboard'},
+{id:'cleanuparr',name:'Cleanuparr',category:'Automation',mode:'API integration',desc:'Cleanup status, events, strikes, jobs and statistics.',support:'Read-only dashboard'},
+{id:'maintainerr',name:'Maintainerr',category:'Automation',mode:'API integration',desc:'Maintenance health and scheduled task status.',support:'Read-only dashboard'},
+{id:'agregarr',name:'Agregarr',category:'Automation',mode:'API integration',desc:'Collections, scheduled jobs, activity and missing items.',support:'Read-only dashboard'},
+{id:'tracearr',name:'Tracearr',category:'Automation',mode:'API integration',desc:'Playback activity, watch history, users and media statistics.',support:'Read-only dashboard'},
+{id:'questarr',name:'Questarr',category:'Automation',mode:'API integration',desc:'Game library and integration status using a read-scoped API key.',support:'Read-only dashboard'},
+{id:'recyclarr',name:'Recyclarr',category:'Automation',mode:'Docker Gateway',desc:'TRaSH Guides profile synchronization through a fixed container command.',support:'Container status · preview and confirmed sync'},
 {id:'postgres',name:'PostgreSQL',category:'Infrastructure',mode:'Status only',desc:'Database TCP reachability check.',support:'Status only'},
 {id:'redis',name:'Redis',category:'Infrastructure',mode:'Status only',desc:'Cache TCP reachability check.',support:'Status only'},
-{id:'docker',name:'Docker gateway',category:'Infrastructure',mode:'Status only',desc:'Restricted allowlisted container controls.',support:'Docker view'},
-{id:'cloudflare',name:'Cloudflare',category:'Infrastructure',mode:'API integration',desc:'DNS zones and record discovery.',support:'MCP tools · dedicated dashboard planned'},
-{id:'homeassistant',name:'Home Assistant',category:'Smart home',mode:'API integration',desc:'Smart home entities, history and service catalogue.',support:'MCP tools · dedicated dashboard planned'},
-{id:'frigate',name:'Frigate',category:'Smart home',mode:'Planned integration',desc:'Local NVR and object detection.',support:'Dashboard support is planned for this integration.'}
+{id:'docker',name:'Docker gateway',category:'Infrastructure',mode:'Restricted Docker Gateway',desc:'Allowlisted container status and controlled lifecycle operations.',support:'Docker view · preview and confirmation'},
+{id:'cloudflare',name:'Cloudflare',category:'Infrastructure',mode:'API integration',desc:'DNS zones and record discovery.',support:'Read-only dashboard'},
+{id:'homeassistant',name:'Home Assistant',category:'Smart home',mode:'API integration',desc:'Smart home entities, history and service catalogue.',support:'Read-only dashboard'},
+{id:'frigate',name:'Frigate',category:'Smart home',mode:'API integration',desc:'Local NVR statistics, detection events and review queue.',support:'Read-only dashboard'}
 ];
 const APP_ENV_KEYS={
 radarr:['RADARR_URL','RADARR_API_KEY'],sonarr:['SONARR_URL','SONARR_API_KEY'],lidarr:['LIDARR_URL','LIDARR_API_KEY'],prowlarr:['PROWLARR_URL','PROWLARR_API_KEY'],bazarr:['BAZARR_URL','BAZARR_API_KEY'],scryer:['SCRYER_URL','SCRYER_API_KEY'],qbittorrent:['QBITTORRENT_URL','QBITTORRENT_USERNAME','QBITTORRENT_PASSWORD'],
@@ -234,8 +250,9 @@ function appCard(app,status){
  const check=status[app.id],online=!!(check&&check.ok===true);
  const configured=!!(check&&(check.configured===true||online));
  const planned=app.mode==='Planned integration';
- const state=planned?'Integración prevista':!configured?'Sin configurar':online?'Conectada':'Revisar conexión';
- const klass=online?'ok':configured?'bad':'';
+ const hasHealth=!!(check&&typeof check.ok==='boolean');
+ const state=planned?'Integración prevista':!configured?'Sin configurar':!hasHealth?'Configurada':online?'Conectada':'Revisar conexión';
+ const klass=online?'ok':hasHealth&&configured?'bad':'';
  return '<article class="card" data-app-card data-category="'+esc(app.category)+'" data-search="'+esc((app.name+' '+app.desc+' '+app.category).toLowerCase())+'" style="padding:12px"><div class="cardtop"><div><div class="name">'+esc(app.name)+'</div><div class="version">'+esc(app.category)+' · '+esc(app.mode)+'</div></div><span class="status '+klass+'">'+esc(state)+'</span></div><p class="muted" style="line-height:1.45;margin:8px 0">'+esc(app.desc)+'</p><button type="button" data-app-details="'+esc(app.id)+'">Ver información y configuración</button><div id="app-detail-'+esc(app.id)+'" class="info" hidden style="margin-top:10px"></div></article>';
 }
 
@@ -319,8 +336,35 @@ async function openView(view){const target=$('workspace');target.textContent='Lo
   $('apps-search').addEventListener('input',filterApps);
   $('apps-categories').addEventListener('click',e=>{const b=e.target.closest('[data-app-filter]');if(!b)return;active=b.dataset.appFilter;$('apps-categories').querySelectorAll('button').forEach(x=>x.style.borderColor=x===b?'#647cf6':'#34435d');filterApps();});
   const renderAppDetails=(app,panel)=>{
-   const check=statuses[app.id]||{},config=appConfigs[app.id],connection=check.ok===true?'Connection successful':check.configured===true?'Configured but not reachable':'Not configured';
-   if(!config){panel.innerHTML='<strong>'+esc(app.name)+' · integration details</strong><p>'+esc(app.desc)+'</p><p class="muted">This service does not expose editable connection settings in HomeLabPilot.</p>';return;}
+   const check=statuses[app.id]||{},config=appConfigs[app.id],connection=check.ok===true?'Connection successful':check.configured===true&&typeof check.ok!=='boolean'?'Configured':check.configured===true?'Configured but not reachable':'Not configured';
+   const dashboards={
+    questarr:[['status','Connection status'],['library','Game library']],
+    frigate:[['status','NVR statistics'],['events','Recent detection events'],['review','Review queue'],['review_summary','Review summary']],
+    plex:[['libraries','Libraries'],['recent','Recently added'],['recent_section','Recent by library'],['sessions','Active playback'],['on_deck','On deck']],
+    jellyfin:[['server_info','Server info'],['libraries','Libraries'],['sessions','Active playback'],['search','Search library']],
+    seerr:[['status','Service status'],['requests','Request queue'],['application_data','Application data status'],['search','Search media']],
+    immich:[['statistics','Server statistics'],['albums','Albums'],['search','Search assets']],
+    romm:[['platforms','Platforms'],['roms','Recent games'],['search','Search games'],['rom','Game details'],['collections','Collections']],
+    homeassistant:[['config','Configuration'],['states','Entity states'],['state','Entity details'],['history','Entity history'],['services','Service catalogue']],
+    tdarr:[['status','Server status'],['nodes','Nodes'],['job_reports','Recent job reports']],
+    bookorbit:[['health','Service status'],['libraries','Libraries'],['statistics','Statistics'],['format_distribution','Format distribution'],['search','Search books'],['book','Book details']],
+    tidarr:[['status','Authentication status'],['queue_status','Queue status'],['queue','Download queue'],['history','Download history'],['sync_list','Auto-sync list']],
+    youtarr:[['capabilities','Capabilities'],['channels','Channels'],['videos','Search / browse videos'],['video','Video details'],['requests','Requests'],['request_detail','Request details']],
+    pulsarr:[['health','Service status'],['approval_requests','Approval queue'],['content_router_rules','Content router rules']],
+    cleanuparr:[['health','Readiness'],['system','System status'],['events','Recent events'],['event_timeline','Event timeline'],['statistics','Statistics'],['recent_strikes','Recent strikes'],['strikes','Strike history'],['jobs','Scheduled jobs'],['manual_event_stats','Manual event statistics']],
+    maintainerr:[['health','Readiness'],['app_status','Application status'],['timezone','Timezone'],['task_status','Scheduled task status']],
+    agregarr:[['status','Service status'],['collections','Collections'],['dashboard_stats','Dashboard statistics'],['activity','Recent activity'],['missing_items','Missing items'],['missing_item_stats','Missing-item statistics'],['scheduled_jobs','Scheduled jobs'],['logs','Logs']],
+    tracearr:[['health','Service status'],['stats','Statistics'],['activity','Activity'],['active_streams','Active streams'],['servers','Media servers'],['libraries','Library statistics'],['recently_added','Recently added'],['watch_history','Watch history'],['top_media','Most watched media']],
+    cloudflare:[['zones','DNS zones'],['dns_records','DNS records']],
+    transmission:[['session','Session status'],['statistics','Transfer statistics'],['torrents','Torrent list'],['torrent_details','Torrent details']],
+    flaresolverr:[['sessions','Browser sessions'],['request_get','Fetch public page']],
+    tinymediamanager:[['status','Service status'],['tasks','Task queue'],['api_docs','API documentation']],
+    recyclarr:[['status','Container status'],['preview','Preview sync']]
+   };
+   const dashboard=(dashboards[app.id]||[]).length
+    ? '<section class="info" style="margin:12px 0"><strong>Dashboard</strong><div class="actions" style="flex-wrap:wrap;margin-top:8px">'+dashboards[app.id].map(([op,label])=>'<button type="button" data-app-read="'+esc(app.id)+'" data-app-operation="'+esc(op)+'">'+esc(label)+'</button>').join('')+'</div><div data-app-read-output class="muted" style="white-space:pre-wrap;overflow-wrap:anywhere;margin-top:10px"></div></section>'
+    : '';
+   if(!config){panel.innerHTML='<strong>'+esc(app.name)+' · integration details</strong><p class="muted">'+esc(app.mode)+' · '+esc(connection)+'</p><p>'+esc(app.desc)+'</p>'+dashboard+'<p class="muted">Connection credentials are managed in the service itself or its environment variables.</p>';return;}
    const fields=config.fields||[];
    const controls=fields.map(field=>{
     const secret=field.kind==='secret',inputType=secret?'password':field.kind==='port'?'number':'text';
@@ -330,14 +374,163 @@ async function openView(view){const target=$('workspace');target.textContent='Lo
     const clear=secret&&field.secret_set?'<label class="muted" style="display:flex;align-items:center;gap:7px;margin-top:5px"><input type="checkbox" data-app-clear-secret="'+esc(field.key)+'" style="width:auto;margin:0">Remove saved credential</label>':'';
     return '<label style="display:block;padding:7px 0"><span class="muted">'+esc(field.label||field.key)+saved+'</span>'+input+clear+'</label>';
    }).join('');
-   panel.innerHTML='<strong>'+esc(app.name)+' · connection settings</strong><p class="muted">'+esc(app.mode)+' · '+esc(connection)+'</p><p>'+esc(app.desc)+'</p><form data-app-config-form="'+esc(app.id)+'">'+(fields.length?controls:'<p class="muted">No connection fields are defined.</p>')+'<p class="muted">Credentials are encrypted in persistent /data storage and are never returned to this browser. Leave password fields blank to keep existing credentials.</p><div class="actions"><button type="submit" '+(!fields.length?'disabled':'')+'>Save connection</button></div><div class="muted" data-app-config-status style="margin-top:9px"></div></form>';
+   panel.innerHTML='<strong>'+esc(app.name)+' · connection settings</strong><p class="muted">'+esc(app.mode)+' · '+esc(connection)+'</p><p>'+esc(app.desc)+'</p>'+dashboard+'<form data-app-config-form="'+esc(app.id)+'">'+(fields.length?controls:'<p class="muted">No connection fields are defined.</p>')+'<p class="muted">Credentials are encrypted in persistent /data storage and are never returned to this browser. Leave password fields blank to keep existing credentials.</p><div class="actions"><button type="submit" '+(!fields.length?'disabled':'')+'>Save connection</button></div><div class="muted" data-app-config-status style="margin-top:9px"></div></form>';
   };
-  $('apps-grid').addEventListener('click',e=>{
+  $('apps-grid').addEventListener('click',async e=>{
+   const readButton=e.target.closest('[data-app-read]');
+   if(readButton){
+    const service=readButton.dataset.appRead,operation=readButton.dataset.appOperation,output=readButton.closest('[data-app-card]').querySelector('[data-app-read-output]');
+    readButton.disabled=true;output.textContent='Loading…';
+    try{
+     if(service==='recyclarr'&&operation==='preview'){
+      const preview=await request('/web-api/recyclarr/preview',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+      output.textContent='Preview prepared. Type the phrase below to run the fixed sync command.';
+      output.innerHTML='<form data-recyclarr-confirm data-preview-token="'+esc(preview.preview_token)+'" style="margin-top:8px"><p class="muted">'+esc(preview.warning)+'</p><label>'+esc(preview.typed_confirmation)+'<input name="typed_confirmation" required autocomplete="off" style="width:100%;margin-top:6px;background:#0b1322;color:#e8edf5;border:1px solid #34435d;border-radius:8px;padding:9px"></label><button type="submit" style="margin-top:8px">Run Recyclarr sync</button><div data-recyclarr-status class="muted" style="margin-top:8px"></div></form>';
+     }else if(service==='recyclarr'&&operation==='status'){
+      const result=await request('/web-api/recyclarr/status');output.textContent=JSON.stringify(result,null,2);
+     }else{
+      let args=service==='questarr'&&operation==='library'?{limit:50,include_hidden:false}:service==='frigate'&&operation==='events'?{limit:20,offset:0}:service==='frigate'&&operation==='review'?{limit:20}:service==='seerr'&&operation==='requests'?{take:20,skip:0}:service==='romm'&&operation==='roms'?{limit:30,offset:0}:service==='homeassistant'&&operation==='states'?{limit:100}:service==='agregarr'&&operation==='missing_items'?{limit:25,offset:0}:service==='agregarr'&&operation==='activity'?{days:7,limit:10}:service==='cleanuparr'&&operation==='events'?{page:1,page_size:20}:service==='cleanuparr'&&operation==='event_timeline'?{hours:168}:service==='cleanuparr'&&operation==='recent_strikes'?{count:10}:service==='cleanuparr'&&operation==='strikes'?{page:1,page_size:20}:service==='tracearr'&&operation==='recently_added'?{page_size:25}:service==='tracearr'&&operation==='watch_history'?{page_size:25}:service==='tracearr'&&operation==='top_media'?{media_type:'movie',days:30,sort:'plays',page_size:25}:service==='tdarr'&&operation==='job_reports'?{page_size:10}:{};
+      if(service==='plex'&&operation==='recent_section'){
+       const rawId=window.prompt('Plex library section ID (see Libraries)');
+       if(!rawId){output.textContent='Cancelled.';return;}
+       const sectionId=Number(rawId);
+       if(!Number.isInteger(sectionId)||sectionId<1){output.textContent='A positive numeric library section ID is required.';return;}
+       args={section_id:sectionId,limit:25};
+      }
+      if(service==='bookorbit'&&operation==='search'){
+       const query=window.prompt('Search books by title, author or text');
+       if(!query||!query.trim()){output.textContent='Search cancelled or empty.';return;}
+       args={query:query.trim(),limit:10};
+      }
+      if(service==='bookorbit'&&operation==='book'){
+       const rawId=window.prompt('BookOrbit book ID');
+       if(!rawId){output.textContent='Cancelled.';return;}
+       const bookId=Number(rawId);
+       if(!Number.isInteger(bookId)||bookId<1){output.textContent='A positive numeric book ID is required.';return;}
+       args={book_id:bookId};
+      }
+      if(service==='youtarr'&&operation==='videos'){
+       const search=window.prompt('Search Youtarr videos (leave blank to browse)');
+       args={page_size:50,status:'all',tab_type:'videos'};
+       if(search&&search.trim())args.search=search.trim();
+      }
+      if(service==='youtarr'&&operation==='video'){
+       const youtubeId=window.prompt('YouTube video ID (11 characters)');
+       if(!youtubeId){output.textContent='Cancelled.';return;}
+       args={youtube_id:youtubeId.trim()};
+      }
+      if(service==='youtarr'&&operation==='request_detail'){
+       const rawId=window.prompt('Youtarr request ID');
+       if(!rawId){output.textContent='Cancelled.';return;}
+       const requestId=Number(rawId);
+       if(!Number.isSafeInteger(requestId)||requestId<1){output.textContent='A positive numeric request ID is required.';return;}
+       args={request_id:requestId};
+      }
+      if(service==='cloudflare'&&operation==='dns_records'){
+       const zoneId=window.prompt('Cloudflare zone ID (32 hexadecimal characters)');
+       if(!zoneId){output.textContent='Cancelled.';return;}
+       const recordType=window.prompt('DNS record type (A, AAAA, CNAME, TXT, MX, NS, SRV, CAA, PTR) — optional')||'';
+       const name=window.prompt('DNS record name — optional')||'';
+       args={zone_id:zoneId.trim(),record_type:recordType.trim(),name:name.trim(),page:1,per_page:100};
+      }
+      if(service==='flaresolverr'&&operation==='request_get'){
+       const targetUrl=window.prompt('Public HTTP(S) URL to fetch through FlareSolverr');
+       if(!targetUrl||!targetUrl.trim()){output.textContent='Cancelled or empty URL.';return;}
+       const rawTimeout=window.prompt('Maximum timeout in milliseconds (1000–120000)','60000');
+       if(rawTimeout===null){output.textContent='Cancelled.';return;}
+       const maxTimeout=Number(rawTimeout);
+       if(!Number.isInteger(maxTimeout)||maxTimeout<1000||maxTimeout>120000){output.textContent='Timeout must be between 1000 and 120000 milliseconds.';return;}
+       args={url:targetUrl.trim(),max_timeout:maxTimeout};
+      }
+      if(service==='transmission'&&operation==='torrent_details'){
+        const rawId=window.prompt('Transmission torrent ID (see Torrent list)');
+        if(!rawId){output.textContent='Cancelled.';return;}
+        const torrentId=Number(rawId);
+        if(!Number.isSafeInteger(torrentId)||torrentId<1){output.textContent='A positive numeric torrent ID is required.';return;}
+        args={
+         ids:[torrentId],
+         fields:['id','name','status','percentDone','totalSize','downloadDir','addedDate','doneDate',
+          'rateDownload','rateUpload','eta','uploadedEver','downloadedEver','ratio','peersConnected',
+          'peersGettingFromUs','peersSendingToUs','error','errorString','files','fileStats','trackers']
+        };
+       }
+       if(service==='maintainerr'&&operation==='task_status'){
+       const taskName=window.prompt('Task name: Collection Handler, Collection Log Cleaner, Rule Maintenance, Overlay Handler, Notification Timer, Version Notification, Telemetry Ping');
+       if(!taskName){output.textContent='Cancelled.';return;}
+       args={task_name:taskName.trim()};
+      }
+      if(['jellyfin','seerr','immich'].includes(service)&&operation==='search'){
+       const searchTerm=window.prompt(service==='immich'?'Search Immich asset metadata':'Search '+service+' media');
+       if(!searchTerm||!searchTerm.trim()){output.textContent='Search cancelled or empty.';return;}
+       args={search_term:searchTerm.trim()};
+       if(service==='jellyfin')args.limit=25;
+       if(service==='immich'){args.page=1;args.size=25;}
+      }
+      if(service==='romm'&&operation==='search'){
+       const searchTerm=window.prompt('Search RomM games (at least 2 characters)');
+       if(!searchTerm||searchTerm.trim().length<2){output.textContent='Search cancelled or too short.';return;}
+       args={search_term:searchTerm.trim(),limit:30,offset:0};
+      }
+      if(service==='romm'&&operation==='rom'){
+       const rawId=window.prompt('RomM game ID');
+       if(!rawId){output.textContent='Cancelled.';return;}
+       const romId=Number(rawId);
+       if(!Number.isInteger(romId)||romId<1){output.textContent='A positive numeric game ID is required.';return;}
+       args={rom_id:romId};
+      }
+      if(service==='homeassistant'&&operation==='state'){
+       const entityId=window.prompt('Home Assistant entity ID (for example: sensor.temperature)');
+       if(!entityId){output.textContent='Cancelled.';return;}
+       args={entity_id:entityId.trim()};
+      }
+      if(service==='homeassistant'&&operation==='history'){
+       const entityId=window.prompt('Home Assistant entity ID (for example: sensor.temperature)');
+       if(!entityId){output.textContent='Cancelled.';return;}
+       const startTime=window.prompt('Start time (ISO-8601 with timezone, for example 2026-11-23T00:00:00+01:00)');
+       if(!startTime){output.textContent='Cancelled.';return;}
+       const endTime=window.prompt('End time (ISO-8601 with timezone); leave blank for now','');
+       args={entity_id:entityId.trim(),start_time:startTime.trim()};
+       if(endTime&&endTime.trim())args.end_time=endTime.trim();
+      }
+      const result=await request('/web-api/integration/read',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({service,operation,arguments:args})});
+      if(service==='tinymediamanager'&&operation==='tasks'){
+       const data=result&&typeof result.data==='object'&&result.data?result.data:result;
+       const running=Array.isArray(data.runningTasks)?data.runningTasks:[];
+       output.textContent=[
+        'State: '+(data.state||'unknown'),
+        'Busy: '+String(!!data.busy),
+        'Queued main tasks: '+String(data.queuedMainTasks??0),
+        'Running tasks: '+running.length,
+        'Image downloads running: '+String(!!data.imageDownloadsRunning),
+        'Worker pool running: '+String(!!data.poolRunning),
+        '',
+        JSON.stringify(running,null,2)
+       ].join('\n');
+      }else{
+       output.textContent=JSON.stringify(result,null,2);
+      }
+     }
+    }catch(err){output.textContent='Error: '+err.message;}
+    finally{readButton.disabled=false;}
+    return;
+   }
    const b=e.target.closest('[data-app-details]');if(!b)return;
    const app=APP_CATALOG.find(x=>x.id===b.dataset.appDetails);if(!app)return;
    const panel=$('app-detail-'+app.id);panel.hidden=!panel.hidden;if(!panel.hidden)renderAppDetails(app,panel);
   });
   $('apps-grid').addEventListener('submit',async e=>{
+   const confirmForm=e.target.closest('[data-recyclarr-confirm]');
+   if(confirmForm){
+    e.preventDefault();
+    const button=confirmForm.querySelector('button[type="submit"]'),status=confirmForm.querySelector('[data-recyclarr-status]');
+    button.disabled=true;status.textContent='Running fixed Recyclarr sync…';
+    try{
+     const result=await request('/web-api/recyclarr/confirm',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({preview_token:confirmForm.dataset.previewToken,typed_confirmation:confirmForm.querySelector('[name="typed_confirmation"]').value})});
+     status.textContent=result.ok?'Sync completed successfully (exit code 0).':'Sync finished with an error. Exit code: '+result.exit_code+'. '+(result.output||'');
+    }catch(err){status.textContent='Sync refused or failed: '+err.message;}
+    finally{button.disabled=false;}
+    return;
+   }
    const form=e.target.closest('[data-app-config-form]');if(!form)return;e.preventDefault();
    const appId=form.dataset.appConfigForm,values={},clearSecrets=[];
    form.querySelectorAll('[data-app-config-key]').forEach(input=>{values[input.dataset.appConfigKey]=input.value;});
@@ -673,7 +866,20 @@ $('workspace').addEventListener('submit',async e=>{
   const deleteButton=e.target.closest('[data-scryer-delete-confirm]');
   if(deleteButton){const typed=$('scryer-delete-confirmation').value,deleteFiles=$('scryer-delete-files').checked;if(typed!==deleteButton.dataset.expected){alert('The confirmation text does not match the preview.');return;}if(!confirm('Delete '+deleteButton.dataset.titleName+' from Scryer'+(deleteFiles?' and remove its media files from disk':'')+'?'))return;deleteButton.disabled=true;try{const result=await request('/web-api/scryer/delete-title',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title_id:deleteButton.dataset.titleId,preview_fingerprint:deleteButton.dataset.fingerprint,typed_confirmation:typed,delete_files_on_disk:deleteFiles})});if(result.errors?.length)throw new Error(result.errors.map(x=>x.message).join('; '));$('scryer-delete-preview').innerHTML='<div class="info">Deletion accepted: '+esc(JSON.stringify(result.data?.deleteTitle||result))+'</div>';await openView('scryer-titles');}catch(err){alert('Deletion was not completed: '+err.message);deleteButton.disabled=false;}return;}
   const dockerButton=e.target.closest('[data-docker-action]');
-  if(dockerButton){const action=dockerButton.dataset.dockerAction,container=dockerButton.dataset.container;if(!confirm(action+' allowlisted container '+container+'?'))return;dockerButton.disabled=true;try{await request('/web-api/docker/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({container,action})});await openView('docker');}catch(err){alert(err.message);dockerButton.disabled=false;}return;}
+  if(dockerButton){
+   const action=dockerButton.dataset.dockerAction,container=dockerButton.dataset.container;
+   dockerButton.disabled=true;
+   try{
+    const preview=await request('/web-api/docker/preview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({container,action})});
+    const typed=prompt('Docker action preview: '+action+' container '+container+'.\\n'+preview.warning+'\\n\\nType exactly to continue:', '');
+    if(typed===null)return;
+    if(typed!==preview.typed_confirmation){alert('Confirmation did not match. No action was executed.');return;}
+    await request('/web-api/docker/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({container,action,preview_token:preview.preview_token,typed_confirmation:typed})});
+    await openView('docker');
+   }catch(err){alert(err.message);}
+   finally{dockerButton.disabled=false;}
+   return;
+  }
  });
  $('workspace').addEventListener('click',async e=>{const remove=e.target.closest('[data-torrent-delete]');if(!remove)return;e.preventDefault();e.stopImmediatePropagation();remove.disabled=true;try{const preview=await request('/web-api/torrents/delete-preview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({hashes:remove.dataset.hash,delete_files:false})});const detail=(preview.items||[]).map(x=>x.name+' · '+x.state+' · '+x.save_path).join('\n');if(!confirm('qBittorrent deletion preview (downloaded files will be kept):\n'+detail))return;const typed=prompt('Type this exact confirmation to remove the torrent:\n'+preview.confirmation_text,'');if(typed!==preview.confirmation_text)return;await request('/web-api/torrents/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({hashes:remove.dataset.hash,delete_files:false,preview_token:preview.preview_token,typed_confirmation:typed})});await openView('downloads');}catch(err){alert('Could not remove torrent: '+err.message);}finally{remove.disabled=false;}},true);
 $('workspace').addEventListener('click',async e=>{const add=e.target.closest('[data-add-title]');if(add){const card=add.closest('.card');const service=add.dataset.service,id=add.dataset.id;if(!confirm('Add this title to '+service+'?'))return;add.disabled=true;try{const body={service,root_folder_path:card.querySelector('[data-root]').value,quality_profile_id:Number(card.querySelector('[data-profile]').value),monitored:true,search_now:card.querySelector('[data-search-now]').checked};if(service==='radarr')body.tmdb_id=Number(id);else if(service==='sonarr')body.tvdb_id=Number(id);else{body.foreign_artist_id=id;body.artist_name=card.dataset.artistName;body.metadata_profile_id=Number(card.querySelector('[data-metadata-profile]').value);}await request('/web-api/catalog/add',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});add.textContent='Added';}catch(err){alert(err.message);add.disabled=false;}return;}const category=e.target.closest('[data-torrent-set-category]');if(category){const row=category.closest('tr'),value=row.querySelector('[data-torrent-category]').value.trim();if(!value){alert('Enter a category name.');return;}category.disabled=true;try{await request('/web-api/torrents/category',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({hashes:category.dataset.hash,category:value})});category.textContent='Saved';}catch(err){alert(err.message);category.disabled=false;}return;}const remove=e.target.closest('[data-torrent-delete]');if(remove){if(!confirm('Remove this torrent from qBittorrent? Downloaded files will be kept.'))return;remove.disabled=true;try{await request('/web-api/torrents/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({hashes:remove.dataset.hash,delete_files:false})});await openView('downloads');}catch(err){alert(err.message);remove.disabled=false;}return;}const b=e.target.closest('[data-torrent-action]');if(!b)return;const action=b.dataset.torrentAction;const verb=action==='pause'?'pause':'resume';if(!confirm('Are you sure you want to '+verb+' this torrent?'))return;b.disabled=true;try{await request('/web-api/torrents/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,hashes:b.dataset.hash})});await openView('downloads');}catch(err){alert(err.message);b.disabled=false;}});

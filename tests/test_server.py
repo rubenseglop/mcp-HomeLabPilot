@@ -783,6 +783,72 @@ def test_stack_status_marks_missing_services_as_unconfigured(monkeypatch):
     for service in (*server.ARR_SERVICES, "scryer", "qbittorrent"):
         assert result["services"][service] == {"configured": False, "ok": False}
 
+
+def test_stack_status_lists_tools_for_connected_services_only(monkeypatch):
+    import asyncio
+    from types import SimpleNamespace
+    import homelabpilot.server as server
+
+    for service, (url_env, key_env, _prefix) in server.ARR_SERVICES.items():
+        enabled = service in {"radarr", "sonarr", "prowlarr"}
+        monkeypatch.setenv(url_env, "http://example.invalid" if enabled else "")
+        monkeypatch.setenv(key_env, "test-key" if enabled else "")
+    monkeypatch.delenv("SCRYER_URL", raising=False)
+    monkeypatch.delenv("SCRYER_API_KEY", raising=False)
+    monkeypatch.delenv("QBITTORRENT_URL", raising=False)
+
+    async def fake_arr_request(service, method, path, params=None, body=None):
+        return {"version": "6.0.0", "appName": "Radarr"}
+
+    async def no_integrations():
+        return {}
+
+    monkeypatch.setattr(server, "_arr_request", fake_arr_request)
+    monkeypatch.setattr(server, "integration_status", no_integrations)
+    monkeypatch.setattr(
+        server.mcp._tool_manager,
+        "list_tools",
+        lambda: [
+            SimpleNamespace(name="arr_api_request", description="Read ARR API"),
+            SimpleNamespace(name="arr_get_configuration", description="Read configuration"),
+            SimpleNamespace(name="arr_update_configuration", description="Update configuration"),
+            SimpleNamespace(name="arr_create_configuration", description="Create configuration"),
+            SimpleNamespace(name="arr_preview_delete_configuration", description="Preview configuration deletion"),
+            SimpleNamespace(name="arr_delete_configuration", description="Delete configuration"),
+            SimpleNamespace(name="arr_list_library", description="List movie, series or artist library"),
+            SimpleNamespace(name="arr_add_movie", description="Add movie"),
+            SimpleNamespace(name="arr_add_series", description="Add series"),
+            SimpleNamespace(name="sonarr_get_series", description="List series"),
+            SimpleNamespace(name="prowlarr_get_indexers", description="List indexers"),
+        ],
+    )
+
+    result = asyncio.run(server.stack_status())
+    radarr = result["services"]["radarr"]
+    assert radarr["ok"] is True
+    assert radarr["tool_count"] == 8
+    assert [tool["name"] for tool in radarr["tools"]] == [
+        "arr_add_movie", "arr_api_request", "arr_create_configuration",
+        "arr_delete_configuration", "arr_get_configuration", "arr_list_library",
+        "arr_preview_delete_configuration", "arr_update_configuration"
+    ]
+    sonarr = result["services"]["sonarr"]
+    assert sonarr["ok"] is True
+    assert sonarr["tool_count"] == 9
+    assert [tool["name"] for tool in sonarr["tools"]] == [
+        "arr_add_series", "arr_api_request", "arr_create_configuration",
+        "arr_delete_configuration", "arr_get_configuration", "arr_list_library",
+        "arr_preview_delete_configuration", "arr_update_configuration", "sonarr_get_series"
+    ]
+    prowlarr = result["services"]["prowlarr"]
+    assert prowlarr["ok"] is True
+    assert prowlarr["tool_count"] == 7
+    assert [tool["name"] for tool in prowlarr["tools"]] == [
+        "arr_api_request", "arr_create_configuration", "arr_delete_configuration",
+        "arr_get_configuration", "arr_preview_delete_configuration",
+        "arr_update_configuration", "prowlarr_get_indexers"
+    ]
+
 def test_app_config_is_encrypted_and_never_returns_secret(monkeypatch, tmp_path):
     import os
     import homelabpilot.config_store as config_store
@@ -956,3 +1022,252 @@ def test_tracearr_uses_bearer_auth_and_public_health_endpoint():
         "TRACEARR_URL", "TRACEARR_API_KEY", "bearer", "/api/v1/public/health"
     )
     assert APP_CONFIG_FIELDS["tracearr"] == ("TRACEARR_URL", "TRACEARR_API_KEY")
+
+
+def test_docker_control_requires_matching_preview_and_typed_confirmation(monkeypatch):
+    import asyncio
+    import homelabpilot.server as server
+
+    monkeypatch.setenv("HOMELABPILOT_DOCKER_ENABLED", "true")
+    monkeypatch.setenv("HOMELABPILOT_DOCKER_PERMISSION_LEVEL", "operations")
+    monkeypatch.setenv("HOMELABPILOT_PREVIEW_SECRET", "p" * 40)
+
+    with pytest.raises(PermissionError, match="preview"):
+        asyncio.run(server.docker_control_allowlisted_container("radarr", "restart"))
+
+    calls = []
+
+    async def fake_gateway(method, path):
+        calls.append((method, path))
+        if method == "GET":
+            return [{"name": "radarr", "id": "a" * 64}]
+        return {"ok": True}
+
+    monkeypatch.setattr(server, "_docker_gateway_request", fake_gateway)
+    preview = asyncio.run(server.docker_preview_container_action("radarr", "restart"))
+    assert preview["typed_confirmation"] == "CONFIRM DOCKER RESTART radarr"
+    with pytest.raises(PermissionError, match="Type exactly"):
+        asyncio.run(server.docker_control_allowlisted_container(
+            "radarr", "restart", preview["preview_token"], "wrong phrase"
+        ))
+
+    result = asyncio.run(server.docker_control_allowlisted_container(
+        "radarr", "restart", preview["preview_token"], preview["typed_confirmation"]
+    ))
+    assert result == {"ok": True}
+    assert calls == [("GET", "/v1/containers"), ("POST", "/v1/containers/radarr/restart")]
+
+
+def test_docker_preview_rejects_invalid_container_and_action(monkeypatch):
+    import asyncio
+    import homelabpilot.server as server
+
+    monkeypatch.setenv("HOMELABPILOT_DOCKER_ENABLED", "true")
+    monkeypatch.setenv("HOMELABPILOT_DOCKER_PERMISSION_LEVEL", "operations")
+    monkeypatch.setenv("HOMELABPILOT_PREVIEW_SECRET", "p" * 40)
+
+    with pytest.raises(ValueError, match="container"):
+        asyncio.run(server.docker_preview_container_action("../radarr", "stop"))
+    with pytest.raises(ValueError, match="action"):
+        asyncio.run(server.docker_preview_container_action("radarr", "remove"))
+
+    async def no_containers(method, path):
+        return []
+
+    monkeypatch.setattr(server, "_docker_gateway_request", no_containers)
+    with pytest.raises(PermissionError, match="allowlist"):
+        asyncio.run(server.docker_preview_container_action("radarr", "stop"))
+
+
+def test_recyclarr_sync_requires_preview_and_exact_confirmation(monkeypatch):
+    import asyncio
+    import homelabpilot.server as server
+
+    monkeypatch.setenv("HOMELABPILOT_DOCKER_ENABLED", "true")
+    monkeypatch.setenv("HOMELABPILOT_DOCKER_PERMISSION_LEVEL", "operations")
+    monkeypatch.setenv("HOMELABPILOT_PREVIEW_SECRET", "r" * 40)
+    monkeypatch.setenv("RECYCLARR_CONTAINER", "recyclarr")
+    calls = []
+
+    async def fake_gateway(method, path):
+        calls.append((method, path))
+        if method == "GET":
+            return [{"name": "recyclarr", "state": "running"}]
+        return {"ok": True, "exit_code": 0}
+
+    monkeypatch.setattr(server, "_docker_gateway_request", fake_gateway)
+    monkeypatch.setattr(server, "_audit", lambda *args, **kwargs: None)
+
+    preview = asyncio.run(server.recyclarr_preview_sync())
+    assert preview["typed_confirmation"] == "CONFIRM RECYCLARR SYNC recyclarr"
+
+    with pytest.raises(PermissionError, match="preview"):
+        asyncio.run(server.recyclarr_confirm_sync("wrong", preview["typed_confirmation"]))
+
+    result = asyncio.run(server.recyclarr_confirm_sync(
+        preview["preview_token"], preview["typed_confirmation"]
+    ))
+    assert result["ok"] is True
+    assert calls == [
+        ("GET", "/v1/containers"),
+        ("POST", "/v1/recyclarr/sync"),
+    ]
+
+
+def test_recyclarr_tools_require_configured_container(monkeypatch):
+    import asyncio
+    import homelabpilot.server as server
+
+    monkeypatch.setenv("HOMELABPILOT_DOCKER_ENABLED", "true")
+    monkeypatch.setenv("HOMELABPILOT_DOCKER_PERMISSION_LEVEL", "operations")
+    monkeypatch.delenv("RECYCLARR_CONTAINER", raising=False)
+
+    with pytest.raises(ValueError, match="RECYCLARR_CONTAINER"):
+        asyncio.run(server.recyclarr_preview_sync())
+
+
+def test_web_dashboard_reads_only_registered_integration_operations(monkeypatch):
+    import asyncio
+    import homelabpilot.server as server
+
+    calls = []
+
+    async def fake_dashboard_read(service, operation, **arguments):
+        calls.append((service, operation, arguments))
+        return {"service": service, "operation": operation}
+
+    monkeypatch.setattr(server.integration_status, "dashboard_read", fake_dashboard_read)
+    result = asyncio.run(server._web_api_request(
+        "/web-api/integration/read", "POST", {},
+        {"service": "frigate", "operation": "events", "arguments": {"limit": 10}},
+    ))
+
+    assert result == {"service": "frigate", "operation": "events"}
+    assert calls == [("frigate", "events", {"limit": 10})]
+
+
+def test_web_dashboard_recyclarr_routes_require_preview_and_confirmation(monkeypatch):
+    import asyncio
+    import homelabpilot.server as server
+
+    monkeypatch.setenv("HOMELABPILOT_DOCKER_ENABLED", "true")
+    monkeypatch.setenv("HOMELABPILOT_DOCKER_PERMISSION_LEVEL", "operations")
+    monkeypatch.setenv("HOMELABPILOT_PREVIEW_SECRET", "w" * 40)
+    monkeypatch.setenv("RECYCLARR_CONTAINER", "recyclarr")
+    monkeypatch.setattr(server, "_docker_gateway_request", lambda *args, **kwargs: None)
+
+    async def fake_preview():
+        return {"preview_token": "preview", "typed_confirmation": "CONFIRM RECYCLARR SYNC recyclarr"}
+
+    async def fake_confirm(token, phrase):
+        return {"ok": token == "preview" and phrase == "CONFIRM RECYCLARR SYNC recyclarr"}
+
+    monkeypatch.setattr(server, "recyclarr_preview_sync", fake_preview)
+    monkeypatch.setattr(server, "recyclarr_confirm_sync", fake_confirm)
+
+    preview = asyncio.run(server._web_api_request("/web-api/recyclarr/preview", "POST", {}, {}))
+    result = asyncio.run(server._web_api_request(
+        "/web-api/recyclarr/confirm", "POST", {},
+        {"preview_token": preview["preview_token"], "typed_confirmation": preview["typed_confirmation"]},
+    ))
+    assert result == {"ok": True}
+
+
+def test_docker_dashboard_routes_forward_preview_confirmation(monkeypatch):
+    import asyncio
+    import homelabpilot.server as server
+
+    calls = []
+
+    async def fake_preview(container, action):
+        calls.append(("preview", container, action))
+        return {"preview_token": "signed", "typed_confirmation": "CONFIRM DOCKER RESTART radarr"}
+
+    async def fake_control(container, action, token, phrase):
+        calls.append(("control", container, action, token, phrase))
+        return {"ok": True}
+
+    monkeypatch.setattr(server, "docker_preview_container_action", fake_preview)
+    monkeypatch.setattr(server, "docker_control_allowlisted_container", fake_control)
+
+    preview = asyncio.run(server._web_api_request(
+        "/web-api/docker/preview", "POST", {}, {"container": "radarr", "action": "restart"}
+    ))
+    result = asyncio.run(server._web_api_request(
+        "/web-api/docker/control", "POST", {},
+        {
+            "container": "radarr", "action": "restart",
+            "preview_token": preview["preview_token"],
+            "typed_confirmation": preview["typed_confirmation"],
+        },
+    ))
+
+    assert result == {"ok": True}
+    assert calls == [
+        ("preview", "radarr", "restart"),
+        ("control", "radarr", "restart", "signed", "CONFIRM DOCKER RESTART radarr"),
+    ]
+
+
+def test_mcp_bearer_middleware_rejects_missing_and_invalid_tokens():
+    import asyncio
+    import homelabpilot.server as server
+
+    calls = []
+
+    async def downstream(scope, receive, send):
+        calls.append(True)
+        await send({"type": "http.response.start", "status": 200, "headers": []})
+        await send({"type": "http.response.body", "body": b"ok"})
+
+    middleware = server._BearerAuthMiddleware(downstream, "a-valid-test-token-with-more-than-32-chars")
+
+    async def invoke(authorization):
+        messages = []
+
+        async def receive():
+            return {"type": "http.request", "body": b"", "more_body": False}
+
+        async def send(message):
+            messages.append(message)
+
+        headers = [] if authorization is None else [(b"authorization", authorization.encode())]
+        scope = {"type": "http", "method": "POST", "path": "/mcp", "headers": headers}
+        await middleware(scope, receive, send)
+        return messages
+
+    missing = asyncio.run(invoke(None))
+    invalid = asyncio.run(invoke("Bearer wrong-token"))
+    valid = asyncio.run(invoke("Bearer a-valid-test-token-with-more-than-32-chars"))
+
+    assert missing[0]["status"] == 401
+    assert invalid[0]["status"] == 401
+    assert valid[0]["status"] == 200
+    assert len(calls) == 1, "only the correctly authenticated request may reach the MCP app"
+
+
+def test_stack_status_normalizes_qbittorrent_plain_text_version(monkeypatch):
+    import asyncio
+    import homelabpilot.server as server
+
+    for url_env, key_env, _prefix in server.ARR_SERVICES.values():
+        monkeypatch.delenv(url_env, raising=False)
+        monkeypatch.delenv(key_env, raising=False)
+    monkeypatch.setenv("QBITTORRENT_URL", "http://example.invalid")
+    monkeypatch.setenv("QBITTORRENT_USERNAME", "test")
+    monkeypatch.setenv("QBITTORRENT_PASSWORD", "test")
+
+    async def fake_qbittorrent(method, path, params=None, data=None):
+        assert method == "GET"
+        assert path == "/api/v2/app/version"
+        return {"http_status": 200, "text": "v5.1.2"}
+
+    async def no_integrations():
+        return {}
+
+    monkeypatch.setattr(server, "qbittorrent_api_request", fake_qbittorrent)
+    monkeypatch.setattr(server, "integration_status", no_integrations)
+
+    result = asyncio.run(server.stack_status())
+    assert result["services"]["qbittorrent"]["ok"] is True
+    assert result["services"]["qbittorrent"]["version"] == "v5.1.2"

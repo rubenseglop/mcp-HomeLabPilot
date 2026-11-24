@@ -333,7 +333,10 @@ integration_status = register_integration_tools(
     timeout=TIMEOUT,
 )
 
-register_seanime_tools(mcp=mcp, timeout=TIMEOUT, audit=_audit)
+register_seanime_tools(
+    mcp=mcp, timeout=TIMEOUT, audit=_audit,
+    require_permission=_require_permission, make_preview_token=_preview_token,
+)
 
 @mcp.tool()
 async def stack_status() -> dict[str, Any]:
@@ -379,14 +382,68 @@ async def stack_status() -> dict[str, Any]:
         checks["qbittorrent"] = {"configured": False, "ok": False}
     else:
         try:
-            version = await qbittorrent_api_request("GET", "/api/v2/app/version")
-            checks["qbittorrent"] = {"configured": True, "ok": True, "version": version}
+            version_response = await qbittorrent_api_request("GET", "/api/v2/app/version")
+            if isinstance(version_response, dict):
+                version = version_response.get("text") or version_response.get("version")
+            else:
+                version = version_response
+            checks["qbittorrent"] = {
+                "configured": True, "ok": True,
+                **({"version": str(version).strip()} if version is not None and str(version).strip() else {}),
+            }
         except Exception:
             checks["qbittorrent"] = {
                 "configured": True, "ok": False,
                 "error": "qBittorrent is configured but its status check failed; verify its URL and credentials",
             }
     checks.update(await integration_status())
+
+    # Attach the registered MCP tools to the service they operate on. Only
+    # tools belonging to configured, healthy services are exposed in the UI.
+    tool_manager = getattr(mcp, "_tool_manager", None)
+    list_tools = getattr(tool_manager, "list_tools", None)
+    registered_tools = list_tools() if callable(list_tools) else []
+    service_names = set(checks)
+    for service, status in checks.items():
+        if not status.get("configured") or not status.get("ok"):
+            continue
+        prefix = service.lower() + "_"
+        # Shared *arr tools are assigned only to services supported by their API.
+        shared_arr_tool_services = {
+            "arr_api_request": set(ARR_SERVICES),
+            "arr_get_configuration": {"radarr", "sonarr", "prowlarr", "lidarr"},
+            "arr_update_configuration": {"radarr", "sonarr", "prowlarr", "lidarr"},
+            "arr_create_configuration": {"radarr", "sonarr", "prowlarr", "lidarr"},
+            "arr_preview_delete_configuration": {"radarr", "sonarr", "prowlarr", "lidarr"},
+            "arr_delete_configuration": {"radarr", "sonarr", "prowlarr", "lidarr"},
+            "arr_list_library": {"radarr", "sonarr", "lidarr"},
+            "arr_update_library_item": {"radarr", "sonarr", "lidarr"},
+            "arr_search_catalog": {"radarr", "sonarr", "lidarr"},
+            "arr_get_history": {"radarr", "sonarr", "lidarr"},
+            "arr_get_missing_items": {"radarr", "sonarr", "lidarr"},
+            "arr_get_queue": {"radarr", "sonarr", "lidarr"},
+            "arr_get_setup_options": {"radarr", "sonarr", "lidarr"},
+            "arr_add_movie": {"radarr"},
+            "arr_add_series": {"sonarr"},
+            "arr_add_artist": {"lidarr"},
+            "arr_search_releases": {"radarr", "sonarr", "lidarr"},
+            "arr_grab_release": {"radarr", "sonarr", "lidarr"},
+        }
+        service_tools = [
+            {
+                "name": tool.name,
+                "description": getattr(tool, "description", "") or "",
+            }
+            for tool in registered_tools
+            if (
+                getattr(tool, "name", "").startswith(prefix)
+                or service in shared_arr_tool_services.get(getattr(tool, "name", ""), set())
+            )
+        ]
+        service_tools.sort(key=lambda item: item["name"])
+        status["tools"] = service_tools
+        status["tool_count"] = len(service_tools)
+
     return {"services": checks}
 
 
@@ -1398,22 +1455,132 @@ async def docker_list_allowlisted_containers() -> Any:
     return await _docker_gateway_request("GET", "/v1/containers")
 
 
-@mcp.tool()
-async def docker_control_allowlisted_container(container: str, action: str) -> Any:
-    """Start, stop or restart an allowlisted container using the separate Docker permission level."""
-    _require_docker_permission("operations")
-    if not container.strip() or "/" in container or ".." in container:
-        raise ValueError("container must be an allowlisted name or ID")
+def _docker_action_snapshot(container: str, action: str) -> dict[str, str]:
+    """Validate and normalize a restricted Docker action before preview or execution."""
+    name = container.strip()
+    if not name or len(name) > 128 or "/" in name or ".." in name or any(ord(ch) < 32 for ch in name):
+        raise ValueError("container must be a valid allowlisted name or ID (1-128 characters)")
     if action not in {"start", "stop", "restart"}:
         raise ValueError("action must be start, stop or restart")
+    return {"service": "docker", "container": name, "action": action}
+
+
+@mcp.tool()
+async def docker_preview_container_action(container: str, action: str) -> dict[str, str]:
+    """Preview starting, stopping or restarting one allowlisted container."""
+    _require_docker_permission("operations")
+    snapshot = _docker_action_snapshot(container, action)
+    entries = await _docker_gateway_request("GET", "/v1/containers")
+    if not isinstance(entries, list) or not any(
+        item.get("name") == snapshot["container"] or item.get("id") == snapshot["container"]
+        for item in entries
+    ):
+        raise PermissionError("Container is not visible in the Docker allowlist")
+    phrase = f"CONFIRM DOCKER {action.upper()} {snapshot['container']}"
+    return {
+        "preview_token": _preview_token(snapshot),
+        "typed_confirmation": phrase,
+        "container": snapshot["container"],
+        "action": action,
+        "warning": "This changes container state. stop/restart can interrupt services and active tasks.",
+    }
+
+
+@mcp.tool()
+async def docker_control_allowlisted_container(
+    container: str, action: str, preview_token: str = "", typed_confirmation: str = ""
+) -> Any:
+    """Execute only a matching previewed Docker action after exact typed confirmation."""
+    _require_docker_permission("operations")
+    snapshot = _docker_action_snapshot(container, action)
+    expected_token = _preview_token(snapshot)
+    expected_phrase = f"CONFIRM DOCKER {action.upper()} {snapshot['container']}"
+    if not hmac.compare_digest(preview_token, expected_token):
+        raise PermissionError("The Docker action preview is missing, stale or does not match")
+    if not hmac.compare_digest(typed_confirmation, expected_phrase):
+        raise PermissionError(f"Type exactly: {expected_phrase}")
     try:
         result = await _docker_gateway_request(
-            "POST", f"/v1/containers/{quote(container, safe='')}/{action}"
+            "POST", f"/v1/containers/{quote(snapshot['container'], safe='')}/{action}"
         )
     except Exception:
-        _audit(action, "docker", container, outcome="failed")
+        _audit(action, "docker", snapshot["container"], outcome="failed")
         raise
-    _audit(action, "docker", container)
+    _audit(action, "docker", snapshot["container"])
+    return result
+
+
+def _recyclarr_container_name() -> str:
+    container = os.getenv("RECYCLARR_CONTAINER", "").strip()
+    if not container or len(container) > 128 or "/" in container or ".." in container:
+        raise ValueError("Set RECYCLARR_CONTAINER to the exact Recyclarr container name")
+    return container
+
+
+@mcp.tool()
+async def recyclarr_get_status() -> dict[str, Any]:
+    """Read whether the configured Recyclarr container is present and its current state."""
+    _require_docker_permission("read")
+    container = _recyclarr_container_name()
+    entries = await _docker_gateway_request("GET", "/v1/containers")
+    if not isinstance(entries, list):
+        raise RuntimeError("Docker Gateway returned an invalid container list")
+    match = next((item for item in entries if item.get("name") == container), None)
+    return {
+        "configured": True,
+        "container": container,
+        "allowlisted": match is not None,
+        "state": match.get("state") if match else None,
+        "status": match.get("status") if match else None,
+    }
+
+
+@mcp.tool()
+async def recyclarr_preview_sync() -> dict[str, str]:
+    """Preview a fixed 'recyclarr sync' run in the configured allowlisted container."""
+    _require_docker_permission("operations")
+    container = _recyclarr_container_name()
+    entries = await _docker_gateway_request("GET", "/v1/containers")
+    match = next(
+        (item for item in entries if item.get("name") == container),
+        None,
+    ) if isinstance(entries, list) else None
+    if match is None:
+        raise PermissionError("Recyclarr container is not visible in the Docker allowlist")
+    if match.get("state") != "running":
+        raise RuntimeError("Recyclarr container must be running before sync")
+    snapshot = {"service": "recyclarr", "container": container, "command": "recyclarr sync"}
+    phrase = f"CONFIRM RECYCLARR SYNC {container}"
+    return {
+        "preview_token": _preview_token(snapshot),
+        "typed_confirmation": phrase,
+        "container": container,
+        "command": "recyclarr sync",
+        "warning": "This runs Recyclarr synchronization and may update quality profiles, custom formats and related ARR configuration.",
+    }
+
+
+@mcp.tool()
+async def recyclarr_confirm_sync(
+    preview_token: str, typed_confirmation: str
+) -> Any:
+    """Run only the exact Recyclarr sync shown in a matching preview."""
+    _require_docker_permission("operations")
+    container = _recyclarr_container_name()
+    snapshot = {"service": "recyclarr", "container": container, "command": "recyclarr sync"}
+    expected_token = _preview_token(snapshot)
+    expected_phrase = f"CONFIRM RECYCLARR SYNC {container}"
+    if not hmac.compare_digest(preview_token, expected_token):
+        raise PermissionError("The Recyclarr sync preview is missing, stale or no longer matches")
+    if not hmac.compare_digest(typed_confirmation, expected_phrase):
+        raise PermissionError(f"Type exactly: {expected_phrase}")
+    try:
+        result = await _docker_gateway_request("POST", "/v1/recyclarr/sync")
+    except Exception:
+        _audit("SYNC", "recyclarr", container, outcome="failed")
+        raise
+    ok = isinstance(result, dict) and result.get("ok") is True
+    _audit("SYNC", "recyclarr", container, outcome="succeeded" if ok else "failed")
     return result
 
 
@@ -1456,6 +1623,24 @@ async def _web_api_request_inner(
         result = save_app_config(app_id, values, clear_secrets)
         _audit("CONFIG_UPDATE", app_id, ",".join(sorted(values)))
         return result
+
+    if method == "POST" and path == "/web-api/integration/read":
+        service = str(payload.get("service", ""))
+        operation = str(payload.get("operation", ""))
+        arguments = payload.get("arguments", {})
+        if not isinstance(arguments, dict):
+            raise ValueError("arguments must be a JSON object")
+        return await integration_status.dashboard_read(service, operation, **arguments)
+
+    if method == "GET" and path == "/web-api/recyclarr/status":
+        return await recyclarr_get_status()
+    if method == "POST" and path == "/web-api/recyclarr/preview":
+        return await recyclarr_preview_sync()
+    if method == "POST" and path == "/web-api/recyclarr/confirm":
+        return await recyclarr_confirm_sync(
+            str(payload.get("preview_token", "")),
+            str(payload.get("typed_confirmation", "")),
+        )
 
     if method == "GET" and path == "/web-api/tdarr/status":
         return await integration_status.dashboard_read("tdarr", "status")
@@ -1505,9 +1690,16 @@ async def _web_api_request_inner(
 
     if method == "GET" and path == "/web-api/docker/containers":
         return await docker_list_allowlisted_containers()
+    if method == "POST" and path == "/web-api/docker/preview":
+        return await docker_preview_container_action(
+            str(payload.get("container", "")), str(payload.get("action", ""))
+        )
     if method == "POST" and path == "/web-api/docker/control":
         return await docker_control_allowlisted_container(
-            str(payload.get("container", "")), str(payload.get("action", ""))
+            str(payload.get("container", "")),
+            str(payload.get("action", "")),
+            str(payload.get("preview_token", "")),
+            str(payload.get("typed_confirmation", "")),
         )
 
     if method == "GET" and path == "/web-api/scryer/recycle-bin":

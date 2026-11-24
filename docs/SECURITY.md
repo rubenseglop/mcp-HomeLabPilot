@@ -37,10 +37,13 @@ No se debe interpretar el nivel de permiso como sustituto de la aprobación del 
 
 ## Proxy MCP de solo lectura y agentes
 
-El proxy MCP de agentes publica una lista permitida de herramientas de consulta y bloquea herramientas de escritura, confirmación y mutación de API. El contenedor de agentes no monta el socket Docker del host ni las carpetas multimedia.
+El proxy MCP de agentes publica una lista permitida exacta de herramientas de consulta y bloquea por defecto herramientas de escritura, confirmación y mutación de API. No publica ningún puerto y se conecta únicamente a la red Docker `agent_control`, declarada `internal: true`; esa red solo la comparten HomeLabPilot, el proxy y el gateway de agentes. El gateway mantiene su salida externa mediante la red `default`. La comunicación proxy → MCP principal usa el token Bearer configurado. El contenedor de agentes no monta el socket Docker del host ni las carpetas multimedia.
 
 Codex se ejecuta en modo sandbox de solo lectura. Estas capas son independientes: el modo de solo lectura del agente no sustituye los controles del proxy.
 
 ## Gateway Docker opcional
 
 La gestión Docker está desactivada por defecto. Si se habilita, utiliza un gateway separado con una lista explícita de contenedores permitidos y operaciones limitadas a listar, iniciar, detener y reiniciar. El socket Docker sigue siendo un recurso sensible; activa esta función únicamente en un host de confianza.
+
+
+La topología de red descrita corresponde a la configuración de Compose de la rama feature. Debe comprobarse en ejecución durante la campaña final de validación, después del despliegue autorizado.
