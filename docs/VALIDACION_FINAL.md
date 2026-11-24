@@ -1,104 +1,99 @@
-# Campaña única de validación final — HomeLabPilot
+# Validación de HomeLabPilot
 
-Este documento es una lista de aceptación para ejecutar **después de completar el desarrollo**. No ejecutar ahora. El despliegue requiere autorización expresa del usuario.
+Este documento separa la validación del repositorio de la validación de la instalación real. La integración de funcionalidades en `main` ya se ha realizado; eso no significa que el despliegue local del usuario esté actualizado ni que todas las integraciones se hayan probado contra servicios reales.
 
-## 1. Preparación y seguridad
+## 1. Estado conocido del repositorio
 
-- [ ] Confirmar rama `feature/complete-homelabpilot` y commit candidato.
-- [ ] Confirmar que `main` sigue intacta y que no hay cambios locales que puedan perderse.
-- [ ] Revisar el diff completo feature frente a main.
-- [ ] Revisar `.env` sin imprimir ni copiar secretos; comprobar únicamente presencia de variables necesarias.
-- [ ] Confirmar copia/rollback de imágenes y volúmenes antes del despliegue.
-- [ ] Revisar configuración Compose y perfiles opcionales.
-- [ ] Desplegar solo tras autorización expresa.
+- Rama principal: `main`.
+- Commit de referencia auditado: `9b4d058bd6283ab67ad425f860d7ad3b0a12f2e2`.
+- Último cambio integrado: navegación lateral compacta con grupos desplegables para Radarr, Sonarr, Lidarr y Scryer; Descargas conserva acceso directo.
+- Inventario estático de herramientas MCP: 201 declaraciones únicas (`server.py`: 52, `integrations.py`: 131, `seanime.py`: 18).
+- Catálogo de aplicaciones del panel: 32 entradas.
+- Pruebas presentes: 147 funciones de prueba Python y 9 casos Node declarados en las suites del proxy/política. El script `check-web-script.mjs` es una comprobación adicional.
+- CI de la PR de navegación: completada correctamente (run 45391666643). El estado de checks asociado al commit de merge de `main` no se ha confirmado en esta auditoría.
 
-## 2. Integridad del despliegue
+Estos recuentos son inventario del código fuente, no resultados de una ejecución local de todas las pruebas en el entorno del usuario.
 
-- [ ] Confirmar estado de todos los contenedores y healthchecks.
-- [ ] Comparar commit desplegado con el commit candidato.
-- [ ] Comparar hashes de los archivos críticos entre checkout y contenedor.
-- [ ] Confirmar que el puerto MCP principal solo se publica en la interfaz configurada.
-- [ ] Confirmar que el proxy no publica puertos y que `agent_control` es una red interna.
-- [ ] Confirmar que solo HomeLabPilot, el proxy y el gateway de agentes participan en `agent_control`.
-- [ ] Confirmar que el gateway conserva salida externa por `default`.
-- [ ] Confirmar que `docker_control` es interna y que el gateway Docker solo se activa con el perfil opcional.
+## 2. Validación del repositorio
 
-## 3. MCP, autenticación y catálogo
+- [x] Confirmar repositorio y rama principal.
+- [x] Confirmar commit de referencia y árbol de archivos.
+- [x] Identificar los cinco documentos Markdown del repositorio.
+- [x] Revisar el catálogo y las declaraciones de herramientas en el código.
+- [x] Revisar la existencia y el alcance de las suites de pruebas.
+- [x] Revisar la CI satisfactoria asociada a la PR de navegación lateral.
+- [ ] Ejecutar de nuevo todas las suites sobre el commit actual de `main`.
+- [ ] Validar `docker compose config` para los perfiles base y Docker.
+- [ ] Generar inventario de herramientas MCP en runtime y compararlo con las 201 declaraciones estáticas.
+
+## 3. Despliegue en el mediacenter
+
+Pendiente de confirmar por el usuario. No asumir que GitHub y el checkout local están sincronizados.
+
+- [ ] Confirmar commit local y estado limpio del checkout.
+- [ ] Confirmar que el contenedor ejecuta el mismo commit/código.
+- [ ] Confirmar estado y healthchecks de HomeLabPilot, proxy y gateway de agentes.
+- [ ] Confirmar perfil opcional y estado del Docker Gateway.
+- [ ] Confirmar que el panel responde y que la navegación compacta se muestra correctamente.
+- [ ] Confirmar que los volúmenes y la configuración persistente permanecen intactos.
+
+## 4. MCP, autenticación y proxy
 
 - [ ] Ejecutar `initialize` y `tools/list` contra el MCP principal.
-- [ ] Registrar número y nombres únicos de herramientas publicadas.
-- [ ] Confirmar que no existen registros duplicados.
+- [ ] Registrar número de herramientas y nombres únicos; detectar duplicados.
 - [ ] Probar token ausente, incorrecto y correcto.
-- [ ] Ejecutar `tools/list` a través del proxy y comparar con la allowlist.
-- [ ] Ejecutar una consulta permitida a través del proxy.
-- [ ] Confirmar que las herramientas de escritura, preview y confirmación no aparecen en el proxy.
-- [ ] Intentar una llamada bloqueada no destructiva y comprobar rechazo antes del upstream.
-- [ ] Comprobar batches JSON-RPC y transporte SSE.
-- [ ] Comprobar conexión real de Codex, Claude y Gemini solo si están configurados.
-- [ ] Comprobar historial de operaciones y redacción de secretos.
+- [ ] Ejecutar `tools/list` a través del proxy y compararlo con su allowlist.
+- [ ] Ejecutar una lectura inocua a través del proxy.
+- [ ] Confirmar que las herramientas de escritura, preview y confirmación no se publican en el proxy.
+- [ ] Probar rechazo de una llamada bloqueada no destructiva antes de alcanzar el upstream.
+- [ ] Comprobar batches JSON-RPC y transporte soportado.
+- [ ] Comprobar el agente CLI configurado y su acceso MCP de solo lectura.
 
-## 4. Integraciones principales
+## 5. Integraciones y panel web
 
-Para cada servicio configurado, registrar conectado/no configurado, versión disponible, herramientas publicadas y resultado de una consulta inocua.
+Para cada servicio realmente configurado, registrar conectado/no configurado, versión si la API la facilita y resultado de una consulta inocua.
 
-- [ ] Radarr, Sonarr y Lidarr.
-- [ ] Prowlarr y Bazarr.
+- [ ] Radarr, Sonarr, Lidarr, Prowlarr y Bazarr.
 - [ ] qBittorrent y Transmission.
 - [ ] Plex y Jellyfin.
-- [ ] Seerr.
-- [ ] Scryer.
-- [ ] Seanime.
+- [ ] Seerr y Scryer.
+- [ ] Seanime y Tdarr.
 - [ ] Immich y RomM.
-- [ ] Tdarr.
-- [ ] Home Assistant.
-- [ ] Questarr y Frigate.
+- [ ] Home Assistant, Frigate y Questarr.
 - [ ] Recyclarr y Docker Gateway.
-- [ ] BookOrbit, Youtarr y Tidarr.
+- [ ] BookOrbit, Youtarr, Tidarr y tinyMediaManager.
 - [ ] Pulsarr, Agregarr, Cleanuparr y Maintainerr.
-- [ ] Tracearr y Cloudflare.
-- [ ] FlareSolverr y tinyMediaManager.
+- [ ] Tracearr, Cloudflare y FlareSolverr.
 - [ ] PostgreSQL y Redis, si están configurados.
-
-## 5. Panel web
-
-- [ ] Inicio de sesión, cierre de sesión y persistencia de sesión.
-- [ ] Catálogo de aplicaciones: estados, configuración y herramientas por servicio.
-- [ ] Consultas de lectura en los 22 paneles adicionales.
-- [ ] Paneles nativos ARR, Scryer y qBittorrent.
-- [ ] Formularios de configuración y almacenamiento cifrado de credenciales.
-- [ ] Presentación de errores, resultados extensos, paginación y límites.
-- [ ] Diseño responsive en escritorio y móvil.
+- [ ] Revisar catálogo de 32 entradas y diferenciar integraciones activas, solo estado y soporte parcial.
+- [ ] Comprobar formularios de configuración, cifrado, redacción de secretos y persistencia.
+- [ ] Comprobar navegación lateral expandible, persistencia del estado y vista estrecha/móvil.
 
 ## 6. Permisos y escrituras protegidas
 
-- [ ] Matriz de herramientas: nombre, servicio, método/endpoint, permiso mínimo y efecto lateral.
-- [ ] Probar nivel `read`: toda escritura bloqueada.
+- [ ] Construir matriz de herramientas: nombre, servicio, efecto lateral y permiso mínimo.
+- [ ] Probar nivel `read`: todas las escrituras bloqueadas.
 - [ ] Probar nivel `operations`: solo operaciones permitidas.
 - [ ] Probar nivel `admin`: operaciones administrativas previstas.
-- [ ] Revisar cada preview: alcance, caducidad, firma y datos mostrados.
-- [ ] Rechazar confirmaciones caducadas, alteradas, reutilizadas o con frase incorrecta.
+- [ ] Revisar expiración, firma, alcance y reutilización de previews.
+- [ ] Rechazar previews caducados, alterados o con confirmación incorrecta.
 - [ ] Verificar allowlists de servicios y contenedores.
-- [ ] No ejecutar borrados ni acciones irreversibles durante la aceptación; usar mocks o recursos de prueba.
+- [ ] No ejecutar borrados ni acciones irreversibles sobre datos reales; utilizar mocks o recursos de prueba.
 
-## 7. Pruebas automatizadas y cierre
+## 7. Cierre
 
 - [ ] Ejecutar suite Python completa.
-- [ ] Ejecutar suite Node del proxy y políticas.
-- [ ] Ejecutar compilación/validación de módulos Python.
-- [ ] Ejecutar validación de JavaScript embebido y assets.
-- [ ] Ejecutar validación de Docker Compose.
-- [ ] Corregir incidencias y repetir únicamente las suites afectadas y la batería final.
-- [ ] Actualizar versión del proyecto y changelog.
-- [ ] Generar documentación del catálogo real de herramientas.
-- [ ] Crear release candidate y registrar hashes.
-- [ ] Obtener aprobación del usuario.
-- [ ] Integrar feature en `main` mediante el método acordado (squash/commit único).
-- [ ] Desplegar la versión aprobada y verificar salud posterior.
+- [ ] Ejecutar suites Node del proxy y política.
+- [ ] Ejecutar compilación/validación de módulos Python y JavaScript embebido.
+- [ ] Validar Compose para los perfiles utilizados.
+- [ ] Corregir incidencias y repetir las pruebas afectadas.
+- [ ] Registrar fecha, commit, resultado y evidencia sin secretos.
+- [ ] Actualizar esta documentación con resultados reales.
 
 ## Reglas
 
-1. No imprimir secretos ni incluirlos en logs, capturas o informes.
-2. No ejecutar operaciones destructivas sobre datos reales.
-3. No tocar `main` ni desplegar sin autorización.
-4. Registrar resultados con fecha, commit, servicio y evidencia.
-5. Si una integración no está configurada, marcarla como no aplicable; no considerarla fallida.
+1. No imprimir ni almacenar secretos en informes.
+2. No ejecutar acciones destructivas sobre datos reales durante la aceptación.
+3. No considerar una integración no configurada como fallo; marcarla como no aplicable.
+4. No afirmar que el servidor está actualizado hasta comparar el commit desplegado.
+5. La CI y las pruebas unitarias no sustituyen la validación E2E.
