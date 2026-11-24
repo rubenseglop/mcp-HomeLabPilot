@@ -505,7 +505,7 @@ async function openView(view){const target=$('workspace');target.textContent='Lo
         'Worker pool running: '+String(!!data.poolRunning),
         '',
         JSON.stringify(running,null,2)
-       ].join('\\n');
+       ].join('\n');
       }else{
        output.textContent=JSON.stringify(result,null,2);
       }
